@@ -6,10 +6,10 @@ Currently: `src/App.jsx` is the working prototype (mock data, no backend yet) �
 
 ## Run it locally
 
-\`\`\`bash
+```bash
 npm install
 npm run dev
-\`\`\`
+```
 
 Opens at `http://localhost:5173`. Resize the browser window to see the phone → iPad → laptop layout switch.
 
@@ -27,12 +27,12 @@ Opens at `http://localhost:5173`. Resize the browser window to see the phone →
 
 ## Deploy
 
-\`\`\`bash
+```bash
 npm install -g firebase-tools   # once
 firebase login
 firebase init hosting           # choose "dist" as the public directory, single-page app: yes
 npm run deploy
-\`\`\`
+```
 
 ## Install on iPhone / iPad
 
@@ -40,13 +40,13 @@ Once deployed, open the URL in Safari → Share → **Add to Home Screen**. Beca
 
 ## Project structure
 
-\`\`\`
+```
 src/
   App.jsx        the whole app (prototype stage — will get split into components/ as it grows)
   firebase.js     Firebase init, reads .env.local
   main.jsx        React entry point
   index.css       minimal global reset
-\`\`\`
+```
 
 ## Where to go next
 

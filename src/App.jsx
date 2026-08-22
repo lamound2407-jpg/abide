@@ -53,7 +53,7 @@ const styles = `
   .eyebrow { font-size: 13px; color: var(--text2); font-weight: 500; letter-spacing: 0.2px; }
   .largetitle { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); margin-top: 2px; }
   .header-actions { display:flex; gap:8px; margin-top:6px; }
-  .header-btn { width:34px; height:34px; border-radius:10px; background: var(--pillBg); display:flex; align-items:center; justify-content:center; position:relative; }
+  .header-btn { cursor:pointer; width:34px; height:34px; border-radius:10px; background: var(--pillBg); display:flex; align-items:center; justify-content:center; position:relative; }
   .header-btn .dot-badge { position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:#E68080; border:1.5px solid var(--appBg); }
   .back-row { display:flex; align-items:center; gap:4px; color: var(--text2); font-size:14px; font-weight:600; cursor:pointer; padding: 2px 0 4px 0; }
 
@@ -91,11 +91,11 @@ const styles = `
   .notes-box { width: 100%; background: var(--inputBg); border: 1px solid var(--inputBorder); border-radius: 10px; padding: 10px; color: var(--text); font-size: 13.5px; margin-top: 8px; font-family: inherit; resize: none; }
 
   .tabbar { position: absolute; bottom: 0; left: 0; right: 0; height: 88px; background: var(--tabbarBg); backdrop-filter: blur(20px); border-top: 1px solid var(--divider); display: flex; align-items: flex-start; padding-top: 10px; }
-  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text3); }
+  .tab { cursor:pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text3); }
   .tab.active { color: #E8B45C; }
   .tab span { font-size: 9.5px; font-weight: 600; }
 
-  .fab { position: absolute; right: 20px; bottom: 100px; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(155deg, #E8B45C, #D69A3A); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(232,180,92,0.35); border: none; color: #14100A; }
+  .fab { cursor:pointer; position: absolute; right: 20px; bottom: 100px; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(155deg, #E8B45C, #D69A3A); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(232,180,92,0.35); border: none; color: #14100A; }
 
   .segmented { display: flex; background: var(--pillBg); border-radius: 10px; padding: 3px; margin: 12px 0; }
   .seg-btn { flex: 1; text-align: center; padding: 7px 0; font-size: 12.5px; font-weight: 600; color: var(--text2); border-radius: 8px; cursor:pointer; }
@@ -134,6 +134,7 @@ const styles = `
   .journal-entry:last-child{border-bottom:none;}
   .verse-badge { font-size: 12px; font-weight: 700; color: #14100A; padding: 3px 9px; border-radius: 7px; display:inline-block; }
   .entry-actions { display:flex; gap:10px; }
+  .entry-actions svg, .cap-icons svg { cursor:pointer; }
 
   .insight-line { font-size: 13.5px; color: var(--body); line-height: 1.5; padding: 12px 14px; }
 
@@ -152,7 +153,7 @@ const styles = `
   .cal-item:last-child, .settings-row:last-child{border-bottom:none;}
   .cal-item-name, .settings-row-name { display:flex; align-items:center; gap:9px; font-size:13.5px; color: var(--text); }
   .cal-swatch { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
-  .toggle { width:40px; height:23px; border-radius:12px; background: var(--track); position:relative; flex-shrink:0; }
+  .toggle { cursor:pointer; width:40px; height:23px; border-radius:12px; background: var(--track); position:relative; flex-shrink:0; }
   .toggle.on { background:#E8B45C; }
   .toggle .knob { width:19px; height:19px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; transition:left .15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
   .toggle.on .knob { left:19px; }
@@ -162,9 +163,9 @@ const styles = `
 
   .scratch-canvas-wrap { border-radius: 14px; overflow:hidden; border: 1px solid var(--cardBorder); background:#F2F1EC; touch-action: none; }
   .scratch-toolbar { display:flex; align-items:center; justify-content:space-between; padding: 4px 2px 12px 2px; }
-  .tool-btn { width:36px; height:36px; border-radius:10px; background: var(--pillBg); display:flex; align-items:center; justify-content:center; color: var(--text2); }
+  .tool-btn { cursor:pointer; width:36px; height:36px; border-radius:10px; background: var(--pillBg); display:flex; align-items:center; justify-content:center; color: var(--text2); }
   .tool-btn.active { background:#E8B45C; color:#14100A; }
-  .swatch-mini { width:22px; height:22px; border-radius:50%; border:2px solid transparent; }
+  .swatch-mini { cursor:pointer; width:22px; height:22px; border-radius:50%; border:2px solid transparent; }
   .swatch-mini.selected { border-color: var(--text); }
   .scratch-thumb { width:100%; aspect-ratio: 4/3; object-fit:cover; background:#F2F1EC; }
   .scratch-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px; }
@@ -220,7 +221,7 @@ const styles = `
 `;
 
 /* ---------------------------------------------------------------
-   MOCK DATA
+   STARTER CONFIGURATION
 ----------------------------------------------------------------*/
 const AREAS = {
   chialpha: { name: "Chi Alpha", color: "#7C93C9" },
@@ -238,83 +239,17 @@ const TAGS = {
   orange: { label: "Command", hex: "#E5934A" },
 };
 
-const seedTasks = [
-  { id: 1, title: "Update Notion phase headers for Margin launch", area: "margin", due: "Yesterday", dueOffsetDays: -1, priority: "high", notes: "", repeat: null, reminder: "9:00 AM day of", done: false, goal: "g1" },
-  { id: 2, title: "Send CMC follow-up email", area: "chialpha", due: "10:00 AM", dueOffsetDays: 0, priority: "high", notes: "Reply to Brian's thread first.", repeat: null, reminder: "15 min before", done: false, goal: null },
-  { id: 3, title: "Write Psalm 23 devotional — Day 3 draft", area: "margin", due: "2:00 PM", dueOffsetDays: 0, priority: "med", notes: "", repeat: "Tue / Thu", reminder: "At time", done: false, goal: "g1" },
-  { id: 4, title: "Iron Log — log today's lift", area: "personal", due: "6:00 PM", dueOffsetDays: 0, priority: "low", notes: "", repeat: "Daily", reminder: "None", done: false, goal: null },
-  { id: 5, title: "Review Rachelle's creative brief drafts", area: "chialpha", due: "Today", dueOffsetDays: 0, priority: "med", notes: "", repeat: null, reminder: "None", done: true, goal: null },
-  { id: 6, title: "Call venue re: seating chart printing", area: "wedding", due: "Tue, Aug 25", dueOffsetDays: 4, priority: "med", notes: "", repeat: null, reminder: "1 day before", done: false, goal: "g2" },
-  { id: 7, title: "Fix garage door sensor", area: "home", due: "Sat, Aug 22", dueOffsetDays: 1, priority: "low", notes: "", repeat: null, reminder: "None", done: false, goal: null },
-  { id: 8, title: "Read — Atomic Habits, ch. 6", area: "personal", due: "Sun, Aug 23", dueOffsetDays: 2, priority: "low", notes: "", repeat: "Weekly", reminder: "None", done: false, goal: "g3" },
-  { id: 9, title: "The Margin — Day 5 devotional draft", area: "margin", due: "Thu, Aug 27", dueOffsetDays: 6, priority: "high", notes: "", repeat: "Tue / Thu", reminder: "15 min before", done: false, goal: "g1" },
-  { id: 10, title: "Draft September newsletter outline", area: "chialpha", due: "Sat, Aug 30", dueOffsetDays: 9, priority: "med", notes: "", repeat: null, reminder: "None", done: false, goal: null },
-  { id: 11, title: "Order wedding favors", area: "wedding", due: "Tue, Sep 1", dueOffsetDays: 11, priority: "med", notes: "", repeat: null, reminder: "1 day before", done: false, goal: "g2" },
-  { id: 12, title: "Project Oἰκία — paint trim", area: "home", due: "Thu, Sep 3", dueOffsetDays: 13, priority: "low", notes: "", repeat: null, reminder: "None", done: false, goal: null },
-];
-
-const somedayTasks = [
-  { id: 101, title: "Explore self-hosted AI agent architecture", area: "personal" },
-  { id: 102, title: "Write Margin series on Sabbath & rest", area: "margin" },
-  { id: 103, title: "Repaint Project Oἰκία guest room", area: "home" },
-];
-
-const seedGoals = [
-  { id: "g1", area: "margin", name: "The Margin — Public Launch", target: "Sep 14", notes: "Everything routes through the Sep 14 date. Soft launch Aug 24 is the real-world test run.",
-    milestones: [
-      { id: "m1", label: "Brand & launch strategy", done: true },
-      { id: "m2", label: "Platform launch copy", done: true },
-      { id: "m3", label: "Soft launch — Aug 24", done: false },
-      { id: "m4", label: "Day 1–7 devotionals (4/7)", done: false },
-    ] },
-  { id: "g2", area: "wedding", name: "Wedding Day Ready", target: "Oct 18", notes: "",
-    milestones: [
-      { id: "m5", label: "Seating chart built", done: true },
-      { id: "m6", label: "Catering finalized", done: false },
-      { id: "m7", label: "Honeymoon itinerary — Disney", done: true },
-    ] },
-  { id: "g3", area: "personal", name: "Read 12 Books in 2026", target: "Dec 31", notes: "",
-    milestones: [
-      { id: "m8", label: "5 of 12 finished", done: false },
-      { id: "m9", label: "Atomic Habits — in progress", done: false },
-    ] },
-];
-
-const seedJournal = [
-  { id: 1, date: "Aug 19", ref: "Psalm 23:1", tag: "yellow", note: "Contentment isn't the absence of need — it's trusting who's providing. Wedding season is loud; this verse is an anchor, not an escape." },
-  { id: 2, date: "Aug 17", ref: "John 15:5", tag: "green", note: "Abiding, not hustling. Thinking about how Chi Alpha work can become fruitless activity if it's disconnected from actually staying near Him first." },
-  { id: 3, date: "Aug 14", ref: "Matthew 11:28-30", tag: "blue", note: "'Easy yoke' — want a rhythm where time with Him doesn't get pushed around by whatever's loudest that week." },
-];
-
-const weekBars = [
-  { d: "M", done: 5 }, { d: "T", done: 8 }, { d: "W", done: 4 },
-  { d: "T", done: 9 }, { d: "F", done: 6 }, { d: "S", done: 3 }, { d: "S", done: 2 },
-];
-const areaSplit = Object.entries(AREAS).map(([k, v]) => ({
-  name: v.name, value: [9, 14, 6, 5, 3][Object.keys(AREAS).indexOf(k)], color: v.color,
-}));
-
-const CALENDARS = [
-  { id: "c1", label: "Tyler Lamound", email: "lamound2407@gmail.com", color: "#8FA88A" },
-  { id: "c2", label: "Wedding — Tyler & Elizabeth", email: "tylerandelizabethharris@gmail.com", color: "#D98595" },
-  { id: "c3", label: "Chi Alpha Work", email: "tyler@chialpha.com", color: "#7C93C9" },
-  { id: "c4", label: "Ministry", email: "tylerlamoundministry@gmail.com", color: "#A896B8" },
-  { id: "c5", label: "The Margin", email: "themarginpublication@gmail.com", color: "#E8B45C" },
-];
-const OTHER_CALENDARS = [
-  { id: "o1", label: "Beth Harris (shared)", color: "#E086A0" },
-  { id: "o2", label: "US Holidays", color: "#9AA2B1" },
-];
+// Start empty. Anything shown in the app should now come from your own entries.
+const seedTasks = [];
+const somedayTasks = [];
+const seedGoals = [];
+const seedJournal = [];
+const seedNotifications = [];
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const seedNotifications = [
-  { id: 1, when: "Today · 10:00 AM", text: "Send CMC follow-up email" },
-  { id: 2, when: "Today · 6:00 PM", text: "Protected time starting — Time with the Lord" },
-  { id: 3, when: "Yesterday", text: "Journal streak — 12 days 🔥" },
-  { id: 4, when: "Aug 19", text: "Milestone completed — Platform launch copy" },
-  { id: 5, when: "Aug 18", text: "Overdue — Update Notion phase headers" },
-];
+const REPEAT_OPTIONS = ["None", "Daily", "Weekly", "Monthly", "Yearly"];
+const IRON_LOG_URL = "";
+const TROPHE_URL = "";
 
 /* ---------------------------------------------------------------
    SHARED PIECES
@@ -344,6 +279,23 @@ function Header({ eyebrow, title, actions = [], onBack }) {
 
 function Toggle({ on, onClick }) {
   return <div className={`toggle ${on ? "on" : ""}`} onClick={onClick}><div className="knob" /></div>;
+}
+
+function usePersistentState(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : (typeof initialValue === "function" ? initialValue() : initialValue);
+    } catch {
+      return typeof initialValue === "function" ? initialValue() : initialValue;
+    }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }, [key, value]);
+
+  return [value, setValue];
 }
 
 function Sidebar({ tabs, tab, setTab, viewport, theme, setTheme }) {
@@ -410,17 +362,25 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
   );
 }
 
-const REFERENCE_DATE_KEY = "2026-08-21";
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+const REFERENCE_DATE_KEY = localDateKey();
 
 function dateFromKey(key) {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d, 12, 0, 0);
 }
 
+function shiftDateKey(key, days) {
+  const d = dateFromKey(key);
+  d.setDate(d.getDate() + days);
+  return localDateKey(d);
+}
+
 function dateKeyFromOffset(offset = 0) {
-  const d = dateFromKey(REFERENCE_DATE_KEY);
-  d.setDate(d.getDate() + Number(offset || 0));
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return shiftDateKey(REFERENCE_DATE_KEY, Number(offset || 0));
 }
 
 function taskDateKey(task) {
@@ -456,6 +416,36 @@ function inferTaskTime(task) {
   return `${String(h).padStart(2, "0")}:${minute}`;
 }
 
+function buildWeekKeys(anchorKey = REFERENCE_DATE_KEY) {
+  const d = dateFromKey(anchorKey);
+  const mondayOffset = (d.getDay() + 6) % 7;
+  const monday = shiftDateKey(anchorKey, -mondayOffset);
+  return Array.from({ length: 7 }, (_, i) => shiftDateKey(monday, i));
+}
+
+function lastNDateKeys(count, anchorKey = REFERENCE_DATE_KEY) {
+  return Array.from({ length: count }, (_, i) => shiftDateKey(anchorKey, i - count + 1));
+}
+
+function recurrenceFromRepeat(repeat, dateKey) {
+  if (!repeat || repeat === "None") return null;
+  const freq = repeat.toLowerCase();
+  return { freq, days: freq === "weekly" ? [dateFromKey(dateKey).toLocaleDateString("en-US", { weekday: "short" })] : [], endDate: null };
+}
+
+function googleRecurrenceRule(repeat) {
+  const map = { Daily: "DAILY", Weekly: "WEEKLY", Monthly: "MONTHLY", Yearly: "YEARLY" };
+  return map[repeat] ? `RRULE:FREQ=${map[repeat]}` : null;
+}
+
+function journalStreak(entries) {
+  const dates = new Set(entries.map((e) => e.dateKey || e.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d))));
+  let streak = 0;
+  let key = REFERENCE_DATE_KEY;
+  while (dates.has(key)) { streak += 1; key = shiftDateKey(key, -1); }
+  return streak;
+}
+
 function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
   const [title, setTitle] = useState(task.title || "");
   const [dueDate, setDueDate] = useState(taskDateKey(task));
@@ -463,7 +453,7 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
   const [priority, setPriority] = useState(task.priority || "med");
   const [area, setArea] = useState(task.area && areas[task.area] ? task.area : "");
   const [goal, setGoal] = useState(task.goal || "");
-  const [repeat, setRepeat] = useState(task.repeat || "");
+  const [repeat, setRepeat] = useState(task.repeat || "None");
   const [reminder, setReminder] = useState(task.reminder || "None");
   const [notes, setNotes] = useState(task.notes || "");
 
@@ -481,7 +471,8 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
       priority,
       area: area || null,
       goal: goal || null,
-      repeat: repeat.trim() || null,
+      repeat: repeat === "None" ? null : repeat,
+      recurrence: recurrenceFromRepeat(repeat, dueDate),
       reminder,
       notes,
     });
@@ -510,7 +501,9 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
         {goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}
       </div>
       <div className="fb-label">Repeat</div>
-      <input className="input-line" style={{ marginTop: 0 }} value={repeat} onChange={(e) => setRepeat(e.target.value)} placeholder="e.g. Daily, Tue / Thu, None" />
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        {REPEAT_OPTIONS.map((option) => <div key={option} className={`filter-chip ${repeat === option ? "active" : ""}`} onClick={() => setRepeat(option)}><Repeat size={11} />{option}</div>)}
+      </div>
       <div className="fb-label">Reminder</div>
       <input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
       <div className="fb-label">Notes</div>
@@ -577,14 +570,15 @@ function FilterSystem({ areas, selectedAreas, setSelectedAreas, selectedPrioriti
 /* ---------------------------------------------------------------
    TODAY TAB
 ----------------------------------------------------------------*/
-function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, onUpdateTask, onDeleteTask }) {
+function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, onUpdateTask, onDeleteTask, onCreateTask }) {
   const [selectedAreas, setSelectedAreas] = useState(Object.keys(areas));
   const [selectedPriorities, setSelectedPriorities] = useState(["high", "med", "low"]);
-  const [savedFilters, setSavedFilters] = useState([{ id: "sf1", name: "Margin only", areas: ["margin"], priorities: ["high", "med", "low"] }]);
+  const [savedFilters, setSavedFilters] = useState([]);
   const [range, setRange] = useState("week");
   const [somedayOpen, setSomedayOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     const keys = Object.keys(areas);
@@ -602,22 +596,17 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
   const upcoming = tasks.filter((t) => t.dueOffsetDays > 0 && t.dueOffsetDays <= maxRange && matches(t));
   const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && t.dueOffsetDays <= 1);
 
-  const saveTask = (updated) => {
-    onUpdateTask(updated);
-    setEditingTask(null);
-  };
-  const deleteTask = (id) => {
-    onDeleteTask(id);
-    if (editingTask?.id === id) setEditingTask(null);
-  };
-
+  const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
+  const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
   const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={setEditingTask} />;
+  const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
     <>
-      <Header eyebrow="Friday, August 21" title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
+      <Header eyebrow={todayLabel} title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
       <div className="scroll">
-        <div className="capture-bar"><Plus size={16} />Capture anything — sort it out later</div>
+        <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => setAdding(!adding)}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
+        {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} />}
 
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveTask} onCancel={() => setEditingTask(null)} onDelete={deleteTask} />}
 
@@ -633,32 +622,20 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         {overdue.length > 0 && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}</div></>)}
 
         <div className="section-label">Today</div>
-        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">Nothing here for the filters selected.</div>}</div>
+        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}</div>
 
         <div className="section-label"><span>Coming Up</span></div>
         <div className="segmented" style={{ margin: "0 0 10px 0" }}>
           <div className={`seg-btn ${range === "week" ? "active" : ""}`} onClick={() => setRange("week")}>This Week</div>
           <div className={`seg-btn ${range === "twoweeks" ? "active" : ""}`} onClick={() => setRange("twoweeks")}>Next 2 Weeks</div>
         </div>
-        <div className="card">{upcoming.length ? upcoming.map(renderTask) : <div className="insight-line">Nothing in this window for the filters selected.</div>}</div>
+        <div className="card">{upcoming.length ? upcoming.map(renderTask) : <div className="insight-line">Nothing scheduled in this window.</div>}</div>
 
         <div className="section-label" onClick={() => setSomedayOpen(!somedayOpen)} style={{ cursor: "pointer" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Archive size={12} />Someday / Maybe ({somedayTasks.length})</span>
           {somedayOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
-        {somedayOpen && (
-          <div className="card">
-            {somedayTasks.map((t) => {
-              const a = t.area && areas[t.area] ? areas[t.area] : { name: "No Area", color: "#9AA2B1" };
-              return (
-                <div className="task-row" key={t.id} style={{ cursor: "default" }}>
-                  <div style={{ width: 22 }} />
-                  <div><div className="task-title">{t.title}</div><div className="task-meta"><span className="chip" style={{ background: a.color + "26", color: a.color }}>{a.name}</span></div></div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {somedayOpen && <div className="card"><div className="insight-line">No Someday / Maybe items yet.</div></div>}
       </div>
     </>
   );
@@ -698,7 +675,7 @@ function googleEventTimeLabel(event) {
   return new Date(event.start.dateTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected }) {
+function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected, allowEvents = true }) {
   const [kind, setKind] = useState("task");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
@@ -706,6 +683,9 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [area, setArea] = useState(Object.keys(areas)[0] || "");
   const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState("med");
+  const [repeat, setRepeat] = useState("None");
+  const [reminder, setReminder] = useState("None");
+  const [notes, setNotes] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -715,35 +695,28 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
     try {
       if (kind === "task") {
         onCreateTask({
-          title: title.trim(),
-          dueDate: date,
-          dueTime: time || null,
+          title: title.trim(), dueDate: date, dueTime: time || null,
           due: time ? formatTimeLabel(time) : formatDateLabel(date),
-          dueOffsetDays: offsetFromDateKey(date),
-          priority,
-          area: area || null,
-          goal: goal || null,
-          notes: "",
-          repeat: null,
-          reminder: "None",
-          done: false,
-          bypassProtected: bypass,
+          dueOffsetDays: offsetFromDateKey(date), priority, area: area || null,
+          goal: goal || null, notes, repeat: repeat === "None" ? null : repeat,
+          recurrence: recurrenceFromRepeat(repeat, date), reminder, done: false,
+          status: "next", bypassProtected: bypass,
         });
       } else {
-        await onCreateEvent({ title: title.trim(), date, time, area: area || null, bypassProtected: bypass });
+        await onCreateEvent({ title: title.trim(), date, time, area: area || null, repeat, notes, bypassProtected: bypass });
       }
       onClose();
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   return (
     <div className="card composer-card">
-      <div className="segmented" style={{ margin: "0 0 4px 0" }}>
-        <div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div>
-        <div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div>
-      </div>
+      {allowEvents && (
+        <div className="segmented" style={{ margin: "0 0 4px 0" }}>
+          <div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div>
+          <div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div>
+        </div>
+      )}
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}>
         <input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} />
@@ -757,21 +730,21 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       {kind === "task" && (
         <>
           <div className="fb-label">Priority</div>
-          <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-            {[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}
-          </div>
+          <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
           <div className="fb-label">Goal (optional)</div>
           <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
             <div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>
             {goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}
           </div>
+          <div className="fb-label">Reminder</div>
+          <input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
         </>
       )}
-      {kind === "event" && (
-        <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
-          <RefreshCw size={11} />{googleConnected ? "Will be added to lamound2407@gmail.com in Google Calendar." : "Will stay in Abide until Google Calendar is connected."}
-        </div>
-      )}
+      <div className="fb-label">Repeat</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{REPEAT_OPTIONS.map((option) => <div key={option} className={`filter-chip ${repeat === option ? "active" : ""}`} onClick={() => setRepeat(option)}><Repeat size={11} />{option}</div>)}</div>
+      <div className="fb-label">Notes</div>
+      <textarea className="notes-box" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
+      {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? "Will be added to the primary lamound2407@gmail.com Google Calendar." : "Will stay in Abide until Google Calendar is connected."}</div>}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}>
         <div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div>
         <Toggle on={bypass} onClick={() => setBypass(!bypass)} />
@@ -808,17 +781,15 @@ function CalendarsPanel({ calendars, setCalendars, connected, configured, onConn
   );
 }
 
-function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask }) {
+function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask, openAddSignal }) {
   const [mode, setMode] = useState("week");
-  const [selDay, setSelDay] = useState(4);
+  const [selectedDateKey, setSelectedDateKey] = useState(REFERENCE_DATE_KEY);
   const [adding, setAdding] = useState(false);
   const [calsOpen, setCalsOpen] = useState(false);
   const [calendars, setCalendars] = useState([]);
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = usePersistentState("abide-calendar-events", []);
   const [googleError, setGoogleError] = useState("");
-  const [googleToken, setGoogleToken] = useState(() => {
-    try { return sessionStorage.getItem("abideGoogleCalendarToken") || ""; } catch { return ""; }
-  });
+  const [googleToken, setGoogleToken] = useState(() => { try { return sessionStorage.getItem("abideGoogleCalendarToken") || ""; } catch { return ""; } });
   const tokenClientRef = useRef(null);
   const [overridden, setOverridden] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
@@ -827,28 +798,20 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const googleConfigured = Boolean(googleClientId);
   const googleConnected = Boolean(googleToken);
-
-  const days = [
-    { dow: "M", full: "Mon", num: 17, key: "2026-08-17" },
-    { dow: "T", full: "Tue", num: 18, key: "2026-08-18" },
-    { dow: "W", full: "Wed", num: 19, key: "2026-08-19" },
-    { dow: "T", full: "Thu", num: 20, key: "2026-08-20" },
-    { dow: "F", full: "Fri", num: 21, key: "2026-08-21" },
-    { dow: "S", full: "Sat", num: 22, key: "2026-08-22" },
-    { dow: "S", full: "Sun", num: 23, key: "2026-08-23" },
-  ];
-  const selectedDay = days[selDay];
-  const selectedDateKey = selectedDay.key;
-  const todaysBlock = protectedBlocks.find((b) => b.day === selectedDay.full);
+  const weekKeys = buildWeekKeys(selectedDateKey);
+  const selectedDate = dateFromKey(selectedDateKey);
+  const selectedMonthKey = selectedDateKey.slice(0, 7);
+  const monthLabel = selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const selectedDayName = selectedDate.toLocaleDateString("en-US", { weekday: "short" });
+  const todaysBlock = protectedBlocks.find((b) => b.day === selectedDayName);
   const activeCount = calendars.filter((c) => c.on).length;
   const visibleCalendarIds = new Set(calendars.filter((c) => c.on).map((c) => c.id));
   const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
   const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarIds.has(e.calendarId)));
 
-  const clearGoogleConnection = () => {
-    setGoogleToken("");
-    try { sessionStorage.removeItem("abideGoogleCalendarToken"); } catch {}
-  };
+  useEffect(() => { if (openAddSignal) setAdding(true); }, [openAddSignal]);
+
+  const clearGoogleConnection = () => { setGoogleToken(""); try { sessionStorage.removeItem("abideGoogleCalendarToken"); } catch {} };
 
   const fetchGoogleData = async (token = googleToken) => {
     if (!token) return;
@@ -856,47 +819,26 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const calRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", { headers });
-      if (calRes.status === 401) {
-        clearGoogleConnection();
-        throw new Error("Google Calendar authorization expired. Tap Connect Google Calendar again.");
-      }
+      if (calRes.status === 401) { clearGoogleConnection(); throw new Error("Google Calendar authorization expired. Tap Connect Google Calendar again."); }
       if (!calRes.ok) throw new Error("Could not load your Google calendars.");
       const calJson = await calRes.json();
       const priorOn = new Map(calendars.map((c) => [c.id, c.on]));
-      const nextCalendars = (calJson.items || []).map((c) => ({
-        id: c.id,
-        label: c.summaryOverride || c.summary || c.id,
-        color: c.backgroundColor || "#8FA88A",
-        on: priorOn.has(c.id) ? priorOn.get(c.id) : c.selected !== false,
-        primary: Boolean(c.primary),
-      }));
+      const nextCalendars = (calJson.items || []).map((c) => ({ id: c.id, label: c.summaryOverride || c.summary || c.id, color: c.backgroundColor || "#8FA88A", on: priorOn.has(c.id) ? priorOn.get(c.id) : c.selected !== false, primary: Boolean(c.primary) }));
       setCalendars(nextCalendars);
 
-      const timeMin = new Date("2026-08-01T00:00:00-05:00").toISOString();
-      const timeMax = new Date("2026-09-01T00:00:00-05:00").toISOString();
+      const rangeStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1, 0, 0, 0);
+      const rangeEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 2, 1, 0, 0, 0);
+      const timeMin = rangeStart.toISOString();
+      const timeMax = rangeEnd.toISOString();
       const eventGroups = await Promise.all(nextCalendars.map(async (cal) => {
-        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`;
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=250&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`;
         const res = await fetch(url, { headers });
         if (!res.ok) return [];
         const json = await res.json();
-        return (json.items || []).filter((e) => e.status !== "cancelled").map((e) => ({
-          id: `google:${cal.id}:${e.id}`,
-          googleEventId: e.id,
-          calendarId: cal.id,
-          calendarLabel: cal.label,
-          color: cal.color,
-          source: "google",
-          title: e.summary || "(Untitled event)",
-          date: googleEventDateKey(e),
-          time: googleEventTimeLabel(e),
-          start: e.start,
-          end: e.end,
-        }));
+        return (json.items || []).filter((e) => e.status !== "cancelled").map((e) => ({ id: `google:${cal.id}:${e.id}`, googleEventId: e.id, calendarId: cal.id, calendarLabel: cal.label, color: cal.color, source: "google", title: e.summary || "(Untitled event)", date: googleEventDateKey(e), time: googleEventTimeLabel(e), start: e.start, end: e.end }));
       }));
       setEvents((prev) => [...prev.filter((e) => e.source !== "google"), ...eventGroups.flat()]);
-    } catch (err) {
-      setGoogleError(err.message || "Google Calendar could not be loaded.");
-    }
+    } catch (err) { setGoogleError(err.message || "Google Calendar could not be loaded."); }
   };
 
   useEffect(() => {
@@ -905,13 +847,9 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     loadGoogleIdentityScript().then(() => {
       if (!active || !window.google?.accounts?.oauth2) return;
       tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-        client_id: googleClientId,
-        scope: GOOGLE_CALENDAR_SCOPE,
+        client_id: googleClientId, scope: GOOGLE_CALENDAR_SCOPE,
         callback: (response) => {
-          if (response.error) {
-            setGoogleError(response.error_description || response.error);
-            return;
-          }
+          if (response.error) { setGoogleError(response.error_description || response.error); return; }
           setGoogleToken(response.access_token);
           try { sessionStorage.setItem("abideGoogleCalendarToken", response.access_token); } catch {}
           fetchGoogleData(response.access_token);
@@ -921,32 +859,23 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     return () => { active = false; };
   }, [googleClientId]);
 
-  useEffect(() => {
-    if (googleToken) fetchGoogleData(googleToken);
-    // Intentionally only refresh when a saved token becomes available.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleToken]);
+  useEffect(() => { if (googleToken) fetchGoogleData(googleToken); }, [googleToken, selectedMonthKey]);
 
   const connectGoogle = () => {
     setGoogleError("");
-    if (!googleConfigured) {
-      setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first.");
-      return;
-    }
-    if (!tokenClientRef.current) {
-      setGoogleError("Google sign-in is still loading. Try again in a moment.");
-      return;
-    }
+    if (!googleConfigured) { setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first."); return; }
+    if (!tokenClientRef.current) { setGoogleError("Google sign-in is still loading. Try again in a moment."); return; }
     tokenClientRef.current.requestAccessToken({ prompt: googleToken ? "" : "consent" });
   };
 
-  const createEvent = async ({ title, date, time, area, bypassProtected }) => {
+  const createEvent = async ({ title, date, time, area, repeat, notes, bypassProtected }) => {
+    const recurrenceRule = googleRecurrenceRule(repeat);
     if (!googleToken) {
-      setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, bypassProtected }]);
+      setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, repeat: repeat === "None" ? null : repeat, notes, bypassProtected }]);
       return;
     }
-
-    const body = { summary: title };
+    const body = { summary: title, description: notes || undefined };
+    if (recurrenceRule) body.recurrence = [recurrenceRule];
     if (time) {
       const [h, m] = time.split(":").map(Number);
       const start = new Date(`${date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
@@ -955,116 +884,76 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       body.end = { dateTime: end.toISOString(), timeZone: "America/Chicago" };
     } else {
       const end = dateFromKey(date); end.setDate(end.getDate() + 1);
-      body.start = { date };
-      body.end = { date: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}` };
+      body.start = { date }; body.end = { date: localDateKey(end) };
     }
-
-    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${googleToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.status === 401) {
-      clearGoogleConnection();
-      setGoogleError("Google Calendar authorization expired. Reconnect and try again.");
-      throw new Error("Google authorization expired");
-    }
-    if (!res.ok) {
-      setGoogleError("The event could not be added to lamound2407@gmail.com.");
-      throw new Error("Google event creation failed");
-    }
+    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", headers: { Authorization: `Bearer ${googleToken}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.status === 401) { clearGoogleConnection(); setGoogleError("Google Calendar authorization expired. Reconnect and try again."); throw new Error("Google authorization expired"); }
+    if (!res.ok) { setGoogleError("The event could not be added to lamound2407@gmail.com."); throw new Error("Google event creation failed"); }
     await fetchGoogleData(googleToken);
   };
 
   const saveEditedTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteEditedTask = (id) => { onDeleteTask(id); setEditingTask(null); };
+  const moveMonth = (delta) => { const d = dateFromKey(selectedDateKey); d.setMonth(d.getMonth() + delta, 1); setSelectedDateKey(localDateKey(d)); setOverridden(false); setOverrideOpen(false); };
+
+  const renderAgenda = () => (
+    <>
+      <div className="section-label">{selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
+      {todaysBlock && (
+        <div className="protected-block">
+          <div className="row"><ShieldCheck size={18} color="#8FA88A" /><div><div className="t">{todaysBlock.start}–{todaysBlock.end} · Protected — {todaysBlock.label}</div><div className="s">Protected time stays visible while you plan the rest of the day.</div></div></div>
+          {!overridden ? <div className="override" onClick={() => setOverrideOpen(!overrideOpen)}>Need to schedule something here anyway? →</div> : <div className="s" style={{ marginTop: 8 }}>Scheduling override enabled for this view.</div>}
+          {overrideOpen && !overridden && <div style={{ display: "flex", gap: 8, marginTop: 8 }}><div className="filter-chip active" onClick={() => { setOverridden(true); setOverrideOpen(false); }}>Schedule Anyway</div><div className="filter-chip" onClick={() => setOverrideOpen(false)}>Never mind</div></div>}
+        </div>
+      )}
+      <div className="section-label">Tasks</div>
+      <div className="card">{dayTasks.length ? dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => setEditingTask(t)} onToggleDone={toggleDone} onEdit={setEditingTask} />) : <div className="insight-line">No tasks due this day.</div>}</div>
+      <div className="section-label">Events</div>
+      <div className="card">{dayEvents.length ? dayEvents.map((e) => {
+        const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
+        return <div className="task-row" key={e.id} style={{ cursor: "default" }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}</div></div></div>;
+      }) : <div className="insight-line">{googleConnected ? "No calendar events this day." : "No Abide events this day. Connect Google Calendar to pull in your real events."}</div>}</div>
+    </>
+  );
+
+  const firstOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+  const monthCells = [...Array(leadingBlanks).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
   return (
     <>
-      <Header eyebrow="August 2026" title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => setAdding(!adding) }]} />
+      <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => setAdding(!adding) }]} />
       <div className="scroll">
-        <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}>
-          <span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>
-          {calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </div>
+        <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
         {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} connected={googleConnected} configured={googleConfigured} onConnect={connectGoogle} onRefresh={() => fetchGoogleData()} error={googleError} />}
         {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} />}
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} />}
 
-        <div className="segmented">
-          <div className={`seg-btn ${mode === "week" ? "active" : ""}`} onClick={() => setMode("week")}>Week</div>
-          <div className={`seg-btn ${mode === "month" ? "active" : ""}`} onClick={() => setMode("month")}>Month</div>
-        </div>
+        <div className="segmented"><div className={`seg-btn ${mode === "week" ? "active" : ""}`} onClick={() => setMode("week")}>Week</div><div className={`seg-btn ${mode === "month" ? "active" : ""}`} onClick={() => setMode("month")}>Month</div></div>
 
         {mode === "week" ? (
           <>
-            <div className="weekstrip">{days.map((d, i) => {
-              const hasItems = tasks.some((t) => taskDateKey(t) === d.key) || events.some((e) => e.date === d.key);
-              return <div key={d.key} className={`daypill ${selDay === i ? "selected" : ""}`} onClick={() => { setSelDay(i); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.dow}</span><span className="num">{d.num}</span>{hasItems && <span className="dot" />}</div>;
-            })}</div>
-            <div className="section-label">{dateFromKey(selectedDateKey).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
-
-            {todaysBlock && (
-              <div className="protected-block">
-                <div className="row">
-                  <ShieldCheck size={18} color="#8FA88A" />
-                  <div><div className="t">{todaysBlock.start}–{todaysBlock.end} · Protected — {todaysBlock.label}</div><div className="s">Protected time stays visible while you plan the rest of the day.</div></div>
-                </div>
-                {!overridden ? (
-                  <div className="override" onClick={() => setOverrideOpen(!overrideOpen)}>Need to schedule something here anyway? →</div>
-                ) : (
-                  <div className="s" style={{ marginTop: 8 }}>Scheduling override enabled for this view.</div>
-                )}
-                {overrideOpen && !overridden && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <div className="filter-chip active" onClick={() => { setOverridden(true); setOverrideOpen(false); }}>Schedule Anyway</div>
-                    <div className="filter-chip" onClick={() => setOverrideOpen(false)}>Never mind</div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="section-label">Tasks</div>
-            <div className="card">
-              {dayTasks.length ? dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => setEditingTask(t)} onToggleDone={toggleDone} onEdit={setEditingTask} />) : <div className="insight-line">No tasks due this day.</div>}
-            </div>
-
-            <div className="section-label">Events</div>
-            <div className="card">
-              {dayEvents.length ? dayEvents.map((e) => {
-                const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
-                return (
-                  <div className="task-row" key={e.id} style={{ cursor: "default" }}>
-                    <div style={{ width: 22 }} />
-                    <div style={{ flex: 1 }}>
-                      <div className="task-title">{e.title}</div>
-                      <div className="task-meta">
-                        <span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span>
-                        <span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }) : <div className="insight-line">{googleConnected ? "No calendar events this day." : "No Abide events this day. Connect Google Calendar to pull in your real events."}</div>}
-            </div>
+            <div className="weekstrip">{weekKeys.map((key) => { const d = dateFromKey(key); const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key); return <div key={key} className={`daypill ${selectedDateKey === key ? "selected" : ""}`} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span><span className="num">{d.getDate()}</span>{hasItems && <span className="dot" />}</div>; })}</div>
+            {renderAgenda()}
           </>
         ) : (
           <>
-            <div className="section-label">This Month at a Glance</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "6px 0 10px" }}>
+              <div className="tool-btn" onClick={() => moveMonth(-1)}><ChevronLeft size={16} /></div><div style={{ fontWeight: 700, color: "var(--text)" }}>{monthLabel}</div><div className="tool-btn" onClick={() => moveMonth(1)}><ChevronRight size={16} /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, marginBottom: 6 }}>{["M","T","W","T","F","S","S"].map((d, i) => <div key={`${d}${i}`} style={{ textAlign: "center", fontSize: 10.5, color: "var(--text3)", fontWeight: 700 }}>{d}</div>)}</div>
             <div className="card" style={{ padding: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6 }}>
-                {Array.from({ length: 31 }).map((_, i) => {
-                  const key = `2026-08-${String(i + 1).padStart(2, "0")}`;
+                {monthCells.map((day, i) => {
+                  if (!day) return <div key={`blank-${i}`} />;
+                  const key = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                   const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key);
-                  return (
-                    <div key={i} style={{ textAlign: "center", padding: "7px 0", borderRadius: 8, background: key === selectedDateKey ? "rgba(232,180,92,0.18)" : "transparent" }}>
-                      <div style={{ fontSize: 12, color: "var(--body)" }}>{i + 1}</div>
-                      {hasItems && <div style={{ width: 4, height: 4, borderRadius: 2, background: "#E8B45C", margin: "3px auto 0" }} />}
-                    </div>
-                  );
+                  return <div key={key} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }} style={{ textAlign: "center", padding: "8px 0", borderRadius: 8, cursor: "pointer", background: key === selectedDateKey ? "rgba(232,180,92,0.18)" : "transparent", border: key === selectedDateKey ? "1px solid rgba(232,180,92,0.4)" : "1px solid transparent" }}><div style={{ fontSize: 12, color: "var(--body)" }}>{day}</div>{hasItems && <div style={{ width: 4, height: 4, borderRadius: 2, background: "#E8B45C", margin: "3px auto 0" }} />}</div>;
                 })}
               </div>
             </div>
+            {renderAgenda()}
           </>
         )}
       </div>
@@ -1105,7 +994,10 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS }) {
       <textarea className="notes-box" rows={2} placeholder="Why this goal matters, context, links…" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <div className="fb-label">Milestones</div>
       {milestones.map((m) => (
-        <span key={m.id} className="milestone-chip">{m.label}<X size={12} style={{ cursor: "pointer", opacity: 0.6 }} onClick={() => removeMilestone(m.id)} /></span>
+        <span key={m.id} className="milestone-chip" style={{ cursor: "pointer", opacity: m.done ? 0.65 : 1, textDecoration: m.done ? "line-through" : "none" }} onClick={() => toggleMilestone(m.id)}>
+          <span style={{ width: 14, height: 14, borderRadius: 7, border: "1px solid var(--text3)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{m.done && <Check size={9} />}</span>
+          {m.label}<X size={12} style={{ cursor: "pointer", opacity: 0.6 }} onClick={(e) => { e.stopPropagation(); removeMilestone(m.id); }} />
+        </span>
       ))}
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <input className="input-line" style={{ margin: 0 }} placeholder="Add a milestone…" value={mDraft} onChange={(e) => setMDraft(e.target.value)} />
@@ -1150,7 +1042,7 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS }) {
               <div key={g.id} className="card goal-card">
                 <div className="goal-title-row">
                   <div><span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span><div className="goal-name" style={{ marginTop: 6 }}>{g.name}</div></div>
-                  <Pencil size={15} color="var(--text3)" onClick={() => setComposer(g.id)} />
+                  <Pencil size={15} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => setComposer(g.id)} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12.5, color: "var(--text2)" }}><span>{g.progress}% complete</span><span>Target · {g.target || "—"}</span></div>
                 <div className="progress-track"><div className="progress-fill" style={{ width: `${g.progress}%`, background: area.color }} /></div>
@@ -1174,63 +1066,63 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS }) {
 /* ---------------------------------------------------------------
    JOURNAL TAB — add / edit / delete
 ----------------------------------------------------------------*/
-function JournalTab() {
-  const [entries, setEntries] = useState(seedJournal);
+function JournalTab({ entries, setEntries }) {
+  const [entryDate, setEntryDate] = useState(REFERENCE_DATE_KEY);
   const [ref, setRef] = useState("");
   const [note, setNote] = useState("");
   const [tag, setTag] = useState("yellow");
   const [editingId, setEditingId] = useState(null);
-  const [editRef, setEditRef] = useState(""); const [editNote, setEditNote] = useState(""); const [editTag, setEditTag] = useState("yellow");
+  const [editDate, setEditDate] = useState(REFERENCE_DATE_KEY);
+  const [editRef, setEditRef] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editTag, setEditTag] = useState("yellow");
+  const streak = journalStreak(entries);
 
   const save = () => {
-    if (!note.trim()) return;
-    setEntries((p) => [{ id: Date.now(), date: "Today", ref: ref || "—", tag, note }, ...p]);
+    if (!note.trim() && !ref.trim()) return;
+    setEntries((p) => [{ id: Date.now(), dateKey: entryDate, date: formatDateLabel(entryDate), ref: ref || "", tag, note }, ...p]);
     setRef(""); setNote(""); setTag("yellow");
   };
-  const startEdit = (e) => { setEditingId(e.id); setEditRef(e.ref); setEditNote(e.note); setEditTag(e.tag); };
-  const saveEdit = (id) => { setEntries((p) => p.map((e) => e.id === id ? { ...e, ref: editRef, note: editNote, tag: editTag } : e)); setEditingId(null); };
+  const startEdit = (entry) => { setEditingId(entry.id); setEditDate(entry.dateKey || REFERENCE_DATE_KEY); setEditRef(entry.ref || ""); setEditNote(entry.note || ""); setEditTag(entry.tag || "yellow"); };
+  const saveEdit = (id) => { setEntries((p) => p.map((e) => e.id === id ? { ...e, dateKey: editDate, date: formatDateLabel(editDate), ref: editRef, note: editNote, tag: editTag } : e)); setEditingId(null); };
   const remove = (id) => setEntries((p) => p.filter((e) => e.id !== id));
 
   return (
     <>
-      <Header eyebrow="12-day streak" title="Time with the Lord" />
+      <Header eyebrow={streak ? `${streak}-day streak` : "Start your first entry"} title="Time with the Lord" />
       <div className="scroll">
         <div className="card journal-compose">
-          <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none" }} value={ref} onChange={(e) => setRef(e.target.value)} />
-          <textarea className="notes-box" rows={3} placeholder="What is He saying to you right now?" style={{ marginTop: 10 }} value={note} onChange={(e) => setNote(e.target.value)} />
+          <input type="date" className="input-line" style={{ marginTop: 0 }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
+          <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none", marginTop: 10 }} value={ref} onChange={(e) => setRef(e.target.value)} />
+          <textarea className="notes-box" rows={4} placeholder="What is He saying to you right now?" style={{ marginTop: 10 }} value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${tag === k ? "selected" : ""}`} style={{ background: v.hex }} title={v.label} onClick={() => setTag(k)} />)}</div>
-          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{TAGS[tag].label} — your five-color highlight system, carried over</div>
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{TAGS[tag].label} · Rich-text formatting (bold, italic, underline, fonts) is planned for a later journal editor pass.</div>
           <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 10 }} onClick={save}>Save Entry</div>
         </div>
 
         <div className="section-label">Entries</div>
         <div className="card">
-          {entries.map((e) => (
-            <div key={e.id} className="journal-entry">
-              {editingId === e.id ? (
+          {entries.length ? entries.map((entry) => (
+            <div key={entry.id} className="journal-entry">
+              {editingId === entry.id ? (
                 <>
-                  <input className="input-line" style={{ marginTop: 0 }} value={editRef} onChange={(ev) => setEditRef(ev.target.value)} />
-                  <textarea className="notes-box" rows={3} value={editNote} onChange={(ev) => setEditNote(ev.target.value)} />
+                  <input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} />
+                  <input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" />
+                  <textarea className="notes-box" rows={4} value={editNote} onChange={(ev) => setEditNote(ev.target.value)} placeholder="Journal note" />
                   <div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <div className="filter-chip active" onClick={() => saveEdit(e.id)}>Save</div>
-                    <div className="filter-chip" onClick={() => setEditingId(null)}>Cancel</div>
-                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={() => setEditingId(null)}>Cancel</div></div>
                 </>
               ) : (
                 <>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span className="verse-badge" style={{ background: TAGS[e.tag].hex }}>{e.ref}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 12, color: "var(--text3)" }}>{e.date}</span>
-                      <div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(e)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(e.id)} /></div>
-                    </div>
+                    <span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => remove(entry.id)} /></div></div>
                   </div>
-                  <div style={{ fontSize: 14, color: "var(--body2)", marginTop: 8, lineHeight: 1.45 }}>{e.note}</div>
+                  <div style={{ fontSize: 14, color: "var(--body2)", marginTop: 8, lineHeight: 1.45 }}>{entry.note || "Time with the Lord check-in"}</div>
                 </>
               )}
             </div>
-          ))}
+          )) : <div className="insight-line">No journal entries yet.</div>}
         </div>
       </div>
     </>
@@ -1248,7 +1140,7 @@ function ScratchTab() {
   const drawing = useRef(false);
   const lastPoint = useRef(null);
   const canvasMetrics = useRef({ width: 380, height: 260, dpr: 1 });
-  const [pages, setPages] = useState([{ id: 1, type: "type", content: "Sermon note — 'faithfulness in the unseen' — tie into Margin Day 4?", date: "Aug 18" }]);
+  const [pages, setPages] = useState([]);
   const [typedDraft, setTypedDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
 
@@ -1460,18 +1352,18 @@ function ScratchTab() {
   );
 }
 
-function LinkCard({ icon: Icon, tint, name, desc, placeholder }) {
+function LinkCard({ icon: Icon, tint, name, desc, placeholder, initialUrl = "", storageKey }) {
   const [editing, setEditing] = useState(false);
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = usePersistentState(storageKey || `abide-link-${name}`, initialUrl);
   return (
     <div className="link-card">
       <div className="link-icon" style={{ background: tint + "22" }}><Icon size={19} color={tint} /></div>
       <div style={{ flex: 1 }}>
         <div className="link-name">{name}</div>
         <div className="link-desc">{desc}</div>
-        {editing || !url ? <input className="link-url-input" placeholder={placeholder} value={url} onChange={(e) => setUrl(e.target.value)} onBlur={() => setEditing(false)} /> : <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#E8B45C", marginTop: 3, display: "inline-block" }} onClick={(e) => e.stopPropagation()}>{url}</a>}
+        {editing || !url ? <input className="link-url-input" placeholder={placeholder} value={url} onChange={(e) => setUrl(e.target.value)} onBlur={() => url && setEditing(false)} /> : <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#E8B45C", marginTop: 3, display: "inline-block" }}>{url}</a>}
       </div>
-      {url && !editing && <ExternalLink size={15} color="var(--text3)" onClick={() => setEditing(true)} />}
+      {url && !editing && <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Pencil size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => setEditing(true)} /><a href={url} target="_blank" rel="noreferrer" style={{ display: "flex", color: "inherit" }}><ExternalLink size={15} color="var(--text3)" /></a></div>}
     </div>
   );
 }
@@ -1496,7 +1388,7 @@ function NotificationCenter({ onBack }) {
         <div className="section-label">What Alerts You</div>
         <div className="card">{rows.map((r) => <div key={r.k} className="settings-row"><span className="settings-row-name">{r.label}</span><Toggle on={prefs[r.k]} onClick={() => toggle(r.k)} /></div>)}</div>
         <div className="section-label">Recent</div>
-        <div className="card">{seedNotifications.map((n) => <div key={n.id} className="review-item"><span>{n.text}</span><span style={{ fontSize: 11.5, color: "var(--text3)" }}>{n.when}</span></div>)}</div>
+        <div className="card">{seedNotifications.length ? seedNotifications.map((n) => <div key={n.id} className="review-item"><span>{n.text}</span><span style={{ fontSize: 11.5, color: "var(--text3)" }}>{n.when}</span></div>) : <div className="insight-line">No notifications yet.</div>}</div>
       </div>
     </>
   );
@@ -1506,7 +1398,7 @@ function ProtectedBlockRow({ block, onEdit, onDelete }) {
   return (
     <div className="settings-row">
       <div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />{block.day} · {block.start}–{block.end} · {block.label}</div>
-      <div style={{ display: "flex", gap: 12 }}><Pencil size={14} color="var(--text3)" onClick={onEdit} /><Trash2 size={14} color="var(--text3)" onClick={onDelete} /></div>
+      <div style={{ display: "flex", gap: 12 }}><Pencil size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={onEdit} /><Trash2 size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={onDelete} /></div>
     </div>
   );
 }
@@ -1534,41 +1426,27 @@ function ProtectedBlockComposer({ initial, onSave, onCancel }) {
   );
 }
 
-function AreaComposer({ onSave, onCancel }) {
-  const [name, setName] = useState("");
-  const [color, setColor] = useState("#8FA88A");
-
-  const save = () => {
-    if (!name.trim()) return;
-    onSave({ id: `area_${Date.now()}`, name: name.trim(), color });
-  };
-
+function AreaComposer({ initial, onSave, onCancel }) {
+  const [name, setName] = useState(initial?.name || "");
+  const [color, setColor] = useState(initial?.color || "#8FA88A");
+  const save = () => { if (!name.trim()) return; onSave({ id: initial?.id || `area_${Date.now()}`, name: name.trim(), color }); };
   return (
     <div className="card composer-card">
       <div className="fb-label" style={{ marginTop: 0 }}>Area Name</div>
       <input className="input-line" style={{ marginTop: 0 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Home, Church, Writing" />
       <div className="fb-label">Color</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 44, height: 36, border: "none", background: "transparent" }} />
-        <span className="chip" style={{ background: color + "26", color }}>{name || "New Area"}</span>
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Add Area</div>
-        <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div>
-      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}><input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 44, height: 36, border: "none", background: "transparent", cursor: "pointer" }} /><span className="chip" style={{ background: color + "26", color }}>{name || "Area"}</span></div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>{initial ? "Save Area" : "Add Area"}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
     </div>
   );
 }
 
-function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea }) {
-  const [blockComposer, setBlockComposer] = useState(null); // null | "add" | blockId
-  const [areaComposerOpen, setAreaComposerOpen] = useState(false);
+function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar }) {
+  const [blockComposer, setBlockComposer] = useState(null);
+  const [areaComposer, setAreaComposer] = useState(null); // null | "add" | areaId
   const saveBlock = (b) => { setProtectedBlocks((prev) => prev.some((x) => x.id === b.id) ? prev.map((x) => x.id === b.id ? b : x) : [...prev, b]); setBlockComposer(null); };
   const deleteBlock = (id) => setProtectedBlocks((prev) => prev.filter((b) => b.id !== id));
-  const saveArea = ({ id, name, color }) => {
-    setAreas((prev) => ({ ...prev, [id]: { name, color } }));
-    setAreaComposerOpen(false);
-  };
+  const saveArea = ({ id, name, color }) => { setAreas((prev) => ({ ...prev, [id]: { name, color } })); setAreaComposer(null); };
 
   return (
     <>
@@ -1577,100 +1455,105 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
         <div className="section-label">Appearance</div>
         <div className="segmented"><div className={`seg-btn ${theme === "light" ? "active" : ""}`} onClick={() => setTheme("light")}>Light</div><div className={`seg-btn ${theme === "dark" ? "active" : ""}`} onClick={() => setTheme("dark")}>Dark</div></div>
 
-        <div className="section-label"><span>Areas</span><Plus size={14} color="#E8B45C" onClick={() => setAreaComposerOpen(!areaComposerOpen)} /></div>
-        {areaComposerOpen && <AreaComposer onSave={saveArea} onCancel={() => setAreaComposerOpen(false)} />}
+        <div className="section-label"><span>Areas</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setAreaComposer(areaComposer === "add" ? null : "add")} /></div>
+        {areaComposer === "add" && <AreaComposer onSave={saveArea} onCancel={() => setAreaComposer(null)} />}
         <div className="card">
-          {Object.entries(areas).map(([id, area]) => (
+          {Object.entries(areas).map(([id, area]) => areaComposer === id ? <AreaComposer key={id} initial={{ id, ...area }} onSave={saveArea} onCancel={() => setAreaComposer(null)} /> : (
             <div className="settings-row" key={id}>
               <div className="settings-row-name"><span className="cal-swatch" style={{ background: area.color }} />{area.name}</div>
-              <Trash2 size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => {
-                if (window.confirm(`Delete the "${area.name}" area? Tasks and goals using it will become unassigned.`)) onDeleteArea(id);
-              }} />
+              <div style={{ display: "flex", gap: 12 }}><Pencil size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => setAreaComposer(id)} /><Trash2 size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => { if (window.confirm(`Delete the "${area.name}" area? Tasks and goals using it will become unassigned.`)) onDeleteArea(id); }} /></div>
             </div>
           ))}
           {Object.keys(areas).length === 0 && <div className="insight-line">No areas yet. Add one with the + button.</div>}
         </div>
-        <div className="insight-line" style={{ padding: "8px 4px" }}>Deleting an area removes it from task and calendar pickers. Existing items are kept and become “No Area.”</div>
+        <div className="insight-line" style={{ padding: "8px 4px" }}>Rename or recolor an Area with the pencil. Deleting it keeps existing tasks and goals but makes them “No Area.”</div>
 
-        <div className="section-label"><span>Protected Time Blocks</span><Plus size={14} color="#E8B45C" onClick={() => setBlockComposer(blockComposer === "add" ? null : "add")} /></div>
+        <div className="section-label"><span>Protected Time Blocks</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setBlockComposer(blockComposer === "add" ? null : "add")} /></div>
         {blockComposer === "add" && <ProtectedBlockComposer onSave={saveBlock} onCancel={() => setBlockComposer(null)} />}
-        <div className="card">
-          {protectedBlocks.map((b) => blockComposer === b.id
-            ? <ProtectedBlockComposer key={b.id} initial={b} onSave={saveBlock} onCancel={() => setBlockComposer(null)} />
-            : <ProtectedBlockRow key={b.id} block={b} onEdit={() => setBlockComposer(b.id)} onDelete={() => deleteBlock(b.id)} />
-          )}
-        </div>
+        <div className="card">{protectedBlocks.length ? protectedBlocks.map((b) => blockComposer === b.id ? <ProtectedBlockComposer key={b.id} initial={b} onSave={saveBlock} onCancel={() => setBlockComposer(null)} /> : <ProtectedBlockRow key={b.id} block={b} onEdit={() => setBlockComposer(b.id)} onDelete={() => deleteBlock(b.id)} />) : <div className="insight-line">No protected time blocks yet.</div>}</div>
 
         <div className="section-label">Connected Calendars</div>
-        <div className="card insight-line">5 calendars connected under lamound2407@gmail.com — manage which are visible from the Calendar tab.</div>
+        <div className="card"><div className="nav-row" onClick={onOpenCalendar}><div className="nav-row-left"><CalendarDays size={16} color="#8FA88A" />Manage calendars in Calendar</div><ChevronRight size={16} color="var(--text3)" /></div></div>
 
         <div className="section-label">Account</div>
-        <div className="card"><div className="settings-row"><span className="settings-row-name">lamound2407@gmail.com</span></div><div className="settings-row" style={{ color: "#E68080", cursor: "pointer" }}><span className="settings-row-name" style={{ color: "#E68080" }}>Sign Out</span></div></div>
+        <div className="card"><div className="settings-row"><span className="settings-row-name">lamound2407@gmail.com</span></div><div className="settings-row"><span className="settings-row-name" style={{ color: "var(--text3)" }}>Sign out will be enabled when Firebase Auth is wired to this screen.</span></div></div>
       </div>
     </>
   );
 }
 
-function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea }) {
+function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, tasks, goals, journalEntries, setJournalEntries, onOpenJournal, onOpenCalendar }) {
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [screen, setScreen] = useState("dashboard"); // dashboard | notifications | settings
+  const [screen, setScreen] = useState("dashboard");
+  const [selectedHeatDate, setSelectedHeatDate] = useState(REFERENCE_DATE_KEY);
 
   if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} />;
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} />;
+  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} />;
+
+  const doneCount = tasks.filter((t) => t.done).length;
+  const completionRate = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const openCount = tasks.filter((t) => !t.done).length;
+  const streak = journalStreak(journalEntries);
+  const overdueCount = tasks.filter((t) => !t.done && taskDateKey(t) < REFERENCE_DATE_KEY).length;
+  const unassignedCount = tasks.filter((t) => !t.area).length;
+  const stalledGoals = goals.filter((g) => !g.progress).length;
+
+  const weekKeys = buildWeekKeys(REFERENCE_DATE_KEY);
+  const weekBars = weekKeys.map((key) => ({ d: dateFromKey(key).toLocaleDateString("en-US", { weekday: "narrow" }), done: tasks.filter((t) => t.done && taskDateKey(t) === key).length }));
+  const areaSplit = Object.entries(areas).map(([id, area]) => ({ name: area.name, value: tasks.filter((t) => t.area === id).length, color: area.color })).filter((a) => a.value > 0);
+  const heatKeys = lastNDateKeys(30);
+  const entriesFor = (key) => journalEntries.filter((e) => (e.dateKey || e.date) === key);
+  const selectedEntries = entriesFor(selectedHeatDate);
+
+  const toggleHeatDate = (key) => {
+    setSelectedHeatDate(key);
+    const entries = entriesFor(key);
+    const written = entries.some((e) => (e.note || "").trim() || (e.ref || "").trim());
+    if (written) return;
+    if (entries.length) setJournalEntries((prev) => prev.filter((e) => (e.dateKey || e.date) !== key));
+    else setJournalEntries((prev) => [{ id: Date.now(), dateKey: key, date: formatDateLabel(key), ref: "", note: "", tag: "yellow" }, ...prev]);
+  };
 
   return (
     <>
-      <Header eyebrow="Last 7 days" title="Insights" />
+      <Header eyebrow="Live from your Abide data" title="Insights" />
       <div className="scroll">
         <div className="stat-grid">
-          <div className="stat-card"><div className="stat-num">84%</div><div className="stat-label">Task completion rate</div></div>
-          <div className="stat-card"><div className="stat-num" style={{ display: "flex", alignItems: "center", gap: 5 }}>12<Flame size={16} color="#E8B45C" /></div><div className="stat-label">Journal streak (days)</div></div>
-          <div className="stat-card"><div className="stat-num" style={{ color: "#7CBE86", display: "flex", alignItems: "center", gap: 4 }}><TrendingUp size={16} />+18%</div><div className="stat-label">Vs. last week</div></div>
-          <div className="stat-card"><div className="stat-num">5<span style={{ fontSize: 14, color: "var(--text2)" }}>/12</span></div><div className="stat-label">Books read in 2026</div></div>
+          <div className="stat-card"><div className="stat-num">{completionRate}%</div><div className="stat-label">Task completion rate</div></div>
+          <div className="stat-card"><div className="stat-num" style={{ display: "flex", alignItems: "center", gap: 5 }}>{streak}<Flame size={16} color="#E8B45C" /></div><div className="stat-label">Journal streak (days)</div></div>
+          <div className="stat-card"><div className="stat-num">{openCount}</div><div className="stat-label">Open tasks</div></div>
+          <div className="stat-card"><div className="stat-num">{goals.length}</div><div className="stat-label">Active goals</div></div>
         </div>
 
-        <div className="section-label" onClick={() => setReviewOpen(!reviewOpen)} style={{ cursor: "pointer" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}><RefreshCw size={12} />Weekly Review (GTD)</span>{reviewOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </div>
-        {reviewOpen && (
-          <div className="card">
-            <div className="review-item"><span>Overdue items to reschedule</span><span className="review-count">1</span></div>
-            <div className="review-item"><span>Untagged captures to clarify</span><span className="review-count">3</span></div>
-            <div className="review-item"><span>Someday / Maybe to revisit</span><span className="review-count">{somedayTasks.length}</span></div>
-            <div className="review-item"><span>Goals with no movement this week</span><span className="review-count">0</span></div>
-          </div>
-        )}
+        <div className="section-label" onClick={() => setReviewOpen(!reviewOpen)} style={{ cursor: "pointer" }}><span style={{ display: "flex", alignItems: "center", gap: 6 }}><RefreshCw size={12} />Weekly Review (GTD)</span>{reviewOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
+        {reviewOpen && <div className="card"><div className="review-item"><span>Overdue items to reschedule</span><span className="review-count">{overdueCount}</span></div><div className="review-item"><span>Tasks with no Area</span><span className="review-count">{unassignedCount}</span></div><div className="review-item"><span>Someday / Maybe to revisit</span><span className="review-count">{tasks.filter((t) => t.status === "someday").length}</span></div><div className="review-item"><span>Goals with no progress yet</span><span className="review-count">{stalledGoals}</span></div></div>}
 
-        <div className="section-label">Tasks Completed — This Week</div>
+        <div className="section-label">Completed Tasks by Due Date — This Week</div>
         <div className="card" style={{ padding: "14px 6px" }}>
-          <ResponsiveContainer width="100%" height={130}>
-            <BarChart data={weekBars}><XAxis dataKey="d" tick={{ fill: "#8E97A8", fontSize: 11 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: theme === "dark" ? "#1C2333" : "#fff", border: "none", borderRadius: 8, fontSize: 12 }} /><Bar dataKey="done" fill="#E8B45C" radius={[5, 5, 0, 0]} /></BarChart>
-          </ResponsiveContainer>
+          {tasks.length ? <ResponsiveContainer width="100%" height={130}><BarChart data={weekBars}><XAxis dataKey="d" tick={{ fill: "#8E97A8", fontSize: 11 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: theme === "dark" ? "#1C2333" : "#fff", border: "none", borderRadius: 8, fontSize: 12 }} /><Bar dataKey="done" fill="#E8B45C" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer> : <div className="insight-line">Add and complete tasks to populate this chart.</div>}
         </div>
+        <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>Source: your Abide task list. Until completion timestamps are stored in Firestore, this groups completed tasks by their due date.</div>
 
-        <div className="section-label">Where Your Time Goes</div>
-        <div className="card" style={{ padding: 14, display: "flex", alignItems: "center", gap: 10 }}>
-          <ResponsiveContainer width={120} height={120}><PieChart><Pie data={areaSplit} dataKey="value" innerRadius={32} outerRadius={55} paddingAngle={3}>{areaSplit.map((a, i) => <Cell key={i} fill={a.color} stroke="none" />)}</Pie></PieChart></ResponsiveContainer>
-          <div style={{ flex: 1 }}>{areaSplit.map((a, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--body)", marginBottom: 6 }}><span style={{ width: 8, height: 8, borderRadius: 4, background: a.color }} />{a.name}</div>)}</div>
+        <div className="section-label">Tasks by Area</div>
+        <div className="card" style={{ padding: 14 }}>
+          {areaSplit.length ? <div style={{ display: "flex", alignItems: "center", gap: 10 }}><ResponsiveContainer width={120} height={120}><PieChart><Pie data={areaSplit} dataKey="value" innerRadius={32} outerRadius={55} paddingAngle={3}>{areaSplit.map((a, i) => <Cell key={i} fill={a.color} stroke="none" />)}</Pie></PieChart></ResponsiveContainer><div style={{ flex: 1 }}>{areaSplit.map((a, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--body)", marginBottom: 6 }}><span style={{ width: 8, height: 8, borderRadius: 4, background: a.color }} />{a.name} · {a.value}</div>)}</div></div> : <div className="insight-line">No task data yet.</div>}
         </div>
 
         <div className="section-label">Time with the Lord — 30 Days</div>
-        <div className="card" style={{ padding: 14 }}><div className="heat-row">{Array.from({ length: 30 }).map((_, i) => <div key={i} className="heat-cell" style={{ background: Math.random() > 0.2 ? `rgba(232,180,92,${0.25 + Math.random() * 0.65})` : "var(--emptyHeat)" }} />)}</div></div>
+        <div className="card" style={{ padding: 14 }}>
+          <div className="heat-row">{heatKeys.map((key) => { const active = entriesFor(key).length > 0; return <div key={key} className="heat-cell" title={`${formatDateLabel(key)} · ${active ? "journal activity" : "no entry"}`} onClick={() => toggleHeatDate(key)} style={{ cursor: "pointer", background: active ? "rgba(232,180,92,0.82)" : "var(--emptyHeat)", outline: selectedHeatDate === key ? "2px solid #E8B45C" : "none", outlineOffset: 1 }} />; })}</div>
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 10 }}>Source: Time with the Lord journal entries. Tap an empty day to add a simple check-in; tap a simple check-in again to remove it. Written journal entries are protected from being deleted here.</div>
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><span style={{ fontSize: 12.5, color: "var(--body)" }}>{formatDateLabel(selectedHeatDate)} · {selectedEntries.length ? `${selectedEntries.length} journal item${selectedEntries.length === 1 ? "" : "s"}` : "No journal activity"}</span>{selectedEntries.some((e) => (e.note || "").trim() || (e.ref || "").trim()) && <div className="filter-chip" onClick={onOpenJournal}>Edit in Journal</div>}</div>
+        </div>
 
         <div className="section-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} />Pattern Noticed</div>
-        <div className="card insight-line" style={{ marginBottom: 14 }}>You complete roughly 2.3× more tasks before 11 AM than after 4 PM, and Margin writing tasks are most often skipped on days with 3+ Chi Alpha items due. Consider protecting your Tue/Thu evening blocks more tightly during launch weeks.</div>
+        <div className="card insight-line" style={{ marginBottom: 14 }}>{tasks.length >= 10 ? "As you build real task history, Abide will use completion timestamps to surface patterns here." : "No pattern generated yet. This section will stay empty until there is enough real task history to support a useful observation."}</div>
 
         <div className="section-label">Your Tools</div>
-        <div className="card">
-          <LinkCard icon={Dumbbell} tint="#7C93C9" name="Iron Log" desc="Firebase-synced workout tracker, with Beth" placeholder="Paste your Iron Log URL" />
-          <LinkCard icon={Salad} tint="#8FA88A" name="Trophé" desc="Nutrition & meal-planning app" placeholder="Paste your Trophé URL" />
-        </div>
+        <div className="card"><LinkCard icon={Dumbbell} tint="#7C93C9" name="Iron Log" desc="Workout tracker" placeholder="Paste your Iron Log URL" initialUrl={IRON_LOG_URL} storageKey="abide-iron-log-url" /><LinkCard icon={Salad} tint="#8FA88A" name="Trophé" desc="Nutrition & meal-planning app" placeholder="Paste your Trophé URL" initialUrl={TROPHE_URL} storageKey="abide-trophe-url" /></div>
 
         <div className="section-label">More</div>
-        <div className="card">
-          <div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div>
-          <div className="nav-row" onClick={() => setScreen("settings")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#8FA88A22" }}><SettingsIcon size={16} color="#8FA88A" /></div>Settings</div><ChevronRight size={16} color="var(--text3)" /></div>
-        </div>
+        <div className="card"><div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div><div className="nav-row" onClick={() => setScreen("settings")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#8FA88A22" }}><SettingsIcon size={16} color="#8FA88A" /></div>Settings</div><ChevronRight size={16} color="var(--text3)" /></div></div>
       </div>
     </>
   );
@@ -1687,23 +1570,20 @@ function getViewport(w) {
 
 export default function App() {
   const [tab, setTab] = useState("today");
-  const [tasks, setTasks] = useState(seedTasks);
-  const [goals, setGoals] = useState(seedGoals);
-  const [areas, setAreas] = useState(AREAS);
+  const [tasks, setTasks] = usePersistentState("abide-tasks", seedTasks);
+  const [goals, setGoals] = usePersistentState("abide-goals", seedGoals);
+  const [areas, setAreas] = usePersistentState("abide-areas", AREAS);
+  const [journalEntries, setJournalEntries] = usePersistentState("abide-journal", seedJournal);
   const [expandedId, setExpandedId] = useState(null);
-  const [theme, setTheme] = useState("dark");
-  const [protectedBlocks, setProtectedBlocks] = useState([
-    { id: 1, day: "Tue", start: "6:00 PM", end: "7:00 PM", label: "Time with the Lord" },
-    { id: 2, day: "Thu", start: "6:00 PM", end: "7:00 PM", label: "Time with the Lord" },
-    { id: 3, day: "Fri", start: "6:00 PM", end: "7:00 PM", label: "Time with the Lord" },
-  ]);
+  const [theme, setTheme] = usePersistentState("abide-theme", "dark");
+  const [protectedBlocks, setProtectedBlocks] = usePersistentState("abide-protected-blocks", []);
+  const [quickAddSignal, setQuickAddSignal] = useState(0);
   const [viewport, setViewport] = useState(() => (typeof window !== "undefined" ? getViewport(window.innerWidth) : "phone"));
-  const tk = THEME[theme];
+  const tk = THEME[theme] || THEME.dark;
 
   useEffect(() => {
     const onResize = () => setViewport(getViewport(window.innerWidth));
-    onResize();
-    window.addEventListener("resize", onResize);
+    onResize(); window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
@@ -1712,22 +1592,16 @@ export default function App() {
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
   const createTask = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
   const deleteArea = (id) => {
-    setAreas((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setAreas((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setTasks((prev) => prev.map((t) => t.area === id ? { ...t, area: null } : t));
     setGoals((prev) => prev.map((g) => g.area === id ? { ...g, area: null } : g));
   };
+  const openGlobalAdd = () => { setTab("calendar"); setQuickAddSignal((n) => n + 1); };
 
   const tabs = [
-    { id: "today", label: "Today", icon: ListTodo },
-    { id: "calendar", label: "Calendar", icon: CalendarDays },
-    { id: "goals", label: "Goals", icon: Target },
-    { id: "journal", label: "Journal", icon: BookOpen },
-    { id: "scratch", label: "Scratch", icon: PenTool },
-    { id: "insights", label: "Insights", icon: BarChart3 },
+    { id: "today", label: "Today", icon: ListTodo }, { id: "calendar", label: "Calendar", icon: CalendarDays },
+    { id: "goals", label: "Goals", icon: Target }, { id: "journal", label: "Journal", icon: BookOpen },
+    { id: "scratch", label: "Scratch", icon: PenTool }, { id: "insights", label: "Insights", icon: BarChart3 },
   ];
 
   const vars = {
@@ -1740,44 +1614,27 @@ export default function App() {
 
   const activeTab = (
     <>
-      {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
-      {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} />}
+      {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} />}
+      {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} openAddSignal={quickAddSignal} />}
       {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} areas={areas} />}
-      {tab === "journal" && <JournalTab />}
+      {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}
-      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} />}
+      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} />}
     </>
   );
 
   return (
-    <div className={`viewport-${viewport}`} style={{
-      display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch",
-      padding: viewport === "phone" ? "20px 0" : "0", background: tk.pageBg, height: "100vh", width: "100%", ...vars,
-    }}>
+    <div className={`viewport-${viewport}`} style={{ display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch", padding: viewport === "phone" ? "20px 0" : "0", background: tk.pageBg, height: "100vh", width: "100%", ...vars }}>
       <style>{styles}</style>
-
       {viewport === "phone" ? (
         <div className="app">
-          <div className="statusbar">
-            <span className="brand">{APP_NAME.toUpperCase()}</span>
-            <div className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div>
-          </div>
+          <div className="statusbar"><span className="brand">{APP_NAME.toUpperCase()}</span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>
           {activeTab}
-          <button className="fab"><Plus size={24} strokeWidth={2.5} /></button>
-          <div className="tabbar">
-            {tabs.map((t) => { const Icon = t.icon; const active = tab === t.id; return (
-              <div key={t.id} className={`tab ${active ? "active" : ""}`} onClick={() => setTab(t.id)}><Icon size={20} strokeWidth={active ? 2.3 : 1.8} /><span>{t.label}</span></div>
-            ); })}
-          </div>
+          <button className="fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button>
+          <div className="tabbar">{tabs.map((t) => { const Icon = t.icon; const active = tab === t.id; return <div key={t.id} className={`tab ${active ? "active" : ""}`} style={{ cursor: "pointer" }} onClick={() => setTab(t.id)}><Icon size={20} strokeWidth={active ? 2.3 : 1.8} /><span>{t.label}</span></div>; })}</div>
         </div>
       ) : (
-        <div className="shell">
-          <Sidebar tabs={tabs} tab={tab} setTab={setTab} viewport={viewport} theme={theme} setTheme={setTheme} />
-          <div className="shell-main">
-            {activeTab}
-            <button className="fab shell-fab"><Plus size={24} strokeWidth={2.5} /></button>
-          </div>
-        </div>
+        <div className="shell"><Sidebar tabs={tabs} tab={tab} setTab={setTab} viewport={viewport} theme={theme} setTheme={setTheme} /><div className="shell-main">{activeTab}<button className="fab shell-fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button></div></div>
       )}
     </div>
   );

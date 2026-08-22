@@ -94,12 +94,12 @@ const styles = `
   .field-value { color: var(--text); font-weight: 500; display:flex; align-items:center; gap:5px; }
   .notes-box { width: 100%; background: var(--inputBg); border: 1px solid var(--inputBorder); border-radius: 10px; padding: 10px; color: var(--text); font-size: 13.5px; margin-top: 8px; font-family: inherit; resize: none; }
 
-  .tabbar { position: absolute; bottom: 0; left: 0; right: 0; height: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--tabbarBg); backdrop-filter: blur(20px); border-top: 1px solid var(--divider); display: flex; align-items: flex-start; padding: 10px 0 env(safe-area-inset-bottom, 0px); }
+  .tabbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 80; width: 100%; max-width: 430px; margin: 0 auto; height: calc(64px + env(safe-area-inset-bottom, 0px)); padding: 10px 0 env(safe-area-inset-bottom, 0px); background: var(--tabbarBg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--divider); display: flex; align-items: flex-start; }
   .tab { cursor:pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text3); }
   .tab.active { color: #E8B45C; }
   .tab span { font-size: 9.5px; font-weight: 600; }
 
-  .fab { cursor:pointer; position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(155deg, #E8B45C, #D69A3A); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(232,180,92,0.35); border: none; color: #14100A; }
+  .fab { cursor:pointer; position: absolute; right: 20px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(155deg, #E8B45C, #D69A3A); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(232,180,92,0.35); border: none; color: #14100A; }
 
   .segmented { display: flex; background: var(--pillBg); border-radius: 10px; padding: 3px; margin: 12px 0; }
   .seg-btn { flex: 1; text-align: center; padding: 7px 0; font-size: 12.5px; font-weight: 600; color: var(--text2); border-radius: 8px; cursor:pointer; }

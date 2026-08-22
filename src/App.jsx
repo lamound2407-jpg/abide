@@ -842,23 +842,8 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
-  const openEditor = (t) => {
-    setAdding(false);
-    setEditingTask(t);
-  };
-
-  const renderTask = (t) => (
-    <TaskRow
-      key={t.id}
-      task={t}
-      goals={goals}
-      areas={areas}
-      expanded={expandedId === t.id}
-      onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
-      onToggleDone={toggleDone}
-      onEdit={openEditor}
-    />
-  );
+  const openEditor = (t) => { setAdding(false); setEditingTask(t); };
+  const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={openEditor} />;
   const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
@@ -882,7 +867,7 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         {overdue.length > 0 && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}</div></>)}
 
         <div className="section-label">Today</div>
-        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}</div>
+        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">No tasks due today. Tap "Add a task" above to create one.</div>}</div>
 
         <div className="section-label"><span>Coming Up</span></div>
         <div className="segmented" style={{ margin: "0 0 10px 0" }}>
@@ -948,6 +933,7 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [notes, setNotes] = useState("");
   const [subtasks, setSubtasks] = useState([]);
   const [subtaskDraft, setSubtaskDraft] = useState("");
+
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
@@ -1782,7 +1768,7 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
           ))}
           {Object.keys(areas).length === 0 && <div className="insight-line">No areas yet. Add one with the + button.</div>}
         </div>
-        <div className="insight-line" style={{ padding: "8px 4px" }}>Rename or recolor an Area with the pencil. Deleting it keeps existing tasks and goals but makes them “No Area.”</div>
+        <div className="insight-line" style={{ padding: "8px 4px" }}>Rename or recolor an Area with the pencil. Deleting it keeps existing tasks and goals but makes them "No Area."</div>
 
         <div className="section-label"><span>Protected Time Blocks</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setBlockComposer(blockComposer === "add" ? null : "add")} /></div>
         {blockComposer === "add" && <ProtectedBlockComposer onSave={saveBlock} onCancel={() => setBlockComposer(null)} />}
@@ -1902,6 +1888,22 @@ export default function App() {
     onResize(); window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // The Edit Task modal renders via a React portal straight onto <body>, outside
+  // this component's own div. CSS custom properties set only via inline style on
+  // that div don't reach the portal, so the theme vars are also applied to the
+  // <html> element here — every element on the page, portaled or not, inherits from it.
+  useEffect(() => {
+    const tokens = THEME[theme] || THEME.dark;
+    const rootVars = {
+      "--pageBg": tokens.pageBg, "--appBg": tokens.appBg, "--shadow": tokens.shadow, "--card": tokens.card, "--cardBorder": tokens.cardBorder,
+      "--text": tokens.text, "--text2": tokens.text2, "--text3": tokens.text3, "--body": tokens.body, "--body2": tokens.body2,
+      "--pillBg": tokens.pillBg, "--pillBorder": tokens.pillBorder, "--inputBg": tokens.inputBg, "--inputBorder": tokens.inputBorder,
+      "--track": tokens.track, "--divider": tokens.divider, "--subtleBg": tokens.subtleBg, "--tabbarBg": tokens.tabbarBg,
+      "--segActive": tokens.segActive, "--protectedText": tokens.protectedText, "--emptyHeat": tokens.emptyHeat,
+    };
+    Object.entries(rootVars).forEach(([key, value]) => document.documentElement.style.setProperty(key, value));
+  }, [theme]);
 
   useEffect(() => {
     const migrationKey = "abide-user-task-migration-2026-08-21-v1";

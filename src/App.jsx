@@ -42,11 +42,11 @@ const APP_NAME = "Abide";
 
 const styles = `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  .app { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; background: var(--appBg); color: var(--text); width: 100%; max-width: 430px; margin: 0 auto; height: 850px; max-height: 92vh; border-radius: 40px; overflow: hidden; position: relative; box-shadow: var(--shadow); display: flex; flex-direction: column; }
-  .statusbar { height: 30px; flex-shrink:0; position:relative; display:flex; align-items:center; justify-content:space-between; padding: 0 18px; }
+  .app { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; background: var(--appBg); color: var(--text); width: 100%; max-width: 430px; margin: 0 auto; height: 100%; min-height: 0; border-radius: 40px; overflow: hidden; position: relative; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .statusbar { height: calc(30px + env(safe-area-inset-top, 0px)); flex-shrink:0; position:relative; display:flex; align-items:flex-end; justify-content:space-between; padding: env(safe-area-inset-top, 0px) 18px 0; }
   .brand { font-size: 12px; font-weight: 700; color: var(--text3); letter-spacing: 0.5px; }
   .theme-toggle { width:28px; height:28px; border-radius:50%; background: var(--pillBg); display:flex; align-items:center; justify-content:center; }
-  .scroll { flex: 1; overflow-y: auto; padding: 0 18px 110px 18px; }
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 18px calc(102px + env(safe-area-inset-bottom, 0px)) 18px; }
   .scroll::-webkit-scrollbar { display: none; }
 
   .header { padding: 8px 18px 6px 18px; flex-shrink: 0; display:flex; align-items:flex-start; justify-content:space-between; }
@@ -94,12 +94,12 @@ const styles = `
   .field-value { color: var(--text); font-weight: 500; display:flex; align-items:center; gap:5px; }
   .notes-box { width: 100%; background: var(--inputBg); border: 1px solid var(--inputBorder); border-radius: 10px; padding: 10px; color: var(--text); font-size: 13.5px; margin-top: 8px; font-family: inherit; resize: none; }
 
-  .tabbar { position: absolute; bottom: 0; left: 0; right: 0; height: 88px; background: var(--tabbarBg); backdrop-filter: blur(20px); border-top: 1px solid var(--divider); display: flex; align-items: flex-start; padding-top: 10px; }
+  .tabbar { position: absolute; bottom: 0; left: 0; right: 0; height: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--tabbarBg); backdrop-filter: blur(20px); border-top: 1px solid var(--divider); display: flex; align-items: flex-start; padding: 10px 0 env(safe-area-inset-bottom, 0px); }
   .tab { cursor:pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text3); }
   .tab.active { color: #E8B45C; }
   .tab span { font-size: 9.5px; font-weight: 600; }
 
-  .fab { cursor:pointer; position: absolute; right: 20px; bottom: 100px; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(155deg, #E8B45C, #D69A3A); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(232,180,92,0.35); border: none; color: #14100A; }
+  .fab { cursor:pointer; position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(155deg, #E8B45C, #D69A3A); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(232,180,92,0.35); border: none; color: #14100A; }
 
   .segmented { display: flex; background: var(--pillBg); border-radius: 10px; padding: 3px; margin: 12px 0; }
   .seg-btn { flex: 1; text-align: center; padding: 7px 0; font-size: 12.5px; font-weight: 600; color: var(--text2); border-radius: 8px; cursor:pointer; }
@@ -203,8 +203,8 @@ const styles = `
   .nav-icon { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
 
   /* ---------------- iPad / Laptop shell (sidebar layout, no phone bezel) ---------------- */
-  .shell { display:flex; width:100%; height:100%; background: var(--appBg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; overflow:hidden; }
-  .sidebar { display:flex; flex-direction:column; background: var(--card); border-right:1px solid var(--cardBorder); flex-shrink:0; height:100%; overflow-y:auto; }
+  .shell { display:flex; width:100%; height:100%; min-height:0; background: var(--appBg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; overflow:hidden; }
+  .sidebar { display:flex; flex-direction:column; background: var(--card); border-right:1px solid var(--cardBorder); flex-shrink:0; height:100%; min-height:0; overflow-y:auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
   .sidebar-compact { width:88px; align-items:center; padding:20px 0 14px 0; }
   .sidebar-wide { width:238px; padding:24px 14px 16px 14px; }
   .sidebar-brand { font-weight:800; color: var(--text); margin-bottom:26px; }
@@ -218,14 +218,18 @@ const styles = `
   .sidebar-compact .sidebar-item span { font-size:9.5px; }
   .sidebar-footer { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; cursor:pointer; color: var(--text2); font-size:13px; font-weight:600; margin-top:10px; border-top: 1px solid var(--divider); padding-top:16px; }
   .sidebar-compact .sidebar-footer { flex-direction:column; padding:14px 4px 0 4px; }
-  .shell-main { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
-  .shell-fab { position:absolute; right:32px; bottom:32px; }
+  .shell-main { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .shell-fab { position:absolute; right:32px; bottom:calc(32px + env(safe-area-inset-bottom, 0px)); }
 
   .viewport-tablet .header, .viewport-desktop .header { padding-left:32px; padding-right:32px; padding-top:20px; }
-  .viewport-tablet .scroll, .viewport-desktop .scroll { padding-left:32px; padding-right:32px; padding-bottom:50px; }
+  .viewport-tablet .scroll, .viewport-desktop .scroll { padding-left:32px; padding-right:32px; padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px)); }
   .viewport-desktop .header, .viewport-desktop .scroll { max-width:960px; margin:0 auto; width:100%; box-sizing:border-box; }
   .viewport-tablet .largetitle { font-size:33px; }
   .viewport-desktop .largetitle { font-size:36px; }
+  .viewport-phone { min-height: 100dvh; overflow: hidden; background: var(--appBg) !important; }
+  .viewport-phone .app { max-width: none; height: 100%; border-radius: 0; box-shadow: none; }
+  @supports not (height: 100dvh) { .viewport-phone { min-height: -webkit-fill-available; } }
+
   .viewport-tablet .stat-grid, .viewport-desktop .stat-grid { grid-template-columns: repeat(4, 1fr); }
   .viewport-tablet .scratch-grid, .viewport-desktop .scratch-grid { grid-template-columns: repeat(3, 1fr); }
   .viewport-desktop .goal-grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:start; }
@@ -1934,7 +1938,7 @@ export default function App() {
   );
 
   return (
-    <div className={`viewport-${viewport}`} style={{ display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch", padding: viewport === "phone" ? "20px 0" : "0", background: tk.pageBg, height: "100vh", width: "100%", ...vars }}>
+    <div className={`viewport-${viewport}`} style={{ display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch", padding: 0, background: viewport === "phone" ? tk.appBg : tk.pageBg, height: "100dvh", minHeight: "-webkit-fill-available", width: "100%", overflow: "hidden", ...vars }}>
       <style>{styles}</style>
       {viewport === "phone" ? (
         <div className="app">

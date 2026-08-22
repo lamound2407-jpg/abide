@@ -68,7 +68,7 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
-  .modal-backdrop { position:fixed; inset:0; z-index:10000; background:rgba(2,5,10,0.82); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); overflow:auto; -webkit-overflow-scrolling:touch; }
+  .modal-backdrop { position:fixed; inset:0; z-index:99999; background:rgba(5,7,12,0.96); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); overflow:auto; -webkit-overflow-scrolling:touch; }
   .task-editor-modal { width:min(100%, 620px); max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y:auto !important; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
   @media (max-width: 520px) {
     .modal-backdrop { display:block; padding:0; background:var(--appBg); backdrop-filter:none; -webkit-backdrop-filter:none; }
@@ -842,14 +842,14 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
-  const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={setEditingTask} />;
+  const openEditor = (t) => { setAdding(false); setEditingTask(t); };\n  const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={openEditor} />;
   const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
     <>
       <Header eyebrow={todayLabel} title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
       <div className="scroll">
-        <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => setAdding(!adding)}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
+        <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => { setEditingTask(null); setAdding(!adding); }}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
         {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} onCreateArea={onCreateArea} />}
 
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveTask} onCancel={() => setEditingTask(null)} onDelete={deleteTask} onCreateArea={onCreateArea} />}
@@ -932,24 +932,6 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [notes, setNotes] = useState("");
   const [subtasks, setSubtasks] = useState([]);
   const [subtaskDraft, setSubtaskDraft] = useState("");
-  useEffect(() => {
-    const bodyOverflow = document.body.style.overflow;
-    const htmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-
-    const frame = requestAnimationFrame(() => {
-      if (modalRef.current) modalRef.current.scrollTop = 0;
-      window.scrollTo(0, 0);
-    });
-
-    return () => {
-      cancelAnimationFrame(frame);
-      document.body.style.overflow = bodyOverflow;
-      document.documentElement.style.overflow = htmlOverflow;
-    };
-  }, []);
-
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
@@ -1133,7 +1115,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         </div>
       )}
       <div className="section-label">Tasks</div>
-      <div className="card">{dayTasks.length ? dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => setEditingTask(t)} onToggleDone={toggleDone} onEdit={setEditingTask} />) : <div className="insight-line">No tasks due this day.</div>}</div>
+      <div className="card">{dayTasks.length ? dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => { setAdding(false); setEditingTask(t); }} onToggleDone={toggleDone} onEdit={(task) => { setAdding(false); setEditingTask(task); }} />) : <div className="insight-line">No tasks due this day.</div>}</div>
       <div className="section-label">Events</div>
       <div className="card">{dayEvents.length ? dayEvents.map((e) => {
         const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
@@ -1149,7 +1131,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
   return (
     <>
-      <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => setAdding(!adding) }]} />
+      <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => { setEditingTask(null); setAdding(!adding); } }]} />
       <div className="scroll">
         <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
         {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} connected={googleConnected} configured={googleConfigured} onConnect={connectGoogle} onRefresh={() => fetchGoogleData()} error={googleError} />}

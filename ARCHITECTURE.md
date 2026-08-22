@@ -69,7 +69,8 @@ tasks/{taskId}
   title, notes, areaId, goalId (nullable),
   dueDate, dueTime (nullable), priority: low|med|high,
   status: inbox|next|scheduled|done|someday,
-  recurrence: { freq: daily|weekly|custom, days: [], endDate },
+  subtasks: [{ id, label, done }],
+  recurrence: { freq: daily|weekly|monthly|yearly, interval: number, days: [], endDate },
   parentRecurringId (nullable — links generated instances back to their rule),
   createdAt, completedAt, reminders: [{ offsetMinutes }]
 
@@ -81,7 +82,7 @@ milestones/{milestoneId}
   goalId, label, dueDate, done, order
 
 journalEntries/{entryId}          // "Time with the Lord"
-  date, scriptureRef, note, tag: yellow|green|pink|blue|orange,
+  date, scriptureRef, note, richTextHtml, tag: yellow|green|pink|blue|orange,
   linkedTaskId (nullable — e.g. link a Margin devotional task to the entry that inspired it)
 
 habits/{habitId}                  // reading, Bible, writing, gym streaks
@@ -96,7 +97,7 @@ reviews/{reviewId}                // GTD weekly review record
   weekOf, tasksReviewed, notes, completedAt
 ```
 
-**Recurrence engine:** a Cloud Function runs nightly, looks at `recurrence` rules, and materializes the next `task` instance a few days ahead — so "recurring" is just regular tasks under the hood, and your history of completions is a real, queryable log (this is what powers the streaks and the bar charts in Insights, and it's the same pattern your Iron Log already uses for workouts).
+**Recurrence engine:** recurrence rules support an interval plus an optional weekday, so rules can express patterns like every third Sunday, every seventh Wednesday, or every third year. A Cloud Function runs nightly, looks at `recurrence` rules, and materializes the next `task` instance a few days ahead — so "recurring" is just regular tasks under the hood, and your history of completions is a real, queryable log (this is what powers the streaks and the bar charts in Insights, and it's the same pattern your Iron Log already uses for workouts).
 
 **Calendar sync — multiple calendars, one Google account:** all five of your addresses (`lamound2407@gmail.com` as the primary authenticating account, plus `tylerandelizabethharris@gmail.com`, `tyler@chialpha.com`, `tylerlamoundministry@gmail.com`, `themarginpublication@gmail.com`) are calendars *within or shared to* that one Google account — so this is one OAuth grant against `lamound2407@gmail.com`, then a `calendarList.list()` call to enumerate every calendar visible to that account (which is also how the "show other calendars on this account" toggle works — anything shared to you, like Beth's calendar, or subscribed calendars like US Holidays, shows up in that same list without a separate connection). Each calendar gets its own on/off toggle and inherits your Area color where one matches.
 
@@ -104,7 +105,7 @@ reviews/{reviewId}                // GTD weekly review record
 - **Push:** any task with a `dueTime` optionally creates a linked Google Calendar event on a calendar *you choose* (`googleEventId` + `targetCalendarId` stored back on the task) — toggleable per-task, since not every task deserves a calendar block.
 - **Protected/unhurried blocks are soft, not hard:** stored as `calendarEvents` with `protected: true`. The UI warns before letting something get scheduled on top of one — "Schedule Anyway" is always available — because the point (per your correction) isn't an unbreakable rule, it's making sure *time with the Lord* doesn't quietly get anxious or crowded by work, not adding a new source of friction itself.
 
-**Scratchbook:** `scratchPages/{pageId}` — `{ type: "draw" | "type", content, uid, createdAt }`. Drawings save as PNG (canvas `toDataURL()` client-side → uploaded to **Firebase Storage**, with the Firestore doc just holding the storage URL — don't store base64 PNGs directly in Firestore, it blows past the 1MB document limit fast). On iPad this is standard HTML5 Pointer Events (`pointerdown/move/up`), which already report Apple Pencil `pressure` and `tiltX/tiltY` natively in Safari — no extra SDK needed, which is what the prototype's canvas is already wired for.
+**Scratchbook:** `scratchPages/{pageId}` — `{ type: "draw" | "type", content, contentHtml (typed pages), uid, createdAt }`. Typed pages support rich text (bold, italic, underline, font selection, and highlight colors). Drawings save as PNG (canvas `toDataURL()` client-side → uploaded to **Firebase Storage**, with the Firestore doc just holding the storage URL — don't store base64 PNGs directly in Firestore, it blows past the 1MB document limit fast). On iPad this is standard HTML5 Pointer Events (`pointerdown/move/up`), which already report Apple Pencil `pressure` and `tiltX/tiltY` natively in Safari — no extra SDK needed, which is what the prototype's canvas is already wired for.
 
 **Filtering:** area + priority filters are pure client-side state against whatever the current Firestore query already returned — no new backend needed. **Saved custom filters** (name + areas[] + priorities[]) persist to `users/{uid}/savedFilters/{id}` so "Margin only" or whatever combination you build shows up as a one-tap chip next time, on every device.
 
@@ -114,7 +115,7 @@ reviews/{reviewId}                // GTD weekly review record
 
 **Protected time — soft, not hard:** the `protected: true` flag on `calendarEvents` is a *default warning*, not a lock. Every new task or event carries a `bypassProtected: boolean` (surfaced as a toggle right in the capture flow) — on, it schedules without asking; off (the default), the app just checks before letting something land in that window. The blocks themselves (`day`, `start`, `end`, `label`) are user-editable data, not hardcoded — add, edit, or delete them from **Settings**.
 
-**Notification Center vs. Settings:** these are siblings, both reachable from the bottom of the Insights tab, not nested inside each other. Notification Center is about *what already happened / what's about to* (a feed + per-category on/off toggles: task reminders, calendar alerts, weekly review nudge, journal streak, goal milestones). Settings is about *configuration* (appearance, protected time blocks, calendar management shortcut, account). In Firestore: `users/{uid}.notificationPrefs: {...}` and the `protectedBlocks` collection already described above.
+**Reminders / Notification Center vs. Settings:** Reminders is a first-class navigation tab and the Notification Center can also be reached from Insights. It is about *what already happened / what's about to* (a feed + per-category on/off toggles: task reminders, calendar alerts, weekly review nudge, journal streak, goal milestones). Settings is about *configuration* (appearance, protected time blocks, calendar management shortcut, account). In Firestore: `users/{uid}.notificationPrefs: {...}` and the `protectedBlocks` collection already described above.
 
 **Reminders/alerts:** each task's `reminders: [{ offsetMinutes }]` array (already in the model above) drives **Firebase Cloud Messaging** push notifications — a Cloud Function runs on a schedule, finds tasks whose reminder time has arrived, and pushes a notification to whichever devices you're logged into (phone, iPad, laptop via web push). No separate reminders system to maintain — it's the same task data, just watched.
 

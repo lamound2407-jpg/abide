@@ -135,6 +135,15 @@ const styles = `
   .verse-badge { font-size: 12px; font-weight: 700; color: #14100A; padding: 3px 9px; border-radius: 7px; display:inline-block; }
   .entry-actions { display:flex; gap:10px; }
   .entry-actions svg, .cap-icons svg { cursor:pointer; }
+  .rich-toolbar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:8px; background:var(--pillBg); border:1px solid var(--pillBorder); border-radius:10px 10px 0 0; }
+  .rich-btn { min-width:30px; height:30px; padding:0 8px; border-radius:7px; border:1px solid var(--pillBorder); background:var(--inputBg); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; cursor:pointer; }
+  .rich-select { height:30px; border-radius:7px; border:1px solid var(--pillBorder); background:var(--inputBg); color:var(--text); padding:0 7px; font:inherit; font-size:12px; }
+  .rich-editor { min-height:120px; padding:11px; border:1px solid var(--inputBorder); border-top:none; border-radius:0 0 10px 10px; color:var(--text); background:var(--inputBg); outline:none; font-size:14px; line-height:1.55; overflow-wrap:anywhere; }
+  .rich-editor:empty:before { content: attr(data-placeholder); color: var(--text3); pointer-events:none; }
+  .rich-output { font-size:14px; color:var(--body2); margin-top:8px; line-height:1.55; overflow-wrap:anywhere; }
+  .subtask-row { display:flex; align-items:center; gap:8px; padding:7px 0; font-size:13px; color:var(--body); }
+  .subtask-row input[type=checkbox] { accent-color:#E8B45C; }
+  .repeat-config { display:grid; grid-template-columns:90px 1fr; gap:8px; align-items:center; margin-top:6px; }
 
   .insight-line { font-size: 13.5px; color: var(--body); line-height: 1.5; padding: 12px 14px; }
 
@@ -239,15 +248,37 @@ const TAGS = {
   orange: { label: "Command", hex: "#E5934A" },
 };
 
-// Start empty. Anything shown in the app should now come from your own entries.
+// Core app starts empty. The user-requested task migration below is merged once into local data.
 const seedTasks = [];
 const somedayTasks = [];
 const seedGoals = [];
 const seedJournal = [];
-const seedNotifications = [];
+
+const USER_TASK_MIGRATION_AREAS = {
+  homeArea: { name: "Home", color: "#A896B8" },
+  apartmentCleaning: { name: "Apartment Cleaning", color: "#D98595" },
+};
+
+const USER_TASK_MIGRATION_TASKS = [
+  { id: "user_home_stack_laundry", title: "Stack the washer and dryer", area: "homeArea", dueDate: "2026-09-01", dueTime: null, due: "Sep 1", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_home_tools", title: "Organize the tools", area: "homeArea", dueDate: "2026-09-02", dueTime: null, due: "Sep 2", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_home_books", title: "Get all books on the bookshelf", area: "homeArea", dueDate: "2026-09-03", dueTime: null, due: "Sep 3", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_home_desk", title: "Organize desk", area: "homeArea", dueDate: "2026-09-04", dueTime: null, due: "Sep 4", priority: "low", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_home_closet", title: "Purchase closet equipment", area: "homeArea", dueDate: "2026-09-05", dueTime: null, due: "Sep 5", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [{ id: "user_home_closet_hang", label: "Hang closet equipment to the wall", done: false }] },
+  { id: "user_apartment_clothes", title: "Bring clothes to the house", area: "apartmentCleaning", dueDate: "2026-08-22", dueTime: null, due: "Aug 22", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_apartment_couch", title: "Sell or get rid of the couch", area: "apartmentCleaning", dueDate: "2026-08-23", dueTime: null, due: "Aug 23", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_apartment_wardrobe", title: "Sell or get rid of the exposed wardrobe", area: "apartmentCleaning", dueDate: "2026-08-24", dueTime: null, due: "Aug 24", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_apartment_bathroom", title: "Clean out bathroom", area: "apartmentCleaning", dueDate: "2026-08-26", dueTime: null, due: "Aug 26", priority: "med", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_apartment_kitchen", title: "Pack kitchen or throw away dishes", area: "apartmentCleaning", dueDate: "2026-08-28", dueTime: null, due: "Aug 28", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
+  { id: "user_apartment_coffee_table", title: "Bring Coffee Table to the house", area: "apartmentCleaning", dueDate: "2026-08-29", dueTime: null, due: "Aug 29", priority: "med", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
+].map((task) => ({ ...task, dueOffsetDays: Math.round((dateFromKey(task.dueDate) - dateFromKey(localDateKey())) / 86400000) }));
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const REPEAT_OPTIONS = ["None", "Daily", "Weekly", "Monthly", "Yearly"];
+const WEEKDAY_OPTIONS = [
+  { label: "Sunday", code: "SU" }, { label: "Monday", code: "MO" }, { label: "Tuesday", code: "TU" },
+  { label: "Wednesday", code: "WE" }, { label: "Thursday", code: "TH" }, { label: "Friday", code: "FR" }, { label: "Saturday", code: "SA" },
+];
+const REPEAT_UNITS = ["None", "Daily", "Weekly", "Monthly", "Yearly"];
 const IRON_LOG_URL = "";
 const TROPHE_URL = "";
 
@@ -339,7 +370,7 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
             {task.dueOffsetDays < 0 && !task.done && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
             <span className="time-chip"><Clock size={11} />{task.due}</span>
             {task.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
-            {task.repeat && <span className="time-chip"><Repeat size={11} />{task.repeat}</span>}
+            {(task.recurrence || task.repeat) && <span className="time-chip"><Repeat size={11} />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat}</span>}
             {!task.goal && <span className="time-chip" style={{ opacity: 0.7 }}>· no goal</span>}
           </div>
         </div>
@@ -352,9 +383,10 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
         <div className="task-detail">
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Due</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.due}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Priority</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.priority === "high" ? "High" : task.priority === "med" ? "Medium" : "Low"}</span></div>
-          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.repeat || "None"}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
+          {(task.subtasks || []).length > 0 && <div style={{ paddingTop: 8 }}>{task.subtasks.map((sub) => <div key={sub.id} className="subtask-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><Check size={12} color={sub.done ? "#E8B45C" : "var(--text3)"} /><span style={{ textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span></div>)}</div>}
           <div className="notes-box" style={{ minHeight: 38, cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}>{task.notes || "Add a note…"}</div>
         </div>
       )}
@@ -427,15 +459,91 @@ function lastNDateKeys(count, anchorKey = REFERENCE_DATE_KEY) {
   return Array.from({ length: count }, (_, i) => shiftDateKey(anchorKey, i - count + 1));
 }
 
-function recurrenceFromRepeat(repeat, dateKey) {
-  if (!repeat || repeat === "None") return null;
-  const freq = repeat.toLowerCase();
-  return { freq, days: freq === "weekly" ? [dateFromKey(dateKey).toLocaleDateString("en-US", { weekday: "short" })] : [], endDate: null };
+function weekdayCodeFromDate(dateKey) {
+  return ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][dateFromKey(dateKey).getDay()];
 }
 
-function googleRecurrenceRule(repeat) {
-  const map = { Daily: "DAILY", Weekly: "WEEKLY", Monthly: "MONTHLY", Yearly: "YEARLY" };
-  return map[repeat] ? `RRULE:FREQ=${map[repeat]}` : null;
+function recurrenceFromRepeat(repeat, dateKey, interval = 1, weekdayCode = null) {
+  if (!repeat || repeat === "None") return null;
+  const freq = repeat.toLowerCase();
+  return {
+    freq, interval: Math.max(1, Number(interval) || 1),
+    days: freq === "weekly" ? [weekdayCode || weekdayCodeFromDate(dateKey)] : [],
+    endDate: null,
+  };
+}
+
+function recurrenceLabel(recurrence) {
+  if (!recurrence?.freq) return "None";
+  const interval = Math.max(1, Number(recurrence.interval) || 1);
+  const unit = recurrence.freq;
+  const base = interval === 1 ? `Every ${unit === "daily" ? "day" : unit === "weekly" ? "week" : unit === "monthly" ? "month" : "year"}` : `Every ${interval} ${unit === "daily" ? "days" : unit === "weekly" ? "weeks" : unit === "monthly" ? "months" : "years"}`;
+  if (unit === "weekly" && recurrence.days?.length) {
+    const name = WEEKDAY_OPTIONS.find((d) => d.code === recurrence.days[0])?.label || recurrence.days[0];
+    return `${base} on ${name}`;
+  }
+  return base;
+}
+
+function normalizeRecurrence(taskOrRecurrence, dateKey = REFERENCE_DATE_KEY) {
+  const r = taskOrRecurrence?.recurrence || taskOrRecurrence;
+  if (r?.freq) return { ...r, interval: Math.max(1, Number(r.interval) || 1), days: r.days || [] };
+  const repeat = taskOrRecurrence?.repeat;
+  return recurrenceFromRepeat(repeat, dateKey);
+}
+
+function googleRecurrenceRule(recurrence, dateKey) {
+  if (!recurrence?.freq) return null;
+  const interval = Math.max(1, Number(recurrence.interval) || 1);
+  const freq = recurrence.freq.toUpperCase();
+  const parts = [`RRULE:FREQ=${freq}`, `INTERVAL=${interval}`];
+  if (recurrence.freq === "weekly") parts.push(`BYDAY=${recurrence.days?.[0] || weekdayCodeFromDate(dateKey)}`);
+  if (recurrence.freq === "monthly") parts.push(`BYMONTHDAY=${dateFromKey(dateKey).getDate()}`);
+  return parts.join(";");
+}
+
+function nextRecurrenceDate(dateKey, recurrence) {
+  if (!recurrence?.freq) return null;
+  const interval = Math.max(1, Number(recurrence.interval) || 1);
+  if (recurrence.freq === "daily") return shiftDateKey(dateKey, interval);
+  if (recurrence.freq === "weekly") return shiftDateKey(dateKey, 7 * interval);
+  const date = dateFromKey(dateKey);
+  if (recurrence.freq === "monthly") {
+    const day = date.getDate();
+    date.setDate(1); date.setMonth(date.getMonth() + interval);
+    const last = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    date.setDate(Math.min(day, last));
+    return localDateKey(date);
+  }
+  if (recurrence.freq === "yearly") { date.setFullYear(date.getFullYear() + interval); return localDateKey(date); }
+  return null;
+}
+
+function RecurrenceEditor({ value, onChange, dateKey }) {
+  const unit = value?.freq ? value.freq[0].toUpperCase() + value.freq.slice(1) : "None";
+  const interval = Math.max(1, Number(value?.interval) || 1);
+  const weekday = value?.days?.[0] || weekdayCodeFromDate(dateKey);
+  const selectUnit = (next) => onChange(next === "None" ? null : recurrenceFromRepeat(next, dateKey, 1, weekday));
+  return (
+    <>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        {REPEAT_UNITS.map((option) => <div key={option} className={`filter-chip ${unit === option ? "active" : ""}`} onClick={() => selectUnit(option)}><Repeat size={11} />{option}</div>)}
+      </div>
+      {value?.freq && (
+        <div className="card" style={{ padding: 10, marginTop: 6 }}>
+          <div className="repeat-config"><span style={{ fontSize: 12.5, color: "var(--text2)" }}>Repeat every</span><input type="number" min="1" max="365" className="input-line" style={{ margin: 0 }} value={interval} onChange={(e) => onChange({ ...value, interval: Math.max(1, Number(e.target.value) || 1) })} /></div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 6 }}>{value.freq === "daily" ? "day(s)" : value.freq === "weekly" ? "week(s)" : value.freq === "monthly" ? "month(s)" : "year(s)"}</div>
+          {value.freq === "weekly" && (
+            <>
+              <div className="fb-label">On</div>
+              <div className="filter-row" style={{ padding: 0 }}>{WEEKDAY_OPTIONS.map((d) => <div key={d.code} className={`filter-chip ${weekday === d.code ? "active" : ""}`} onClick={() => onChange({ ...value, days: [d.code] })}>{d.label.slice(0, 3)}</div>)}</div>
+            </>
+          )}
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8 }}>{recurrenceLabel(value)}</div>
+        </div>
+      )}
+    </>
+  );
 }
 
 function journalStreak(entries) {
@@ -453,68 +561,36 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
   const [priority, setPriority] = useState(task.priority || "med");
   const [area, setArea] = useState(task.area && areas[task.area] ? task.area : "");
   const [goal, setGoal] = useState(task.goal || "");
-  const [repeat, setRepeat] = useState(task.repeat || "None");
+  const [recurrence, setRecurrence] = useState(normalizeRecurrence(task, taskDateKey(task)));
   const [reminder, setReminder] = useState(task.reminder || "None");
   const [notes, setNotes] = useState(task.notes || "");
+  const [subtasks, setSubtasks] = useState(task.subtasks || []);
+  const [subtaskDraft, setSubtaskDraft] = useState("");
 
+  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
   const save = () => {
     if (!title.trim() || !dueDate) return;
     const dueOffsetDays = offsetFromDateKey(dueDate);
     const due = dueTime ? formatTimeLabel(dueTime) : formatDateLabel(dueDate);
-    onSave({
-      ...task,
-      title: title.trim(),
-      dueDate,
-      dueTime: dueTime || null,
-      due,
-      dueOffsetDays,
-      priority,
-      area: area || null,
-      goal: goal || null,
-      repeat: repeat === "None" ? null : repeat,
-      recurrence: recurrenceFromRepeat(repeat, dueDate),
-      reminder,
-      notes,
-    });
+    onSave({ ...task, title: title.trim(), dueDate, dueTime: dueTime || null, due, dueOffsetDays, priority, area: area || null, goal: goal || null, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, notes, subtasks });
   };
 
   return (
     <div className="card composer-card" style={{ marginBottom: 14 }}>
       <div className="fb-label" style={{ marginTop: 0 }}>Edit Task</div>
       <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
-      <div style={{ display: "flex", gap: 8 }}>
-        <div style={{ flex: 1 }}><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
-        <div style={{ flex: 1 }}><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)} /></div>
-      </div>
-      <div className="fb-label">Priority</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        {[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}
-      </div>
-      <div className="fb-label">Area</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        <div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>
-        {Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}
-      </div>
-      <div className="fb-label">Goal (optional)</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        <div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>
-        {goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}
-      </div>
-      <div className="fb-label">Repeat</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        {REPEAT_OPTIONS.map((option) => <div key={option} className={`filter-chip ${repeat === option ? "active" : ""}`} onClick={() => setRepeat(option)}><Repeat size={11} />{option}</div>)}
-      </div>
-      <div className="fb-label">Reminder</div>
-      <input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
-      <div className="fb-label">Notes</div>
-      <textarea className="notes-box" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" />
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div>
-        <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div>
-      </div>
-      <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => {
-        if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id);
-      }}><Trash2 size={12} />Delete Task</div>
+      <div style={{ display: "flex", gap: 8 }}><div style={{ flex: 1 }}><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (recurrence?.freq === "weekly" && !(recurrence.days || []).length) setRecurrence({ ...recurrence, days: [weekdayCodeFromDate(e.target.value)] }); }} /></div><div style={{ flex: 1 }}><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)} /></div></div>
+      <div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
+      <div className="fb-label">Area</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>{Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}</div>
+      <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div>
+      <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
+      <div className="fb-label">Reminder</div><input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
+      <div className="fb-label">Subtasks</div>
+      {subtasks.map((sub) => <div className="subtask-row" key={sub.id}><input type="checkbox" checked={Boolean(sub.done)} onChange={() => setSubtasks((p) => p.map((x) => x.id === sub.id ? { ...x, done: !x.done } : x))} /><span style={{ flex: 1, textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}
+      <div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
+      <div className="fb-label">Notes</div><textarea className="notes-box" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" />
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
+      <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12} />Delete Task</div>
     </div>
   );
 }
@@ -683,27 +759,23 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [area, setArea] = useState(Object.keys(areas)[0] || "");
   const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState("med");
-  const [repeat, setRepeat] = useState("None");
+  const [recurrence, setRecurrence] = useState(null);
   const [reminder, setReminder] = useState("None");
   const [notes, setNotes] = useState("");
+  const [subtasks, setSubtasks] = useState([]);
+  const [subtaskDraft, setSubtaskDraft] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
+  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
 
   const save = async () => {
     if (!title.trim() || !date || saving) return;
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({
-          title: title.trim(), dueDate: date, dueTime: time || null,
-          due: time ? formatTimeLabel(time) : formatDateLabel(date),
-          dueOffsetDays: offsetFromDateKey(date), priority, area: area || null,
-          goal: goal || null, notes, repeat: repeat === "None" ? null : repeat,
-          recurrence: recurrenceFromRepeat(repeat, date), reminder, done: false,
-          status: "next", bypassProtected: bypass,
-        });
+        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
       } else {
-        await onCreateEvent({ title: title.trim(), date, time, area: area || null, repeat, notes, bypassProtected: bypass });
+        await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes, bypassProtected: bypass });
       }
       onClose();
     } finally { setSaving(false); }
@@ -711,48 +783,16 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
 
   return (
     <div className="card composer-card">
-      {allowEvents && (
-        <div className="segmented" style={{ margin: "0 0 4px 0" }}>
-          <div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div>
-          <div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div>
-        </div>
-      )}
+      {allowEvents && <div className="segmented" style={{ margin: "0 0 4px 0" }}><div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div><div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div></div>}
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
-      <div style={{ display: "flex", gap: 8 }}>
-        <input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} />
-        <input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} />
-      </div>
-      <div className="fb-label">Area</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        <div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>
-        {Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} style={{ borderColor: v.color + "55" }} onClick={() => setArea(k)}>{v.name}</div>)}
-      </div>
-      {kind === "task" && (
-        <>
-          <div className="fb-label">Priority</div>
-          <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
-          <div className="fb-label">Goal (optional)</div>
-          <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-            <div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>
-            {goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}
-          </div>
-          <div className="fb-label">Reminder</div>
-          <input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
-        </>
-      )}
-      <div className="fb-label">Repeat</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{REPEAT_OPTIONS.map((option) => <div key={option} className={`filter-chip ${repeat === option ? "active" : ""}`} onClick={() => setRepeat(option)}><Repeat size={11} />{option}</div>)}</div>
-      <div className="fb-label">Notes</div>
-      <textarea className="notes-box" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
+      <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
+      <div className="fb-label">Area</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>{Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} style={{ borderColor: v.color + "55" }} onClick={() => setArea(k)}>{v.name}</div>)}</div>
+      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
+      <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
+      <div className="fb-label">Notes</div><textarea className="notes-box" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
       {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? "Will be added to the primary lamound2407@gmail.com Google Calendar." : "Will stay in Abide until Google Calendar is connected."}</div>}
-      <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}>
-        <div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div>
-        <Toggle on={bypass} onClick={() => setBypass(!bypass)} />
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div>
-        <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div>
-      </div>
+      <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
     </div>
   );
 }
@@ -868,10 +908,10 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     tokenClientRef.current.requestAccessToken({ prompt: googleToken ? "" : "consent" });
   };
 
-  const createEvent = async ({ title, date, time, area, repeat, notes, bypassProtected }) => {
-    const recurrenceRule = googleRecurrenceRule(repeat);
+  const createEvent = async ({ title, date, time, area, recurrence, notes, bypassProtected }) => {
+    const recurrenceRule = googleRecurrenceRule(recurrence, date);
     if (!googleToken) {
-      setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, repeat: repeat === "None" ? null : repeat, notes, bypassProtected }]);
+      setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, notes, bypassProtected }]);
       return;
     }
     const body = { summary: title, description: notes || undefined };
@@ -1063,28 +1103,80 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS }) {
   );
 }
 
+function plainTextToHtml(text = "") {
+  const div = document.createElement("div");
+  div.textContent = text || "";
+  return div.innerHTML.replace(/\n/g, "<br>");
+}
+
+function htmlToPlainText(html = "") {
+  if (typeof document === "undefined") return String(html).replace(/<[^>]+>/g, " ").trim();
+  const div = document.createElement("div"); div.innerHTML = html; return (div.textContent || "").trim();
+}
+
+function RichTextEditor({ value, onChange, placeholder = "Write…", minHeight = 120 }) {
+  const ref = useRef(null);
+  const savedRange = useRef(null);
+  useEffect(() => {
+    if (ref.current && ref.current.innerHTML !== (value || "")) ref.current.innerHTML = value || "";
+  }, [value]);
+  const commit = () => onChange(ref.current?.innerHTML || "");
+  const rememberSelection = () => {
+    const selection = window.getSelection?.();
+    if (selection?.rangeCount && ref.current?.contains(selection.anchorNode)) savedRange.current = selection.getRangeAt(0).cloneRange();
+  };
+  const restoreSelection = () => {
+    const selection = window.getSelection?.();
+    if (!selection || !savedRange.current) return;
+    selection.removeAllRanges(); selection.addRange(savedRange.current);
+  };
+  const command = (cmd, arg = null) => {
+    ref.current?.focus(); restoreSelection();
+    try {
+      const applied = document.execCommand(cmd, false, arg);
+      if (cmd === "hiliteColor" && applied === false) document.execCommand("backColor", false, arg);
+    } catch { if (cmd === "hiliteColor") { try { document.execCommand("backColor", false, arg); } catch {} } }
+    rememberSelection(); commit();
+  };
+  return (
+    <div>
+      <div className="rich-toolbar">
+        <button type="button" className="rich-btn" onMouseDown={(e) => { e.preventDefault(); command("bold"); }} title="Bold">B</button>
+        <button type="button" className="rich-btn" style={{ fontStyle: "italic" }} onMouseDown={(e) => { e.preventDefault(); command("italic"); }} title="Italic">I</button>
+        <button type="button" className="rich-btn" style={{ textDecoration: "underline" }} onMouseDown={(e) => { e.preventDefault(); command("underline"); }} title="Underline">U</button>
+        <select className="rich-select" defaultValue="-apple-system" onMouseDown={rememberSelection} onChange={(e) => command("fontName", e.target.value)} title="Font">
+          <option value="-apple-system">System</option><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Courier New">Courier</option><option value="Times New Roman">Times</option>
+        </select>
+        {Object.values(TAGS).map((t) => <button key={t.hex} type="button" className="rich-btn" style={{ minWidth: 24, width: 24, padding: 0, background: t.hex, borderColor: t.hex }} title={`Highlight ${t.label}`} onMouseDown={(e) => { e.preventDefault(); command("hiliteColor", t.hex); }} />)}
+        <button type="button" className="rich-btn" onMouseDown={(e) => { e.preventDefault(); command("removeFormat"); }} title="Clear formatting">Clear</button>
+      </div>
+      <div ref={ref} className="rich-editor" style={{ minHeight }} contentEditable suppressContentEditableWarning data-placeholder={placeholder} onInput={() => { rememberSelection(); commit(); }} onMouseUp={rememberSelection} onKeyUp={rememberSelection} onBlur={() => { rememberSelection(); commit(); }} />
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------
    JOURNAL TAB — add / edit / delete
 ----------------------------------------------------------------*/
 function JournalTab({ entries, setEntries }) {
   const [entryDate, setEntryDate] = useState(REFERENCE_DATE_KEY);
   const [ref, setRef] = useState("");
-  const [note, setNote] = useState("");
+  const [noteHtml, setNoteHtml] = useState("");
   const [tag, setTag] = useState("yellow");
   const [editingId, setEditingId] = useState(null);
   const [editDate, setEditDate] = useState(REFERENCE_DATE_KEY);
   const [editRef, setEditRef] = useState("");
-  const [editNote, setEditNote] = useState("");
+  const [editHtml, setEditHtml] = useState("");
   const [editTag, setEditTag] = useState("yellow");
   const streak = journalStreak(entries);
 
   const save = () => {
-    if (!note.trim() && !ref.trim()) return;
-    setEntries((p) => [{ id: Date.now(), dateKey: entryDate, date: formatDateLabel(entryDate), ref: ref || "", tag, note }, ...p]);
-    setRef(""); setNote(""); setTag("yellow");
+    if (!htmlToPlainText(noteHtml) && !ref.trim()) return;
+    setEntries((p) => [{ id: Date.now(), dateKey: entryDate, date: formatDateLabel(entryDate), ref: ref || "", tag, note: htmlToPlainText(noteHtml), richTextHtml: noteHtml }, ...p]);
+    setRef(""); setNoteHtml(""); setTag("yellow");
   };
-  const startEdit = (entry) => { setEditingId(entry.id); setEditDate(entry.dateKey || REFERENCE_DATE_KEY); setEditRef(entry.ref || ""); setEditNote(entry.note || ""); setEditTag(entry.tag || "yellow"); };
-  const saveEdit = (id) => { setEntries((p) => p.map((e) => e.id === id ? { ...e, dateKey: editDate, date: formatDateLabel(editDate), ref: editRef, note: editNote, tag: editTag } : e)); setEditingId(null); };
+  const startEdit = (entry) => { setEditingId(entry.id); setEditDate(entry.dateKey || REFERENCE_DATE_KEY); setEditRef(entry.ref || ""); setEditHtml(entry.richTextHtml || plainTextToHtml(entry.note || "")); setEditTag(entry.tag || "yellow"); };
+  const saveEdit = (id) => { setEntries((p) => p.map((e) => e.id === id ? { ...e, dateKey: editDate, date: formatDateLabel(editDate), ref: editRef, note: htmlToPlainText(editHtml), richTextHtml: editHtml, tag: editTag } : e)); setEditingId(null); };
   const remove = (id) => setEntries((p) => p.filter((e) => e.id !== id));
 
   return (
@@ -1094,35 +1186,16 @@ function JournalTab({ entries, setEntries }) {
         <div className="card journal-compose">
           <input type="date" className="input-line" style={{ marginTop: 0 }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
           <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none", marginTop: 10 }} value={ref} onChange={(e) => setRef(e.target.value)} />
-          <textarea className="notes-box" rows={4} placeholder="What is He saying to you right now?" style={{ marginTop: 10 }} value={note} onChange={(e) => setNote(e.target.value)} />
+          <div style={{ marginTop: 10 }}><RichTextEditor value={noteHtml} onChange={setNoteHtml} placeholder="What is He saying to you right now?" minHeight={150} /></div>
           <div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${tag === k ? "selected" : ""}`} style={{ background: v.hex }} title={v.label} onClick={() => setTag(k)} />)}</div>
-          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{TAGS[tag].label} · Rich-text formatting (bold, italic, underline, fonts) is planned for a later journal editor pass.</div>
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{TAGS[tag].label} · Select text to bold, italicize, underline, change font, or highlight it.</div>
           <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 10 }} onClick={save}>Save Entry</div>
         </div>
-
         <div className="section-label">Entries</div>
         <div className="card">
-          {entries.length ? entries.map((entry) => (
-            <div key={entry.id} className="journal-entry">
-              {editingId === entry.id ? (
-                <>
-                  <input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} />
-                  <input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" />
-                  <textarea className="notes-box" rows={4} value={editNote} onChange={(ev) => setEditNote(ev.target.value)} placeholder="Journal note" />
-                  <div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={() => setEditingId(null)}>Cancel</div></div>
-                </>
-              ) : (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => remove(entry.id)} /></div></div>
-                  </div>
-                  <div style={{ fontSize: 14, color: "var(--body2)", marginTop: 8, lineHeight: 1.45 }}>{entry.note || "Time with the Lord check-in"}</div>
-                </>
-              )}
-            </div>
-          )) : <div className="insight-line">No journal entries yet.</div>}
+          {entries.length ? entries.map((entry) => <div key={entry.id} className="journal-entry">
+            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={() => setEditingId(null)}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}</>}
+          </div>) : <div className="insight-line">No journal entries yet.</div>}
         </div>
       </div>
     </>
@@ -1140,7 +1213,7 @@ function ScratchTab() {
   const drawing = useRef(false);
   const lastPoint = useRef(null);
   const canvasMetrics = useRef({ width: 380, height: 260, dpr: 1 });
-  const [pages, setPages] = useState([]);
+  const [pages, setPages] = usePersistentState("abide-scratch-pages", []);
   const [typedDraft, setTypedDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
 
@@ -1262,12 +1335,12 @@ function ScratchTab() {
   };
 
   const saveTyped = () => {
-    if (!typedDraft.trim()) return;
+    if (!htmlToPlainText(typedDraft)) return;
     if (editingId) {
-      setPages((prev) => prev.map((pg) => pg.id === editingId ? { ...pg, type: "type", content: typedDraft } : pg));
+      setPages((prev) => prev.map((pg) => pg.id === editingId ? { ...pg, type: "type", content: typedDraft, contentHtml: typedDraft } : pg));
       setEditingId(null);
     } else {
-      setPages((prev) => [{ id: Date.now(), type: "type", content: typedDraft, date: "Today" }, ...prev]);
+      setPages((prev) => [{ id: Date.now(), type: "type", content: typedDraft, contentHtml: typedDraft, date: formatDateLabel(REFERENCE_DATE_KEY) }, ...prev]);
     }
     setTypedDraft("");
   };
@@ -1276,7 +1349,7 @@ function ScratchTab() {
     setEditingId(pg.id);
     if (pg.type === "type") {
       setTool("type");
-      setTypedDraft(pg.content);
+      setTypedDraft(pg.contentHtml || (String(pg.content || "").includes("<") ? pg.content : plainTextToHtml(pg.content || "")));
       return;
     }
 
@@ -1334,7 +1407,8 @@ function ScratchTab() {
           </>
         ) : (
           <>
-            <textarea className="notes-box" rows={6} placeholder="Jot it down…" value={typedDraft} onChange={(e) => setTypedDraft(e.target.value)} />
+            <RichTextEditor value={typedDraft} onChange={setTypedDraft} placeholder="Jot it down…" minHeight={180} />
+            <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>Select text to bold, italicize, underline, change font, or highlight it.</div>
             <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 10 }} onClick={saveTyped}><Type size={12} />{editingId ? "Update Note" : "Save Note"}</div>
           </>
         )}
@@ -1342,7 +1416,7 @@ function ScratchTab() {
         <div className="scratch-grid">
           {pages.map((pg) => (
             <div key={pg.id} className="scratch-item card">
-              {pg.type === "draw" ? <img src={pg.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70 }}>{pg.content}</div>}
+              {pg.type === "draw" ? <img src={pg.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70, lineHeight: 1.45 }} dangerouslySetInnerHTML={{ __html: pg.contentHtml || (String(pg.content || "").includes("<") ? pg.content : plainTextToHtml(pg.content || "")) }} />}
               <div className="cap"><span>{pg.date}</span><span className="cap-icons"><Pencil size={12} onClick={() => editPage(pg)} /><Trash2 size={12} onClick={() => deletePage(pg.id)} /></span></div>
             </div>
           ))}
@@ -1371,27 +1445,33 @@ function LinkCard({ icon: Icon, tint, name, desc, placeholder, initialUrl = "", 
 /* ---------------------------------------------------------------
    NOTIFICATION CENTER + SETTINGS (reached from bottom of Insights)
 ----------------------------------------------------------------*/
-function NotificationCenter({ onBack }) {
-  const [prefs, setPrefs] = useState({ tasks: true, calendar: true, review: true, streak: true, milestones: true });
+function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask }) {
+  const [prefs, setPrefs] = usePersistentState("abide-notification-prefs", { tasks: true, calendar: true, review: true, streak: true, milestones: true });
+  const [editingTask, setEditingTask] = useState(null);
   const toggle = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
-  const rows = [
-    { k: "tasks", label: "Task reminders" },
-    { k: "calendar", label: "Calendar event alerts" },
-    { k: "review", label: "Weekly review nudge" },
-    { k: "streak", label: "Journal streak reminder" },
-    { k: "milestones", label: "Goal milestone alerts" },
-  ];
+  const rows = [{ k: "tasks", label: "Task reminders" }, { k: "calendar", label: "Calendar event alerts" }, { k: "review", label: "Weekly review nudge" }, { k: "streak", label: "Journal streak reminder" }, { k: "milestones", label: "Goal milestone alerts" }];
+  const reminders = tasks.filter((t) => !t.done && t.reminder && t.reminder !== "None").sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
   return (
     <>
-      <Header eyebrow="Insights" title="Notification Center" onBack={onBack} />
+      <Header eyebrow="Alerts & reminders" title="Reminders" />
       <div className="scroll">
-        <div className="section-label">What Alerts You</div>
+        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={(u) => { onUpdateTask(u); setEditingTask(null); }} onCancel={() => setEditingTask(null)} onDelete={(id) => { onDeleteTask(id); setEditingTask(null); }} />}
+        <div className="section-label">Upcoming Notifications</div>
+        <div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item" style={{ cursor: "pointer" }} onClick={() => setEditingTask(t)}><span><strong>{t.title}</strong><span style={{ display: "block", fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>{formatDateLabel(taskDateKey(t))}{t.dueTime ? ` · ${formatTimeLabel(t.dueTime)}` : ""}</span></span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No task reminders scheduled yet.</div>}</div>
+        <div className="section-label">Notification Types</div>
         <div className="card">{rows.map((r) => <div key={r.k} className="settings-row"><span className="settings-row-name">{r.label}</span><Toggle on={prefs[r.k]} onClick={() => toggle(r.k)} /></div>)}</div>
-        <div className="section-label">Recent</div>
-        <div className="card">{seedNotifications.length ? seedNotifications.map((n) => <div key={n.id} className="review-item"><span>{n.text}</span><span style={{ fontSize: 11.5, color: "var(--text3)" }}>{n.when}</span></div>) : <div className="insight-line">No notifications yet.</div>}</div>
+        <div className="insight-line" style={{ padding: "8px 4px" }}>This tab is the home for Abide notifications. It already reflects task reminders you set. Device push delivery will become automatic when Firebase Cloud Messaging is wired to the reminder schedule.</div>
       </div>
     </>
   );
+}
+
+function NotificationCenter({ onBack, tasks = [] }) {
+  const [prefs, setPrefs] = usePersistentState("abide-notification-prefs", { tasks: true, calendar: true, review: true, streak: true, milestones: true });
+  const toggle = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
+  const rows = [{ k: "tasks", label: "Task reminders" }, { k: "calendar", label: "Calendar event alerts" }, { k: "review", label: "Weekly review nudge" }, { k: "streak", label: "Journal streak reminder" }, { k: "milestones", label: "Goal milestone alerts" }];
+  const reminders = tasks.filter((t) => !t.done && t.reminder && t.reminder !== "None").sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
+  return <><Header eyebrow="Insights" title="Notification Center" onBack={onBack} /><div className="scroll"><div className="section-label">What Alerts You</div><div className="card">{rows.map((r) => <div key={r.k} className="settings-row"><span className="settings-row-name">{r.label}</span><Toggle on={prefs[r.k]} onClick={() => toggle(r.k)} /></div>)}</div><div className="section-label">Upcoming</div><div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item"><span>{t.title}</span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No notifications yet.</div>}</div></div></>;
 }
 
 function ProtectedBlockRow({ block, onEdit, onDelete }) {
@@ -1487,7 +1567,7 @@ function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, are
   const [screen, setScreen] = useState("dashboard");
   const [selectedHeatDate, setSelectedHeatDate] = useState(REFERENCE_DATE_KEY);
 
-  if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} />;
+  if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} tasks={tasks} />;
   if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} />;
 
   const doneCount = tasks.filter((t) => t.done).length;
@@ -1587,7 +1667,29 @@ export default function App() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const toggleDone = (id) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  useEffect(() => {
+    const migrationKey = "abide-user-task-migration-2026-08-21-v1";
+    try { if (localStorage.getItem(migrationKey)) return; } catch {}
+    setAreas((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(USER_TASK_MIGRATION_AREAS).filter(([id]) => !prev[id])) }));
+    setTasks((prev) => {
+      const ids = new Set(prev.map((t) => String(t.id)));
+      return [...USER_TASK_MIGRATION_TASKS.filter((t) => !ids.has(String(t.id))), ...prev];
+    });
+    try { localStorage.setItem(migrationKey, "1"); } catch {}
+  }, []);
+
+  const toggleDone = (id) => setTasks((prev) => {
+    const task = prev.find((t) => t.id === id);
+    if (!task) return prev;
+    if (!task.done && task.recurrence?.freq) {
+      const nextDate = nextRecurrenceDate(taskDateKey(task), task.recurrence);
+      const completed = prev.map((t) => t.id === id ? { ...t, done: true, completedAt: new Date().toISOString() } : t);
+      if (!nextDate) return completed;
+      const nextTask = { ...task, id: `rec_${Date.now()}`, done: false, completedAt: null, dueDate: nextDate, dueOffsetDays: offsetFromDateKey(nextDate), due: task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(nextDate), parentRecurringId: task.parentRecurringId || task.id };
+      return [nextTask, ...completed];
+    }
+    return prev.map((t) => t.id === id ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : null } : t);
+  });
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
   const createTask = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
@@ -1601,7 +1703,7 @@ export default function App() {
   const tabs = [
     { id: "today", label: "Today", icon: ListTodo }, { id: "calendar", label: "Calendar", icon: CalendarDays },
     { id: "goals", label: "Goals", icon: Target }, { id: "journal", label: "Journal", icon: BookOpen },
-    { id: "scratch", label: "Scratch", icon: PenTool }, { id: "insights", label: "Insights", icon: BarChart3 },
+    { id: "scratch", label: "Scratch", icon: PenTool }, { id: "reminders", label: "Reminders", icon: Bell }, { id: "insights", label: "Insights", icon: BarChart3 },
   ];
 
   const vars = {
@@ -1619,6 +1721,7 @@ export default function App() {
       {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} areas={areas} />}
       {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}
+      {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
       {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} />}
     </>
   );

@@ -339,8 +339,8 @@ const WEEKDAY_OPTIONS = [
   { label: "Wednesday", code: "WE" }, { label: "Thursday", code: "TH" }, { label: "Friday", code: "FR" }, { label: "Saturday", code: "SA" },
 ];
 const REPEAT_UNITS = ["None", "Daily", "Weekly", "Monthly", "Yearly"];
-const IRON_LOG_URL = "";
-const TROPHE_URL = "";
+const IRON_LOG_URL = "https://lamound2407-jpg.github.io/iron-log/";
+const TROPHE_URL = "https://lamound2407-jpg.github.io/trophe/";
 
 /* ---------------------------------------------------------------
    SHARED PIECES
@@ -1567,6 +1567,9 @@ function ScratchTab() {
 function LinkCard({ icon: Icon, tint, name, desc, placeholder, initialUrl = "", storageKey }) {
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = usePersistentState(storageKey || `abide-link-${name}`, initialUrl);
+  useEffect(() => {
+    if (!url && initialUrl) setUrl(initialUrl);
+  }, [initialUrl]);
   return (
     <div className="link-card">
       <div className="link-icon" style={{ background: tint + "22" }}><Icon size={19} color={tint} /></div>

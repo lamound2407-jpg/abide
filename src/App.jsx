@@ -842,7 +842,23 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
-  const openEditor = (t) => { setAdding(false); setEditingTask(t); };\n  const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={openEditor} />;
+  const openEditor = (t) => {
+    setAdding(false);
+    setEditingTask(t);
+  };
+
+  const renderTask = (t) => (
+    <TaskRow
+      key={t.id}
+      task={t}
+      goals={goals}
+      areas={areas}
+      expanded={expandedId === t.id}
+      onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
+      onToggleDone={toggleDone}
+      onEdit={openEditor}
+    />
+  );
   const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (

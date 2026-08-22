@@ -66,6 +66,10 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
+  .modal-backdrop { position:absolute; inset:0; z-index:90; background:rgba(2,5,10,0.72); backdrop-filter:blur(8px); display:flex; align-items:flex-start; justify-content:center; padding:52px 14px 110px; overflow-y:auto; }
+  .task-editor-modal { width:min(100%, 620px); max-height:none; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
+  .quick-area-create { margin-top:8px; padding:10px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
+  .notification-status { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; }
   .fb-label { font-size:11.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color: var(--text3); margin: 10px 0 7px 0; }
   .fb-label:first-child { margin-top:0; }
 
@@ -610,7 +614,83 @@ function journalStreak(entries) {
   return streak;
 }
 
-function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
+
+const REMINDER_OPTIONS = ["None", "At time", "5 min before", "15 min before", "30 min before", "1 hour before", "1 day before"];
+
+function ReminderPicker({ value, onChange }) {
+  const known = REMINDER_OPTIONS.includes(value);
+  return (
+    <>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        {REMINDER_OPTIONS.map((option) => <div key={option} className={`filter-chip ${value === option ? "active" : ""}`} onClick={() => onChange(option)}><Bell size={11} />{option}</div>)}
+      </div>
+      {!known && <input className="input-line" style={{ marginTop: 4 }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="Custom reminder, e.g. 2 hours before" />}
+      <div className="filter-chip" style={{ display: "inline-flex", marginTop: 5 }} onClick={() => { if (known) onChange("Custom"); }}>Custom</div>
+    </>
+  );
+}
+
+function QuickAreaPicker({ areas, value, onChange, onCreateArea, allowNone = true }) {
+  const [addingArea, setAddingArea] = useState(false);
+  const [areaName, setAreaName] = useState("");
+  const [areaColor, setAreaColor] = useState("#8FA88A");
+
+  const create = () => {
+    if (!areaName.trim() || !onCreateArea) return;
+    const id = onCreateArea({ name: areaName.trim(), color: areaColor });
+    if (id) onChange(id);
+    setAreaName("");
+    setAreaColor("#8FA88A");
+    setAddingArea(false);
+  };
+
+  return (
+    <>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        {allowNone && <div className={`filter-chip ${value === "" ? "active" : ""}`} onClick={() => onChange("")}>No Area</div>}
+        {Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${value === k ? "active" : ""}`} style={{ borderColor: v.color + "55" }} onClick={() => onChange(k)}>{v.name}</div>)}
+        {onCreateArea && <div className={`filter-chip ${addingArea ? "active" : ""}`} onClick={() => setAddingArea(!addingArea)}><Plus size={11} />New Area</div>}
+      </div>
+      {addingArea && (
+        <div className="quick-area-create">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input className="input-line" style={{ margin: 0, flex: 1 }} value={areaName} onChange={(e) => setAreaName(e.target.value)} placeholder="Area name" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); create(); } }} />
+            <input type="color" value={areaColor} onChange={(e) => setAreaColor(e.target.value)} style={{ width: 42, height: 38, border: "none", background: "transparent", cursor: "pointer" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <div className="filter-chip active" onClick={create}>Add & Select</div>
+            <div className="filter-chip" onClick={() => setAddingArea(false)}>Cancel</div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function reminderOffsetMinutes(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text || text === "none") return null;
+  if (text === "at time") return 0;
+  let match = text.match(/(\d+)\s*(?:min|minute)/);
+  if (match) return Number(match[1]);
+  match = text.match(/(\d+)\s*(?:hour|hr)/);
+  if (match) return Number(match[1]) * 60;
+  match = text.match(/(\d+)\s*day/);
+  if (match) return Number(match[1]) * 1440;
+  return null;
+}
+
+function taskReminderMoment(task) {
+  const offset = reminderOffsetMinutes(task.reminder);
+  if (offset == null) return null;
+  const dateKey = taskDateKey(task);
+  const time = task.dueTime || "09:00";
+  const base = new Date(`${dateKey}T${time}:00`);
+  if (Number.isNaN(base.getTime())) return null;
+  return new Date(base.getTime() - offset * 60000);
+}
+
+function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateArea }) {
   const [title, setTitle] = useState(task.title || "");
   const [dueDate, setDueDate] = useState(taskDateKey(task));
   const [dueTime, setDueTime] = useState(inferTaskTime(task));
@@ -632,21 +712,23 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
   };
 
   return (
-    <div className="card composer-card" style={{ marginBottom: 14 }}>
-      <div className="fb-label" style={{ marginTop: 0 }}>Edit Task</div>
+    <div className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="card composer-card task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="fb-label" style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>Edit Task</span><X size={16} style={{ cursor: "pointer" }} onClick={onCancel} /></div>
       <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
       <div style={{ display: "flex", gap: 8 }}><div style={{ flex: 1 }}><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (recurrence?.freq === "weekly" && !(recurrence.days || []).length) setRecurrence({ ...recurrence, days: [weekdayCodeFromDate(e.target.value)] }); }} /></div><div style={{ flex: 1 }}><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)} /></div></div>
       <div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
-      <div className="fb-label">Area</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>{Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}</div>
+      <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
       <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div>
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
-      <div className="fb-label">Reminder</div><input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
+      <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
       <div className="fb-label">Subtasks</div>
       {subtasks.map((sub) => <div className="subtask-row" key={sub.id}><input type="checkbox" checked={Boolean(sub.done)} onChange={() => setSubtasks((p) => p.map((x) => x.id === sub.id ? { ...x, done: !x.done } : x))} /><span style={{ flex: 1, textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}
       <div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
       <div className="fb-label">Notes</div><textarea className="notes-box" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" />
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
       <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12} />Delete Task</div>
+      </div>
     </div>
   );
 }
@@ -702,7 +784,7 @@ function FilterSystem({ areas, selectedAreas, setSelectedAreas, selectedPrioriti
 /* ---------------------------------------------------------------
    TODAY TAB
 ----------------------------------------------------------------*/
-function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, onUpdateTask, onDeleteTask, onCreateTask }) {
+function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, onUpdateTask, onDeleteTask, onCreateTask, onCreateArea }) {
   const [selectedAreas, setSelectedAreas] = useState(Object.keys(areas));
   const [selectedPriorities, setSelectedPriorities] = useState(["high", "med", "low"]);
   const [savedFilters, setSavedFilters] = useState([]);
@@ -738,9 +820,9 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
       <Header eyebrow={todayLabel} title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
       <div className="scroll">
         <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => setAdding(!adding)}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
-        {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} />}
+        {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} onCreateArea={onCreateArea} />}
 
-        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveTask} onCancel={() => setEditingTask(null)} onDelete={deleteTask} />}
+        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveTask} onCancel={() => setEditingTask(null)} onDelete={deleteTask} onCreateArea={onCreateArea} />}
 
         {alertsOpen && (
           <div className="card" style={{ marginBottom: 14 }}>
@@ -807,7 +889,7 @@ function googleEventTimeLabel(event) {
   return new Date(event.start.dateTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected, allowEvents = true }) {
+function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected, allowEvents = true, onCreateArea }) {
   const [kind, setKind] = useState("task");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
@@ -842,8 +924,8 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       {allowEvents && <div className="segmented" style={{ margin: "0 0 4px 0" }}><div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div><div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div></div>}
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
-      <div className="fb-label">Area</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>{Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} style={{ borderColor: v.color + "55" }} onClick={() => setArea(k)}>{v.name}</div>)}</div>
-      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
+      <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
+      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">Notes</div><textarea className="notes-box" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
       {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? "Will be added to the primary lamound2407@gmail.com Google Calendar." : "Will stay in Abide until Google Calendar is connected."}</div>}
@@ -877,7 +959,7 @@ function CalendarsPanel({ calendars, setCalendars, connected, configured, onConn
   );
 }
 
-function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask, openAddSignal }) {
+function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask, openAddSignal, onCreateArea }) {
   const [mode, setMode] = useState("week");
   const [selectedDateKey, setSelectedDateKey] = useState(REFERENCE_DATE_KEY);
   const [adding, setAdding] = useState(false);
@@ -1023,8 +1105,8 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       <div className="scroll">
         <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
         {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} connected={googleConnected} configured={googleConfigured} onConnect={connectGoogle} onRefresh={() => fetchGoogleData()} error={googleError} />}
-        {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} />}
-        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} />}
+        {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} onCreateArea={onCreateArea} />}
+        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} onCreateArea={onCreateArea} />}
 
         <div className="segmented"><div className={`seg-btn ${mode === "week" ? "active" : ""}`} onClick={() => setMode("week")}>Week</div><div className={`seg-btn ${mode === "month" ? "active" : ""}`} onClick={() => setMode("month")}>Month</div></div>
 
@@ -1060,7 +1142,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 /* ---------------------------------------------------------------
    GOALS TAB — add / edit goals, milestones, notes
 ----------------------------------------------------------------*/
-function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS }) {
+function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCreateArea }) {
   const [name, setName] = useState(initial?.name || "");
   const [area, setArea] = useState(initial?.area && areas[initial.area] ? initial.area : (Object.keys(areas)[0] || ""));
   const [target, setTarget] = useState(initial?.target || "");
@@ -1083,7 +1165,7 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS }) {
       <div className="fb-label" style={{ marginTop: 0 }}>Goal Name</div>
       <input className="input-line" style={{ marginTop: 0 }} placeholder="e.g. Read Through the New Testament" value={name} onChange={(e) => setName(e.target.value)} />
       <div className="fb-label">Area</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}</div>
+      <QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} allowNone={false} />
       <div className="fb-label">Target Date</div>
       <input className="input-line" style={{ marginTop: 0 }} placeholder="e.g. Dec 31" value={target} onChange={(e) => setTarget(e.target.value)} />
       <div className="fb-label">Notes</div>
@@ -1109,7 +1191,7 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS }) {
   );
 }
 
-function GoalsTab({ goals, setGoals, viewport, areas = AREAS }) {
+function GoalsTab({ goals, setGoals, viewport, areas = AREAS, onCreateArea }) {
   const [composer, setComposer] = useState(null); // null | "add" | goalId
 
   const saveGoal = (g) => {
@@ -1127,12 +1209,12 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS }) {
     <>
       <Header eyebrow={`${goals.length} active · flexible by design`} title="Goals" actions={[{ icon: Plus, onClick: () => setComposer(composer === "add" ? null : "add") }]} />
       <div className="scroll">
-        {composer === "add" && <GoalComposer areas={areas} onSave={saveGoal} onCancel={() => setComposer(null)} />}
+        {composer === "add" && <GoalComposer areas={areas} onCreateArea={onCreateArea} onSave={saveGoal} onCancel={() => setComposer(null)} />}
         <div className={viewport === "desktop" ? "goal-grid" : undefined}>
           {goals.map((g) => {
             const area = g.area && areas[g.area] ? areas[g.area] : { name: "No Area", color: "#9AA2B1" };
             if (composer === g.id) {
-              return <GoalComposer key={g.id} areas={areas} initial={g} onSave={saveGoal} onCancel={() => setComposer(null)} onDelete={() => deleteGoal(g.id)} />;
+              return <GoalComposer key={g.id} areas={areas} onCreateArea={onCreateArea} initial={g} onSave={saveGoal} onCancel={() => setComposer(null)} onDelete={() => deleteGoal(g.id)} />;
             }
             return (
               <div key={g.id} className="card goal-card">
@@ -1501,22 +1583,71 @@ function LinkCard({ icon: Icon, tint, name, desc, placeholder, initialUrl = "", 
 /* ---------------------------------------------------------------
    NOTIFICATION CENTER + SETTINGS (reached from bottom of Insights)
 ----------------------------------------------------------------*/
-function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask }) {
+function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreateArea }) {
   const [prefs, setPrefs] = usePersistentState("abide-notification-prefs", { tasks: true, calendar: true, review: true, streak: true, milestones: true });
   const [editingTask, setEditingTask] = useState(null);
+  const [permission, setPermission] = useState(() => typeof Notification !== "undefined" ? Notification.permission : "unsupported");
   const toggle = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
   const rows = [{ k: "tasks", label: "Task reminders" }, { k: "calendar", label: "Calendar event alerts" }, { k: "review", label: "Weekly review nudge" }, { k: "streak", label: "Journal streak reminder" }, { k: "milestones", label: "Goal milestone alerts" }];
   const reminders = tasks.filter((t) => !t.done && t.reminder && t.reminder !== "None").sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
+
+  const enableNotifications = async () => {
+    if (typeof Notification === "undefined") { setPermission("unsupported"); return; }
+    const result = await Notification.requestPermission();
+    setPermission(result);
+    if (result === "granted") new Notification("Abide notifications enabled", { body: "Task reminders can now appear on this device while Abide is running." });
+  };
+
+  const testNotification = () => {
+    if (permission !== "granted") return;
+    new Notification("Abide test reminder", { body: "Notifications are working on this device." });
+  };
+
+  useEffect(() => {
+    if (permission !== "granted" || !prefs.tasks) return;
+    const check = () => {
+      const now = Date.now();
+      tasks.forEach((task) => {
+        if (task.done || !task.reminder || task.reminder === "None") return;
+        const moment = taskReminderMoment(task);
+        if (!moment) return;
+        const diff = now - moment.getTime();
+        if (diff < 0 || diff > 60000) return;
+        const firedKey = `abide-notification-fired:${task.id}:${moment.toISOString()}`;
+        try {
+          if (localStorage.getItem(firedKey)) return;
+          new Notification(task.title, { body: `${task.reminder} · ${formatDateLabel(taskDateKey(task))}${task.dueTime ? ` · ${formatTimeLabel(task.dueTime)}` : ""}`, tag: String(task.id) });
+          localStorage.setItem(firedKey, "1");
+        } catch {}
+      });
+    };
+    check();
+    const id = window.setInterval(check, 30000);
+    return () => window.clearInterval(id);
+  }, [tasks, prefs.tasks, permission]);
+
   return (
     <>
       <Header eyebrow="Alerts & reminders" title="Reminders" />
       <div className="scroll">
-        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={(u) => { onUpdateTask(u); setEditingTask(null); }} onCancel={() => setEditingTask(null)} onDelete={(id) => { onDeleteTask(id); setEditingTask(null); }} />}
+        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={(u) => { onUpdateTask(u); setEditingTask(null); }} onCancel={() => setEditingTask(null)} onDelete={(id) => { onDeleteTask(id); setEditingTask(null); }} onCreateArea={onCreateArea} />}
+
+        <div className="section-label">Device Notifications</div>
+        <div className="card">
+          <div className="notification-status">
+            <div>
+              <div style={{ fontWeight: 650, color: "var(--text)", fontSize: 13.5 }}>Notification permission</div>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3 }}>{permission === "granted" ? "Enabled on this device" : permission === "denied" ? "Blocked in browser settings" : permission === "unsupported" ? "Not supported by this browser" : "Not enabled yet"}</div>
+            </div>
+            {permission !== "granted" ? <div className="filter-chip active" onClick={enableNotifications}>Enable</div> : <div className="filter-chip" onClick={testNotification}>Test</div>}
+          </div>
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 4px 0" }}>These notifications work while Abide is running. True background push when Abide is fully closed requires the next backend step: Firestore task storage + Firebase Cloud Messaging.</div>
+
         <div className="section-label">Upcoming Notifications</div>
         <div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item" style={{ cursor: "pointer" }} onClick={() => setEditingTask(t)}><span><strong>{t.title}</strong><span style={{ display: "block", fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>{formatDateLabel(taskDateKey(t))}{t.dueTime ? ` · ${formatTimeLabel(t.dueTime)}` : ""}</span></span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No task reminders scheduled yet.</div>}</div>
         <div className="section-label">Notification Types</div>
         <div className="card">{rows.map((r) => <div key={r.k} className="settings-row"><span className="settings-row-name">{r.label}</span><Toggle on={prefs[r.k]} onClick={() => toggle(r.k)} /></div>)}</div>
-        <div className="insight-line" style={{ padding: "8px 4px" }}>This tab is the home for Abide notifications. It already reflects task reminders you set. Device push delivery will become automatic when Firebase Cloud Messaging is wired to the reminder schedule.</div>
       </div>
     </>
   );
@@ -1761,6 +1892,11 @@ export default function App() {
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
   const createTask = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
+  const createArea = ({ name, color = "#8FA88A" }) => {
+    const id = `area_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    setAreas((prev) => ({ ...prev, [id]: { name: String(name || "").trim(), color } }));
+    return id;
+  };
   const deleteArea = (id) => {
     setAreas((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setTasks((prev) => prev.map((t) => t.area === id ? { ...t, area: null } : t));
@@ -1784,12 +1920,12 @@ export default function App() {
 
   const activeTab = (
     <>
-      {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} />}
-      {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} openAddSignal={quickAddSignal} />}
-      {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} areas={areas} />}
+      {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} onCreateArea={createArea} />}
+      {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} openAddSignal={quickAddSignal} onCreateArea={createArea} />}
+      {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} areas={areas} onCreateArea={createArea} />}
       {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}
-      {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
+      {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
       {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} />}
     </>
   );

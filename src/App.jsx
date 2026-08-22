@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ListTodo, CalendarDays, Target, BookOpen, BarChart3, Plus, X,
   Flag, Repeat, ChevronRight, ChevronDown, ChevronLeft, Flame, TrendingUp,
@@ -67,11 +68,11 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
-  .modal-backdrop { position:fixed; inset:0; z-index:200; background:rgba(2,5,10,0.78); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); overflow:hidden; }
+  .modal-backdrop { position:fixed; inset:0; z-index:10000; background:rgba(2,5,10,0.82); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); overflow:auto; -webkit-overflow-scrolling:touch; }
   .task-editor-modal { width:min(100%, 620px); max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y:auto !important; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
   @media (max-width: 520px) {
-    .modal-backdrop { align-items:stretch; padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); background:var(--appBg); backdrop-filter:none; -webkit-backdrop-filter:none; }
-    .task-editor-modal { width:100%; height:100%; max-height:none; border-radius:0 !important; border-left:none !important; border-right:none !important; box-shadow:none; padding-bottom:24px; }
+    .modal-backdrop { display:block; padding:0; background:var(--appBg); backdrop-filter:none; -webkit-backdrop-filter:none; }
+    .task-editor-modal { width:100%; min-height:100%; height:auto; max-height:none; margin:0 !important; border-radius:0 !important; border:none !important; box-shadow:none; padding:calc(18px + env(safe-area-inset-top, 0px)) 18px calc(30px + env(safe-area-inset-bottom, 0px)); overflow:visible !important; }
   }
   .quick-area-create { margin-top:8px; padding:10px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
   .notification-status { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; }
@@ -700,6 +701,7 @@ function taskReminderMoment(task) {
 }
 
 function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateArea }) {
+  const modalRef = useRef(null);
   const [title, setTitle] = useState(task.title || "");
   const [dueDate, setDueDate] = useState(taskDateKey(task));
   const [dueTime, setDueTime] = useState(inferTaskTime(task));
@@ -711,6 +713,24 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   const [notes, setNotes] = useState(task.notes || "");
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const [subtaskDraft, setSubtaskDraft] = useState("");
+  useEffect(() => {
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const frame = requestAnimationFrame(() => {
+      if (modalRef.current) modalRef.current.scrollTop = 0;
+      window.scrollTo(0, 0);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, []);
+
 
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
   const save = () => {
@@ -720,8 +740,8 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
     onSave({ ...task, title: title.trim(), dueDate, dueTime: dueTime || null, due, dueOffsetDays, priority, area: area || null, goal: goal || null, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, notes, subtasks });
   };
 
-  return (
-    <div className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+  return createPortal(
+    <div ref={modalRef} className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="card composer-card task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
       <div className="fb-label" style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>Edit Task</span><X size={16} style={{ cursor: "pointer" }} onClick={onCancel} /></div>
       <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
@@ -738,7 +758,8 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
       <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12} />Delete Task</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -911,6 +932,24 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [notes, setNotes] = useState("");
   const [subtasks, setSubtasks] = useState([]);
   const [subtaskDraft, setSubtaskDraft] = useState("");
+  useEffect(() => {
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const frame = requestAnimationFrame(() => {
+      if (modalRef.current) modalRef.current.scrollTop = 0;
+      window.scrollTo(0, 0);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, []);
+
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };

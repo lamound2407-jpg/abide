@@ -67,8 +67,12 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
-  .modal-backdrop { position:absolute; inset:0; z-index:90; background:rgba(2,5,10,0.72); backdrop-filter:blur(8px); display:flex; align-items:flex-start; justify-content:center; padding:52px 14px 110px; overflow-y:auto; }
-  .task-editor-modal { width:min(100%, 620px); max-height:none; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
+  .modal-backdrop { position:fixed; inset:0; z-index:200; background:rgba(2,5,10,0.78); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); overflow:hidden; }
+  .task-editor-modal { width:min(100%, 620px); max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y:auto !important; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
+  @media (max-width: 520px) {
+    .modal-backdrop { align-items:stretch; padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); background:var(--appBg); backdrop-filter:none; -webkit-backdrop-filter:none; }
+    .task-editor-modal { width:100%; height:100%; max-height:none; border-radius:0 !important; border-left:none !important; border-right:none !important; box-shadow:none; padding-bottom:24px; }
+  }
   .quick-area-create { margin-top:8px; padding:10px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
   .notification-status { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; }
   .fb-label { font-size:11.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color: var(--text3); margin: 10px 0 7px 0; }

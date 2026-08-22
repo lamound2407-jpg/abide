@@ -371,8 +371,8 @@ function Sidebar({ tabs, tab, setTab, viewport, theme, setTheme }) {
   );
 }
 
-function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals }) {
-  const area = AREAS[task.area];
+function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = AREAS, onEdit }) {
+  const area = task.area && areas[task.area] ? areas[task.area] : { name: "No Area", color: "#9AA2B1" };
   const goal = goals?.find((g) => g.id === task.goal);
   return (
     <div>
@@ -384,25 +384,144 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals }) {
           <div className={`task-title ${task.done ? "done" : ""}`}>{task.title}</div>
           <div className="task-meta">
             <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
-            {task.dueOffsetDays < 0 && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
+            {task.dueOffsetDays < 0 && !task.done && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
             <span className="time-chip"><Clock size={11} />{task.due}</span>
             {task.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
             {task.repeat && <span className="time-chip"><Repeat size={11} />{task.repeat}</span>}
             {!task.goal && <span className="time-chip" style={{ opacity: 0.7 }}>· no goal</span>}
           </div>
         </div>
-        {expanded ? <ChevronDown size={16} color="var(--text3)" /> : <ChevronRight size={16} color="var(--text3)" />}
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          {onEdit && <Pencil size={15} color="var(--text3)" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onEdit(task); }} />}
+          {expanded ? <ChevronDown size={16} color="var(--text3)" /> : <ChevronRight size={16} color="var(--text3)" />}
+        </div>
       </div>
       {expanded && (
         <div className="task-detail">
-          <div className="field-row"><span className="field-label">Due</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.due}</span></div>
-          <div className="field-row"><span className="field-label">Priority</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.priority === "high" ? "High" : task.priority === "med" ? "Medium" : "Low"}</span></div>
-          <div className="field-row"><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.repeat || "None"}</span></div>
-          <div className="field-row"><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
-          <div className="field-row"><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
-          <textarea className="notes-box" rows={2} placeholder="Add a note…" defaultValue={task.notes} />
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Due</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.due}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Priority</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.priority === "high" ? "High" : task.priority === "med" ? "Medium" : "Low"}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.repeat || "None"}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
+          <div className="notes-box" style={{ minHeight: 38, cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}>{task.notes || "Add a note…"}</div>
         </div>
       )}
+    </div>
+  );
+}
+
+const REFERENCE_DATE_KEY = "2026-08-21";
+
+function dateFromKey(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
+
+function dateKeyFromOffset(offset = 0) {
+  const d = dateFromKey(REFERENCE_DATE_KEY);
+  d.setDate(d.getDate() + Number(offset || 0));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function taskDateKey(task) {
+  return task.dueDate || dateKeyFromOffset(task.dueOffsetDays || 0);
+}
+
+function offsetFromDateKey(key) {
+  const ms = dateFromKey(key) - dateFromKey(REFERENCE_DATE_KEY);
+  return Math.round(ms / 86400000);
+}
+
+function formatDateLabel(key) {
+  const d = dateFromKey(key);
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatTimeLabel(value) {
+  if (!value) return "";
+  const [h, m] = value.split(":").map(Number);
+  const d = new Date(2026, 0, 1, h, m || 0);
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function inferTaskTime(task) {
+  if (task.dueTime) return task.dueTime;
+  const match = String(task.due || "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return "";
+  let h = Number(match[1]);
+  const minute = match[2];
+  const ap = match[3].toUpperCase();
+  if (ap === "PM" && h !== 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${minute}`;
+}
+
+function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete }) {
+  const [title, setTitle] = useState(task.title || "");
+  const [dueDate, setDueDate] = useState(taskDateKey(task));
+  const [dueTime, setDueTime] = useState(inferTaskTime(task));
+  const [priority, setPriority] = useState(task.priority || "med");
+  const [area, setArea] = useState(task.area && areas[task.area] ? task.area : "");
+  const [goal, setGoal] = useState(task.goal || "");
+  const [repeat, setRepeat] = useState(task.repeat || "");
+  const [reminder, setReminder] = useState(task.reminder || "None");
+  const [notes, setNotes] = useState(task.notes || "");
+
+  const save = () => {
+    if (!title.trim() || !dueDate) return;
+    const dueOffsetDays = offsetFromDateKey(dueDate);
+    const due = dueTime ? formatTimeLabel(dueTime) : formatDateLabel(dueDate);
+    onSave({
+      ...task,
+      title: title.trim(),
+      dueDate,
+      dueTime: dueTime || null,
+      due,
+      dueOffsetDays,
+      priority,
+      area: area || null,
+      goal: goal || null,
+      repeat: repeat.trim() || null,
+      reminder,
+      notes,
+    });
+  };
+
+  return (
+    <div className="card composer-card" style={{ marginBottom: 14 }}>
+      <div className="fb-label" style={{ marginTop: 0 }}>Edit Task</div>
+      <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ flex: 1 }}><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+        <div style={{ flex: 1 }}><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)} /></div>
+      </div>
+      <div className="fb-label">Priority</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        {[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}
+      </div>
+      <div className="fb-label">Area</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        <div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>
+        {Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}
+      </div>
+      <div className="fb-label">Goal (optional)</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        <div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>
+        {goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}
+      </div>
+      <div className="fb-label">Repeat</div>
+      <input className="input-line" style={{ marginTop: 0 }} value={repeat} onChange={(e) => setRepeat(e.target.value)} placeholder="e.g. Daily, Tue / Thu, None" />
+      <div className="fb-label">Reminder</div>
+      <input className="input-line" style={{ marginTop: 0 }} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="e.g. 15 min before" />
+      <div className="fb-label">Notes</div>
+      <textarea className="notes-box" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" />
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div>
+        <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div>
+      </div>
+      <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => {
+        if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id);
+      }}><Trash2 size={12} />Delete Task</div>
     </div>
   );
 }
@@ -410,15 +529,16 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals }) {
 /* ---------------------------------------------------------------
    DYNAMIC / CUSTOMIZABLE FILTER SYSTEM
 ----------------------------------------------------------------*/
-function FilterSystem({ selectedAreas, setSelectedAreas, selectedPriorities, setSelectedPriorities, savedFilters, setSavedFilters }) {
+function FilterSystem({ areas, selectedAreas, setSelectedAreas, selectedPriorities, setSelectedPriorities, savedFilters, setSavedFilters }) {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
-  const allAreasOn = selectedAreas.length === Object.keys(AREAS).length;
+  const areaKeys = Object.keys(areas);
+  const allAreasOn = areaKeys.length === 0 || areaKeys.every((k) => selectedAreas.includes(k));
   const allPriOn = selectedPriorities.length === 3;
 
   const toggleArea = (k) => setSelectedAreas((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k]);
   const togglePri = (k) => setSelectedPriorities((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k]);
-  const applySaved = (f) => { setSelectedAreas(f.areas); setSelectedPriorities(f.priorities); };
+  const applySaved = (f) => { setSelectedAreas(f.areas.filter((a) => areas[a])); setSelectedPriorities(f.priorities); };
   const removeSaved = (id, e) => { e.stopPropagation(); setSavedFilters((p) => p.filter((f) => f.id !== id)); };
   const saveCurrent = () => {
     if (!draftName.trim()) return;
@@ -429,7 +549,7 @@ function FilterSystem({ selectedAreas, setSelectedAreas, selectedPriorities, set
   return (
     <>
       <div className="filter-row">
-        <div className={`filter-chip ${allAreasOn && allPriOn ? "active" : ""}`} onClick={() => { setSelectedAreas(Object.keys(AREAS)); setSelectedPriorities(["high", "med", "low"]); }}><Filter size={12} />All</div>
+        <div className={`filter-chip ${allAreasOn && allPriOn ? "active" : ""}`} onClick={() => { setSelectedAreas(areaKeys); setSelectedPriorities(["high", "med", "low"]); }}><Filter size={12} />All</div>
         {savedFilters.map((f) => (
           <div key={f.id} className="filter-chip" onClick={() => applySaved(f)}>{f.name}<X size={11} className="x" onClick={(e) => removeSaved(f.id, e)} /></div>
         ))}
@@ -438,7 +558,9 @@ function FilterSystem({ selectedAreas, setSelectedAreas, selectedPriorities, set
       {builderOpen && (
         <div className="card filter-builder">
           <div className="fb-label">Areas</div>
-          <div className="filter-row" style={{ padding: 0 }}>{Object.entries(AREAS).map(([k, v]) => <div key={k} className={`filter-chip ${selectedAreas.includes(k) ? "active" : ""}`} onClick={() => toggleArea(k)}>{v.name}</div>)}</div>
+          <div className="filter-row" style={{ padding: 0 }}>
+            {areaKeys.length ? Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${selectedAreas.includes(k) ? "active" : ""}`} onClick={() => toggleArea(k)}>{v.name}</div>) : <span style={{ fontSize: 12, color: "var(--text3)" }}>No areas yet.</span>}
+          </div>
           <div className="fb-label">Priority</div>
           <div className="filter-row" style={{ padding: 0 }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${selectedPriorities.includes(k) ? "active" : ""}`} onClick={() => togglePri(k)}>{label}</div>)}</div>
           <div className="fb-label">Save This Combination</div>
@@ -455,26 +577,49 @@ function FilterSystem({ selectedAreas, setSelectedAreas, selectedPriorities, set
 /* ---------------------------------------------------------------
    TODAY TAB
 ----------------------------------------------------------------*/
-function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals }) {
-  const [selectedAreas, setSelectedAreas] = useState(Object.keys(AREAS));
+function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, onUpdateTask, onDeleteTask }) {
+  const [selectedAreas, setSelectedAreas] = useState(Object.keys(areas));
   const [selectedPriorities, setSelectedPriorities] = useState(["high", "med", "low"]);
   const [savedFilters, setSavedFilters] = useState([{ id: "sf1", name: "Margin only", areas: ["margin"], priorities: ["high", "med", "low"] }]);
   const [range, setRange] = useState("week");
   const [somedayOpen, setSomedayOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
 
-  const matches = (t) => selectedAreas.includes(t.area) && selectedPriorities.includes(t.priority);
+  useEffect(() => {
+    const keys = Object.keys(areas);
+    setSelectedAreas((prev) => {
+      const kept = prev.filter((k) => areas[k]);
+      const added = keys.filter((k) => !kept.includes(k));
+      return [...kept, ...added];
+    });
+  }, [areas]);
+
+  const matches = (t) => (!t.area || selectedAreas.includes(t.area)) && selectedPriorities.includes(t.priority);
   const overdue = tasks.filter((t) => t.dueOffsetDays < 0 && !t.done && matches(t));
   const today = tasks.filter((t) => t.dueOffsetDays === 0 && matches(t));
   const maxRange = range === "week" ? 7 : 14;
   const upcoming = tasks.filter((t) => t.dueOffsetDays > 0 && t.dueOffsetDays <= maxRange && matches(t));
   const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && t.dueOffsetDays <= 1);
 
+  const saveTask = (updated) => {
+    onUpdateTask(updated);
+    setEditingTask(null);
+  };
+  const deleteTask = (id) => {
+    onDeleteTask(id);
+    if (editingTask?.id === id) setEditingTask(null);
+  };
+
+  const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={setEditingTask} />;
+
   return (
     <>
       <Header eyebrow="Friday, August 21" title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
       <div className="scroll">
         <div className="capture-bar"><Plus size={16} />Capture anything — sort it out later</div>
+
+        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveTask} onCancel={() => setEditingTask(null)} onDelete={deleteTask} />}
 
         {alertsOpen && (
           <div className="card" style={{ marginBottom: 14 }}>
@@ -483,19 +628,19 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals }) {
           </div>
         )}
 
-        <FilterSystem selectedAreas={selectedAreas} setSelectedAreas={setSelectedAreas} selectedPriorities={selectedPriorities} setSelectedPriorities={setSelectedPriorities} savedFilters={savedFilters} setSavedFilters={setSavedFilters} />
+        <FilterSystem areas={areas} selectedAreas={selectedAreas} setSelectedAreas={setSelectedAreas} selectedPriorities={selectedPriorities} setSelectedPriorities={setSelectedPriorities} savedFilters={savedFilters} setSavedFilters={setSavedFilters} />
 
-        {overdue.length > 0 && (<><div className="section-label">Overdue</div><div className="card">{overdue.map((t) => <TaskRow key={t.id} task={t} goals={goals} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} />)}</div></>)}
+        {overdue.length > 0 && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}</div></>)}
 
         <div className="section-label">Today</div>
-        <div className="card">{today.length ? today.map((t) => <TaskRow key={t.id} task={t} goals={goals} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} />) : <div className="insight-line">Nothing here for the filters selected.</div>}</div>
+        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">Nothing here for the filters selected.</div>}</div>
 
         <div className="section-label"><span>Coming Up</span></div>
         <div className="segmented" style={{ margin: "0 0 10px 0" }}>
           <div className={`seg-btn ${range === "week" ? "active" : ""}`} onClick={() => setRange("week")}>This Week</div>
           <div className={`seg-btn ${range === "twoweeks" ? "active" : ""}`} onClick={() => setRange("twoweeks")}>Next 2 Weeks</div>
         </div>
-        <div className="card">{upcoming.length ? upcoming.map((t) => <TaskRow key={t.id} task={t} goals={goals} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} />) : <div className="insight-line">Nothing in this window for the filters selected.</div>}</div>
+        <div className="card">{upcoming.length ? upcoming.map(renderTask) : <div className="insight-line">Nothing in this window for the filters selected.</div>}</div>
 
         <div className="section-label" onClick={() => setSomedayOpen(!somedayOpen)} style={{ cursor: "pointer" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Archive size={12} />Someday / Maybe ({somedayTasks.length})</span>
@@ -503,12 +648,15 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals }) {
         </div>
         {somedayOpen && (
           <div className="card">
-            {somedayTasks.map((t) => (
-              <div className="task-row" key={t.id} style={{ cursor: "default" }}>
-                <div style={{ width: 22 }} />
-                <div><div className="task-title">{t.title}</div><div className="task-meta"><span className="chip" style={{ background: AREAS[t.area].color + "26", color: AREAS[t.area].color }}>{AREAS[t.area].name}</span></div></div>
-              </div>
-            ))}
+            {somedayTasks.map((t) => {
+              const a = t.area && areas[t.area] ? areas[t.area] : { name: "No Area", color: "#9AA2B1" };
+              return (
+                <div className="task-row" key={t.id} style={{ cursor: "default" }}>
+                  <div style={{ width: 22 }} />
+                  <div><div className="task-title">{t.title}</div><div className="task-meta"><span className="chip" style={{ background: a.color + "26", color: a.color }}>{a.name}</span></div></div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -519,102 +667,329 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals }) {
 /* ---------------------------------------------------------------
    ADD SHEET (task / event, with protected-time bypass)
 ----------------------------------------------------------------*/
-function AddSheet({ goals, onClose }) {
+const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+
+function loadGoogleIdentityScript() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", reject, { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+function googleEventDateKey(event) {
+  return event.start?.date || event.start?.dateTime?.slice(0, 10) || "";
+}
+
+function googleEventTimeLabel(event) {
+  if (event.start?.date) return "All day";
+  if (!event.start?.dateTime) return "";
+  return new Date(event.start.dateTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected }) {
   const [kind, setKind] = useState("task");
-  const [goal, setGoal] = useState(null);
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
+  const [time, setTime] = useState("");
+  const [area, setArea] = useState(Object.keys(areas)[0] || "");
+  const [goal, setGoal] = useState("");
+  const [priority, setPriority] = useState("med");
   const [bypass, setBypass] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!title.trim() || !date || saving) return;
+    setSaving(true);
+    try {
+      if (kind === "task") {
+        onCreateTask({
+          title: title.trim(),
+          dueDate: date,
+          dueTime: time || null,
+          due: time ? formatTimeLabel(time) : formatDateLabel(date),
+          dueOffsetDays: offsetFromDateKey(date),
+          priority,
+          area: area || null,
+          goal: goal || null,
+          notes: "",
+          repeat: null,
+          reminder: "None",
+          done: false,
+          bypassProtected: bypass,
+        });
+      } else {
+        await onCreateEvent({ title: title.trim(), date, time, area: area || null, bypassProtected: bypass });
+      }
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="card composer-card">
       <div className="segmented" style={{ margin: "0 0 4px 0" }}>
         <div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div>
         <div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div>
       </div>
-      <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} />
+      <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}>
-        <input className="input-line" placeholder="Date" style={{ flex: 1 }} />
-        <input className="input-line" placeholder="Time" style={{ flex: 1 }} />
+        <input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} />
+        <input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} />
       </div>
       <div className="fb-label">Area</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{Object.entries(AREAS).map(([k, v]) => <div key={k} className="filter-chip" style={{ borderColor: v.color + "55" }}>{v.name}</div>)}</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+        <div className={`filter-chip ${area === "" ? "active" : ""}`} onClick={() => setArea("")}>No Area</div>
+        {Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} style={{ borderColor: v.color + "55" }} onClick={() => setArea(k)}>{v.name}</div>)}
+      </div>
       {kind === "task" && (
         <>
+          <div className="fb-label">Priority</div>
+          <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+            {[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}
+          </div>
           <div className="fb-label">Goal (optional)</div>
           <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-            <div className={`filter-chip ${goal === null ? "active" : ""}`} onClick={() => setGoal(null)}>No Goal</div>
+            <div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>
             {goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}
           </div>
         </>
       )}
       {kind === "event" && (
-        <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />Will sync to your chosen Google Calendar automatically</div>
+        <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+          <RefreshCw size={11} />{googleConnected ? "Will be added to lamound2407@gmail.com in Google Calendar." : "Will stay in Abide until Google Calendar is connected."}
+        </div>
       )}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}>
         <div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div>
         <Toggle on={bypass} onClick={() => setBypass(!bypass)} />
       </div>
-      <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>
-        {bypass ? "This will be allowed to land inside a protected block (e.g. Time with the Lord)." : "If this falls inside a protected block, you'll be asked before it's scheduled there."}
-      </div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Save {kind === "task" ? "Task" : "Event"}</div>
+        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div>
         <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div>
       </div>
     </div>
   );
 }
 
-function CalendarsPanel({ calendars, setCalendars, showOthers, setShowOthers, others, setOthers }) {
+function CalendarsPanel({ calendars, setCalendars, connected, configured, onConnect, onRefresh, error }) {
   return (
     <div className="card cal-account" style={{ marginBottom: 14 }}>
       <div className="cal-account-title">lamound2407@gmail.com</div>
-      {calendars.map((c) => (
-        <div key={c.id} className="cal-item">
-          <div className="cal-item-name"><span className="cal-swatch" style={{ background: c.color }} />{c.label}</div>
-          <Toggle on={c.on} onClick={() => setCalendars((p) => p.map((x) => x.id === c.id ? { ...x, on: !x.on } : x))} />
-        </div>
-      ))}
-      {!showOthers ? (
-        <div className="link-others" onClick={() => setShowOthers(true)}>Show other calendars on this account →</div>
+      {!configured ? (
+        <div className="insight-line" style={{ padding: "8px 0 4px" }}>Google Calendar is ready in the code, but the Google OAuth client ID still needs to be added to Abide before it can connect.</div>
+      ) : !connected ? (
+        <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 8 }} onClick={onConnect}>Connect Google Calendar</div>
       ) : (
         <>
-          <div className="cal-account-title" style={{ marginTop: 12 }}>Other calendars on this account</div>
-          {others.map((c) => (
+          {calendars.map((c) => (
             <div key={c.id} className="cal-item">
               <div className="cal-item-name"><span className="cal-swatch" style={{ background: c.color }} />{c.label}</div>
-              <Toggle on={c.on} onClick={() => setOthers((p) => p.map((x) => x.id === c.id ? { ...x, on: !x.on } : x))} />
+              <Toggle on={c.on} onClick={() => setCalendars((p) => p.map((x) => x.id === c.id ? { ...x, on: !x.on } : x))} />
             </div>
           ))}
+          <div className="link-others" onClick={onRefresh}>Refresh Google Calendar →</div>
         </>
       )}
+      {error && <div style={{ fontSize: 11.5, color: "#E68080", marginTop: 8 }}>{error}</div>}
     </div>
   );
 }
 
-function CalendarTab({ goals, protectedBlocks }) {
+function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask }) {
   const [mode, setMode] = useState("week");
   const [selDay, setSelDay] = useState(4);
   const [adding, setAdding] = useState(false);
   const [calsOpen, setCalsOpen] = useState(false);
-  const [calendars, setCalendars] = useState(CALENDARS.map((c) => ({ ...c, on: true })));
-  const [showOthers, setShowOthers] = useState(false);
-  const [others, setOthers] = useState(OTHER_CALENDARS.map((c) => ({ ...c, on: false })));
+  const [calendars, setCalendars] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [googleError, setGoogleError] = useState("");
+  const [googleToken, setGoogleToken] = useState(() => {
+    try { return sessionStorage.getItem("abideGoogleCalendarToken") || ""; } catch { return ""; }
+  });
+  const tokenClientRef = useRef(null);
   const [overridden, setOverridden] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
 
-  const days = [{ dow: "M", num: 17 }, { dow: "T", num: 18 }, { dow: "W", num: 19 }, { dow: "T", num: 20 }, { dow: "F", num: 21 }, { dow: "S", num: 22 }, { dow: "S", num: 23 }];
-  const activeCount = calendars.filter((c) => c.on).length + others.filter((c) => c.on).length;
-  const todaysBlock = protectedBlocks.find((b) => b.day === "Fri");
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  const googleConfigured = Boolean(googleClientId);
+  const googleConnected = Boolean(googleToken);
+
+  const days = [
+    { dow: "M", full: "Mon", num: 17, key: "2026-08-17" },
+    { dow: "T", full: "Tue", num: 18, key: "2026-08-18" },
+    { dow: "W", full: "Wed", num: 19, key: "2026-08-19" },
+    { dow: "T", full: "Thu", num: 20, key: "2026-08-20" },
+    { dow: "F", full: "Fri", num: 21, key: "2026-08-21" },
+    { dow: "S", full: "Sat", num: 22, key: "2026-08-22" },
+    { dow: "S", full: "Sun", num: 23, key: "2026-08-23" },
+  ];
+  const selectedDay = days[selDay];
+  const selectedDateKey = selectedDay.key;
+  const todaysBlock = protectedBlocks.find((b) => b.day === selectedDay.full);
+  const activeCount = calendars.filter((c) => c.on).length;
+  const visibleCalendarIds = new Set(calendars.filter((c) => c.on).map((c) => c.id));
+  const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
+  const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarIds.has(e.calendarId)));
+
+  const clearGoogleConnection = () => {
+    setGoogleToken("");
+    try { sessionStorage.removeItem("abideGoogleCalendarToken"); } catch {}
+  };
+
+  const fetchGoogleData = async (token = googleToken) => {
+    if (!token) return;
+    setGoogleError("");
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const calRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", { headers });
+      if (calRes.status === 401) {
+        clearGoogleConnection();
+        throw new Error("Google Calendar authorization expired. Tap Connect Google Calendar again.");
+      }
+      if (!calRes.ok) throw new Error("Could not load your Google calendars.");
+      const calJson = await calRes.json();
+      const priorOn = new Map(calendars.map((c) => [c.id, c.on]));
+      const nextCalendars = (calJson.items || []).map((c) => ({
+        id: c.id,
+        label: c.summaryOverride || c.summary || c.id,
+        color: c.backgroundColor || "#8FA88A",
+        on: priorOn.has(c.id) ? priorOn.get(c.id) : c.selected !== false,
+        primary: Boolean(c.primary),
+      }));
+      setCalendars(nextCalendars);
+
+      const timeMin = new Date("2026-08-01T00:00:00-05:00").toISOString();
+      const timeMax = new Date("2026-09-01T00:00:00-05:00").toISOString();
+      const eventGroups = await Promise.all(nextCalendars.map(async (cal) => {
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`;
+        const res = await fetch(url, { headers });
+        if (!res.ok) return [];
+        const json = await res.json();
+        return (json.items || []).filter((e) => e.status !== "cancelled").map((e) => ({
+          id: `google:${cal.id}:${e.id}`,
+          googleEventId: e.id,
+          calendarId: cal.id,
+          calendarLabel: cal.label,
+          color: cal.color,
+          source: "google",
+          title: e.summary || "(Untitled event)",
+          date: googleEventDateKey(e),
+          time: googleEventTimeLabel(e),
+          start: e.start,
+          end: e.end,
+        }));
+      }));
+      setEvents((prev) => [...prev.filter((e) => e.source !== "google"), ...eventGroups.flat()]);
+    } catch (err) {
+      setGoogleError(err.message || "Google Calendar could not be loaded.");
+    }
+  };
+
+  useEffect(() => {
+    if (!googleConfigured) return;
+    let active = true;
+    loadGoogleIdentityScript().then(() => {
+      if (!active || !window.google?.accounts?.oauth2) return;
+      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+        client_id: googleClientId,
+        scope: GOOGLE_CALENDAR_SCOPE,
+        callback: (response) => {
+          if (response.error) {
+            setGoogleError(response.error_description || response.error);
+            return;
+          }
+          setGoogleToken(response.access_token);
+          try { sessionStorage.setItem("abideGoogleCalendarToken", response.access_token); } catch {}
+          fetchGoogleData(response.access_token);
+        },
+      });
+    }).catch(() => setGoogleError("Google sign-in could not load."));
+    return () => { active = false; };
+  }, [googleClientId]);
+
+  useEffect(() => {
+    if (googleToken) fetchGoogleData(googleToken);
+    // Intentionally only refresh when a saved token becomes available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleToken]);
+
+  const connectGoogle = () => {
+    setGoogleError("");
+    if (!googleConfigured) {
+      setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first.");
+      return;
+    }
+    if (!tokenClientRef.current) {
+      setGoogleError("Google sign-in is still loading. Try again in a moment.");
+      return;
+    }
+    tokenClientRef.current.requestAccessToken({ prompt: googleToken ? "" : "consent" });
+  };
+
+  const createEvent = async ({ title, date, time, area, bypassProtected }) => {
+    if (!googleToken) {
+      setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, bypassProtected }]);
+      return;
+    }
+
+    const body = { summary: title };
+    if (time) {
+      const [h, m] = time.split(":").map(Number);
+      const start = new Date(`${date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      body.start = { dateTime: start.toISOString(), timeZone: "America/Chicago" };
+      body.end = { dateTime: end.toISOString(), timeZone: "America/Chicago" };
+    } else {
+      const end = dateFromKey(date); end.setDate(end.getDate() + 1);
+      body.start = { date };
+      body.end = { date: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}` };
+    }
+
+    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${googleToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) {
+      clearGoogleConnection();
+      setGoogleError("Google Calendar authorization expired. Reconnect and try again.");
+      throw new Error("Google authorization expired");
+    }
+    if (!res.ok) {
+      setGoogleError("The event could not be added to lamound2407@gmail.com.");
+      throw new Error("Google event creation failed");
+    }
+    await fetchGoogleData(googleToken);
+  };
+
+  const saveEditedTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
+  const deleteEditedTask = (id) => { onDeleteTask(id); setEditingTask(null); };
 
   return (
     <>
       <Header eyebrow="August 2026" title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => setAdding(!adding) }]} />
       <div className="scroll">
         <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}>
-          <span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{activeCount} calendars connected · lamound2407@gmail.com</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>
           {calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
-        {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} showOthers={showOthers} setShowOthers={setShowOthers} others={others} setOthers={setOthers} />}
-        {adding && <AddSheet goals={goals} onClose={() => setAdding(false)} />}
+        {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} connected={googleConnected} configured={googleConfigured} onConnect={connectGoogle} onRefresh={() => fetchGoogleData()} error={googleError} />}
+        {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} />}
+        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} />}
 
         <div className="segmented">
           <div className={`seg-btn ${mode === "week" ? "active" : ""}`} onClick={() => setMode("week")}>Week</div>
@@ -623,19 +998,22 @@ function CalendarTab({ goals, protectedBlocks }) {
 
         {mode === "week" ? (
           <>
-            <div className="weekstrip">{days.map((d, i) => <div key={i} className={`daypill ${selDay === i ? "selected" : ""}`} onClick={() => setSelDay(i)}><span className="dow">{d.dow}</span><span className="num">{d.num}</span>{[1, 2, 4, 5].includes(i) && <span className="dot" />}</div>)}</div>
-            <div className="section-label">Friday, Aug 21</div>
+            <div className="weekstrip">{days.map((d, i) => {
+              const hasItems = tasks.some((t) => taskDateKey(t) === d.key) || events.some((e) => e.date === d.key);
+              return <div key={d.key} className={`daypill ${selDay === i ? "selected" : ""}`} onClick={() => { setSelDay(i); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.dow}</span><span className="num">{d.num}</span>{hasItems && <span className="dot" />}</div>;
+            })}</div>
+            <div className="section-label">{dateFromKey(selectedDateKey).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
 
             {todaysBlock && (
               <div className="protected-block">
                 <div className="row">
                   <ShieldCheck size={18} color="#8FA88A" />
-                  <div><div className="t">{todaysBlock.start}–{todaysBlock.end} · Protected — {todaysBlock.label}</div><div className="s">So this time doesn't run on anxiety, and work doesn't follow you in.</div></div>
+                  <div><div className="t">{todaysBlock.start}–{todaysBlock.end} · Protected — {todaysBlock.label}</div><div className="s">Protected time stays visible while you plan the rest of the day.</div></div>
                 </div>
                 {!overridden ? (
                   <div className="override" onClick={() => setOverrideOpen(!overrideOpen)}>Need to schedule something here anyway? →</div>
                 ) : (
-                  <div className="s" style={{ marginTop: 8 }}>Scheduled anyway. This block still shows as protected on other days.</div>
+                  <div className="s" style={{ marginTop: 8 }}>Scheduling override enabled for this view.</div>
                 )}
                 {overrideOpen && !overridden && (
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -646,13 +1024,28 @@ function CalendarTab({ goals, protectedBlocks }) {
               </div>
             )}
 
+            <div className="section-label">Tasks</div>
             <div className="card">
-              <TaskRow task={{ ...seedTasks[1], notes: "" }} goals={goals} expanded={false} onToggleExpand={() => {}} onToggleDone={() => {}} />
-              <TaskRow task={{ ...seedTasks[2], notes: "" }} goals={goals} expanded={false} onToggleExpand={() => {}} onToggleDone={() => {}} />
-              <div className="task-row" style={{ cursor: "default" }}>
-                <div style={{ width: 22 }} />
-                <div><div className="task-title">Rehearsal dinner venue call</div><div className="task-meta"><span className="chip" style={{ background: AREAS.wedding.color + "26", color: AREAS.wedding.color }}>tylerandelizabethharris@gmail.com · 4:00 PM</span></div></div>
-              </div>
+              {dayTasks.length ? dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => setEditingTask(t)} onToggleDone={toggleDone} onEdit={setEditingTask} />) : <div className="insight-line">No tasks due this day.</div>}
+            </div>
+
+            <div className="section-label">Events</div>
+            <div className="card">
+              {dayEvents.length ? dayEvents.map((e) => {
+                const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
+                return (
+                  <div className="task-row" key={e.id} style={{ cursor: "default" }}>
+                    <div style={{ width: 22 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="task-title">{e.title}</div>
+                      <div className="task-meta">
+                        <span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span>
+                        <span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }) : <div className="insight-line">{googleConnected ? "No calendar events this day." : "No Abide events this day. Connect Google Calendar to pull in your real events."}</div>}
             </div>
           </>
         ) : (
@@ -660,15 +1053,18 @@ function CalendarTab({ goals, protectedBlocks }) {
             <div className="section-label">This Month at a Glance</div>
             <div className="card" style={{ padding: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6 }}>
-                {Array.from({ length: 31 }).map((_, i) => (
-                  <div key={i} style={{ textAlign: "center", padding: "7px 0", borderRadius: 8, background: [23, 13, 30].includes(i + 1) ? "rgba(232,180,92,0.18)" : "transparent" }}>
-                    <div style={{ fontSize: 12, color: "var(--body)" }}>{i + 1}</div>
-                    {[7, 13, 20, 24].includes(i + 1) && <div style={{ width: 4, height: 4, borderRadius: 2, background: "#E8B45C", margin: "3px auto 0" }} />}
-                  </div>
-                ))}
+                {Array.from({ length: 31 }).map((_, i) => {
+                  const key = `2026-08-${String(i + 1).padStart(2, "0")}`;
+                  const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key);
+                  return (
+                    <div key={i} style={{ textAlign: "center", padding: "7px 0", borderRadius: 8, background: key === selectedDateKey ? "rgba(232,180,92,0.18)" : "transparent" }}>
+                      <div style={{ fontSize: 12, color: "var(--body)" }}>{i + 1}</div>
+                      {hasItems && <div style={{ width: 4, height: 4, borderRadius: 2, background: "#E8B45C", margin: "3px auto 0" }} />}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="insight-line">Aug 24 — Margin soft launch · Sep 14 — Margin public launch · Oct 18 — Wedding day</div>
           </>
         )}
       </div>
@@ -679,9 +1075,9 @@ function CalendarTab({ goals, protectedBlocks }) {
 /* ---------------------------------------------------------------
    GOALS TAB — add / edit goals, milestones, notes
 ----------------------------------------------------------------*/
-function GoalComposer({ initial, onSave, onCancel, onDelete }) {
+function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS }) {
   const [name, setName] = useState(initial?.name || "");
-  const [area, setArea] = useState(initial?.area || "personal");
+  const [area, setArea] = useState(initial?.area && areas[initial.area] ? initial.area : (Object.keys(areas)[0] || ""));
   const [target, setTarget] = useState(initial?.target || "");
   const [notes, setNotes] = useState(initial?.notes || "");
   const [milestones, setMilestones] = useState(initial?.milestones || []);
@@ -702,7 +1098,7 @@ function GoalComposer({ initial, onSave, onCancel, onDelete }) {
       <div className="fb-label" style={{ marginTop: 0 }}>Goal Name</div>
       <input className="input-line" style={{ marginTop: 0 }} placeholder="e.g. Read Through the New Testament" value={name} onChange={(e) => setName(e.target.value)} />
       <div className="fb-label">Area</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{Object.entries(AREAS).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${area === k ? "active" : ""}`} onClick={() => setArea(k)}>{v.name}</div>)}</div>
       <div className="fb-label">Target Date</div>
       <input className="input-line" style={{ marginTop: 0 }} placeholder="e.g. Dec 31" value={target} onChange={(e) => setTarget(e.target.value)} />
       <div className="fb-label">Notes</div>
@@ -725,7 +1121,7 @@ function GoalComposer({ initial, onSave, onCancel, onDelete }) {
   );
 }
 
-function GoalsTab({ goals, setGoals, viewport }) {
+function GoalsTab({ goals, setGoals, viewport, areas = AREAS }) {
   const [composer, setComposer] = useState(null); // null | "add" | goalId
 
   const saveGoal = (g) => {
@@ -743,12 +1139,12 @@ function GoalsTab({ goals, setGoals, viewport }) {
     <>
       <Header eyebrow={`${goals.length} active · flexible by design`} title="Goals" actions={[{ icon: Plus, onClick: () => setComposer(composer === "add" ? null : "add") }]} />
       <div className="scroll">
-        {composer === "add" && <GoalComposer onSave={saveGoal} onCancel={() => setComposer(null)} />}
+        {composer === "add" && <GoalComposer areas={areas} onSave={saveGoal} onCancel={() => setComposer(null)} />}
         <div className={viewport === "desktop" ? "goal-grid" : undefined}>
           {goals.map((g) => {
-            const area = AREAS[g.area];
+            const area = g.area && areas[g.area] ? areas[g.area] : { name: "No Area", color: "#9AA2B1" };
             if (composer === g.id) {
-              return <GoalComposer key={g.id} initial={g} onSave={saveGoal} onCancel={() => setComposer(null)} onDelete={() => deleteGoal(g.id)} />;
+              return <GoalComposer key={g.id} areas={areas} initial={g} onSave={saveGoal} onCancel={() => setComposer(null)} onDelete={() => deleteGoal(g.id)} />;
             }
             return (
               <div key={g.id} className="card goal-card">
@@ -846,48 +1242,175 @@ function JournalTab() {
 ----------------------------------------------------------------*/
 function ScratchTab() {
   const canvasRef = useRef(null);
+  const wrapRef = useRef(null);
   const [tool, setTool] = useState("draw");
   const [color, setColor] = useState("#141A28");
   const drawing = useRef(false);
+  const lastPoint = useRef(null);
+  const canvasMetrics = useRef({ width: 380, height: 260, dpr: 1 });
   const [pages, setPages] = useState([{ id: 1, type: "type", content: "Sermon note — 'faithfulness in the unseen' — tie into Margin Day 4?", date: "Aug 18" }]);
   const [typedDraft, setTypedDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext("2d"); ctx.fillStyle = "#F2F1EC"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.lineCap = "round"; ctx.lineJoin = "round";
-  }, []);
-
-  const getPos = (e) => { const rect = canvasRef.current.getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure || 0.5 }; };
-  const onDown = (e) => { drawing.current = true; const ctx = canvasRef.current.getContext("2d"); const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-  const onMove = (e) => { if (!drawing.current) return; const ctx = canvasRef.current.getContext("2d"); const p = getPos(e); ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.5, p.pressure * 6); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-  const onUp = () => { drawing.current = false; };
-  const clearCanvas = () => { const canvas = canvasRef.current; const ctx = canvas.getContext("2d"); ctx.fillStyle = "#F2F1EC"; ctx.fillRect(0, 0, canvas.width, canvas.height); };
-
-  const saveDrawing = () => {
-    const dataUrl = canvasRef.current.toDataURL();
-    if (editingId) { setPages((p) => p.map((pg) => pg.id === editingId ? { ...pg, content: dataUrl } : pg)); setEditingId(null); }
-    else setPages((p) => [{ id: Date.now(), type: "draw", content: dataUrl, date: "Today" }, ...p]);
-    clearCanvas();
+  const paintPaper = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const { width, height, dpr } = canvasMetrics.current;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#F2F1EC";
+    ctx.fillRect(0, 0, width, height);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
   };
-  const saveTyped = () => {
-    if (!typedDraft.trim()) return;
-    if (editingId) { setPages((p) => p.map((pg) => pg.id === editingId ? { ...pg, content: typedDraft } : pg)); setEditingId(null); }
-    else setPages((p) => [{ id: Date.now(), type: "type", content: typedDraft, date: "Today" }, ...p]);
-    setTypedDraft("");
-  };
-  const editPage = (pg) => {
-    setEditingId(pg.id);
-    if (pg.type === "type") { setTool("type"); setTypedDraft(pg.content); }
-    else {
-      setTool("draw");
-      const img = new Image();
-      img.onload = () => { const ctx = canvasRef.current.getContext("2d"); ctx.clearRect(0, 0, 380, 260); ctx.drawImage(img, 0, 0, 380, 260); };
-      img.src = pg.content;
+
+  const resizeCanvas = (preserve = true) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, rect.width || 380);
+    const height = width * (260 / 380);
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+    let snapshot = null;
+    if (preserve && canvas.width > 0 && canvas.height > 0) {
+      snapshot = document.createElement("canvas");
+      snapshot.width = canvas.width;
+      snapshot.height = canvas.height;
+      snapshot.getContext("2d").drawImage(canvas, 0, 0);
+    }
+
+    canvas.style.height = `${height}px`;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvasMetrics.current = { width, height, dpr };
+
+    paintPaper();
+    if (snapshot) {
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, width, height);
     }
   };
-  const deletePage = (id) => { setPages((p) => p.filter((pg) => pg.id !== id)); if (editingId === id) { setEditingId(null); clearCanvas(); setTypedDraft(""); } };
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => resizeCanvas(false));
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => resizeCanvas(true)) : null;
+    if (observer && wrapRef.current) observer.observe(wrapRef.current);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, []);
+
+  const getPos = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const e = event.nativeEvent || event;
+    const pressure = e.pressure && e.pressure > 0 ? e.pressure : (e.pointerType === "pen" ? 0.35 : 0.5);
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure };
+  };
+
+  const onDown = (e) => {
+    e.preventDefault();
+    drawing.current = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    const p = getPos(e);
+    lastPoint.current = p;
+  };
+
+  const onMove = (e) => {
+    if (!drawing.current) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const { dpr } = canvasMetrics.current;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    const native = e.nativeEvent || e;
+    const samples = typeof native.getCoalescedEvents === "function" ? native.getCoalescedEvents() : [native];
+
+    samples.forEach((sample) => {
+      const rect = canvas.getBoundingClientRect();
+      const pressure = sample.pressure && sample.pressure > 0 ? sample.pressure : (sample.pointerType === "pen" ? 0.35 : 0.5);
+      const point = { x: sample.clientX - rect.left, y: sample.clientY - rect.top, pressure };
+      const prev = lastPoint.current || point;
+      ctx.beginPath();
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineWidth = Math.max(1.25, pressure * 5.5);
+      ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+      lastPoint.current = point;
+    });
+  };
+
+  const onUp = (e) => {
+    drawing.current = false;
+    lastPoint.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  };
+
+  const clearCanvas = () => {
+    paintPaper();
+    drawing.current = false;
+    lastPoint.current = null;
+  };
+
+  const saveDrawing = () => {
+    const dataUrl = canvasRef.current.toDataURL("image/png");
+    if (editingId) {
+      setPages((prev) => prev.map((pg) => pg.id === editingId ? { ...pg, type: "draw", content: dataUrl } : pg));
+      setEditingId(null);
+    } else {
+      setPages((prev) => [{ id: Date.now(), type: "draw", content: dataUrl, date: "Today" }, ...prev]);
+    }
+    clearCanvas();
+  };
+
+  const saveTyped = () => {
+    if (!typedDraft.trim()) return;
+    if (editingId) {
+      setPages((prev) => prev.map((pg) => pg.id === editingId ? { ...pg, type: "type", content: typedDraft } : pg));
+      setEditingId(null);
+    } else {
+      setPages((prev) => [{ id: Date.now(), type: "type", content: typedDraft, date: "Today" }, ...prev]);
+    }
+    setTypedDraft("");
+  };
+
+  const editPage = (pg) => {
+    setEditingId(pg.id);
+    if (pg.type === "type") {
+      setTool("type");
+      setTypedDraft(pg.content);
+      return;
+    }
+
+    setTool("draw");
+    requestAnimationFrame(() => {
+      resizeCanvas(false);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        const { width, height, dpr } = canvasMetrics.current;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.drawImage(img, 0, 0, width, height);
+      };
+      img.src = pg.content;
+    });
+  };
+
+  const deletePage = (id) => {
+    setPages((prev) => prev.filter((pg) => pg.id !== id));
+    if (editingId === id) {
+      setEditingId(null);
+      clearCanvas();
+      setTypedDraft("");
+    }
+  };
 
   return (
     <>
@@ -904,8 +1427,18 @@ function ScratchTab() {
               <div style={{ display: "flex", gap: 8 }}>{["#141A28", "#E8B45C", "#8FA88A", "#D98595", "#7C93C9"].map((c) => <div key={c} className={`swatch-mini ${color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setColor(c)} />)}</div>
               <div style={{ display: "flex", gap: 8 }}><div className="tool-btn" onClick={clearCanvas}><Trash2 size={16} /></div><div className="tool-btn active" onClick={saveDrawing}><Check size={16} /></div></div>
             </div>
-            <div className="scratch-canvas-wrap"><canvas ref={canvasRef} width={380} height={260} style={{ width: "100%", display: "block", touchAction: "none" }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp} /></div>
-            <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8, display: "flex", alignItems: "center", gap: 5 }}><PenTool size={12} />Pressure-sensitive — works with finger, mouse, or Apple Pencil</div>
+            <div ref={wrapRef} className="scratch-canvas-wrap">
+              <canvas
+                ref={canvasRef}
+                style={{ width: "100%", aspectRatio: "380 / 260", display: "block", touchAction: "none" }}
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+                onPointerCancel={onUp}
+                onPointerLeave={(e) => { if (drawing.current && e.buttons === 0) onUp(e); }}
+              />
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8, display: "flex", alignItems: "center", gap: 5 }}><PenTool size={12} />High-resolution, pressure-sensitive canvas calibrated to the visible page for finger, mouse, or Apple Pencil.</div>
           </>
         ) : (
           <>
@@ -915,10 +1448,10 @@ function ScratchTab() {
         )}
         <div className="section-label">Past Pages</div>
         <div className="scratch-grid">
-          {pages.map((p) => (
-            <div key={p.id} className="scratch-item card">
-              {p.type === "draw" ? <img src={p.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70 }}>{p.content}</div>}
-              <div className="cap"><span>{p.date}</span><span className="cap-icons"><Pencil size={12} onClick={() => editPage(p)} /><Trash2 size={12} onClick={() => deletePage(p.id)} /></span></div>
+          {pages.map((pg) => (
+            <div key={pg.id} className="scratch-item card">
+              {pg.type === "draw" ? <img src={pg.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70 }}>{pg.content}</div>}
+              <div className="cap"><span>{pg.date}</span><span className="cap-icons"><Pencil size={12} onClick={() => editPage(pg)} /><Trash2 size={12} onClick={() => deletePage(pg.id)} /></span></div>
             </div>
           ))}
         </div>
@@ -1001,10 +1534,41 @@ function ProtectedBlockComposer({ initial, onSave, onCancel }) {
   );
 }
 
-function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks }) {
+function AreaComposer({ onSave, onCancel }) {
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#8FA88A");
+
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({ id: `area_${Date.now()}`, name: name.trim(), color });
+  };
+
+  return (
+    <div className="card composer-card">
+      <div className="fb-label" style={{ marginTop: 0 }}>Area Name</div>
+      <input className="input-line" style={{ marginTop: 0 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Home, Church, Writing" />
+      <div className="fb-label">Color</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 44, height: 36, border: "none", background: "transparent" }} />
+        <span className="chip" style={{ background: color + "26", color }}>{name || "New Area"}</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Add Area</div>
+        <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea }) {
   const [blockComposer, setBlockComposer] = useState(null); // null | "add" | blockId
+  const [areaComposerOpen, setAreaComposerOpen] = useState(false);
   const saveBlock = (b) => { setProtectedBlocks((prev) => prev.some((x) => x.id === b.id) ? prev.map((x) => x.id === b.id ? b : x) : [...prev, b]); setBlockComposer(null); };
   const deleteBlock = (id) => setProtectedBlocks((prev) => prev.filter((b) => b.id !== id));
+  const saveArea = ({ id, name, color }) => {
+    setAreas((prev) => ({ ...prev, [id]: { name, color } }));
+    setAreaComposerOpen(false);
+  };
 
   return (
     <>
@@ -1012,6 +1576,21 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
       <div className="scroll">
         <div className="section-label">Appearance</div>
         <div className="segmented"><div className={`seg-btn ${theme === "light" ? "active" : ""}`} onClick={() => setTheme("light")}>Light</div><div className={`seg-btn ${theme === "dark" ? "active" : ""}`} onClick={() => setTheme("dark")}>Dark</div></div>
+
+        <div className="section-label"><span>Areas</span><Plus size={14} color="#E8B45C" onClick={() => setAreaComposerOpen(!areaComposerOpen)} /></div>
+        {areaComposerOpen && <AreaComposer onSave={saveArea} onCancel={() => setAreaComposerOpen(false)} />}
+        <div className="card">
+          {Object.entries(areas).map(([id, area]) => (
+            <div className="settings-row" key={id}>
+              <div className="settings-row-name"><span className="cal-swatch" style={{ background: area.color }} />{area.name}</div>
+              <Trash2 size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => {
+                if (window.confirm(`Delete the "${area.name}" area? Tasks and goals using it will become unassigned.`)) onDeleteArea(id);
+              }} />
+            </div>
+          ))}
+          {Object.keys(areas).length === 0 && <div className="insight-line">No areas yet. Add one with the + button.</div>}
+        </div>
+        <div className="insight-line" style={{ padding: "8px 4px" }}>Deleting an area removes it from task and calendar pickers. Existing items are kept and become “No Area.”</div>
 
         <div className="section-label"><span>Protected Time Blocks</span><Plus size={14} color="#E8B45C" onClick={() => setBlockComposer(blockComposer === "add" ? null : "add")} /></div>
         {blockComposer === "add" && <ProtectedBlockComposer onSave={saveBlock} onCancel={() => setBlockComposer(null)} />}
@@ -1032,12 +1611,12 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
   );
 }
 
-function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks }) {
+function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [screen, setScreen] = useState("dashboard"); // dashboard | notifications | settings
 
   if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} />;
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} />;
+  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} />;
 
   return (
     <>
@@ -1110,6 +1689,7 @@ export default function App() {
   const [tab, setTab] = useState("today");
   const [tasks, setTasks] = useState(seedTasks);
   const [goals, setGoals] = useState(seedGoals);
+  const [areas, setAreas] = useState(AREAS);
   const [expandedId, setExpandedId] = useState(null);
   const [theme, setTheme] = useState("dark");
   const [protectedBlocks, setProtectedBlocks] = useState([
@@ -1128,6 +1708,18 @@ export default function App() {
   }, []);
 
   const toggleDone = (id) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
+  const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
+  const createTask = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
+  const deleteArea = (id) => {
+    setAreas((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setTasks((prev) => prev.map((t) => t.area === id ? { ...t, area: null } : t));
+    setGoals((prev) => prev.map((g) => g.area === id ? { ...g, area: null } : g));
+  };
 
   const tabs = [
     { id: "today", label: "Today", icon: ListTodo },
@@ -1148,12 +1740,12 @@ export default function App() {
 
   const activeTab = (
     <>
-      {tab === "today" && <TodayTab tasks={tasks} goals={goals} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} />}
-      {tab === "calendar" && <CalendarTab goals={goals} protectedBlocks={protectedBlocks} />}
-      {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} />}
+      {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
+      {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} />}
+      {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} areas={areas} />}
       {tab === "journal" && <JournalTab />}
       {tab === "scratch" && <ScratchTab />}
-      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} />}
+      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} />}
     </>
   );
 

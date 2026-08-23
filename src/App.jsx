@@ -1005,7 +1005,7 @@ function googleEventTimeLabel(event) {
   return new Date(event.start.dateTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected, allowEvents = true, onCreateArea }) {
+function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected, googleAccounts = [], allowEvents = true, onCreateArea }) {
   const [kind, setKind] = useState("task");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
@@ -1020,6 +1020,7 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [subtaskDraft, setSubtaskDraft] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [targetGoogleAccountId, setTargetGoogleAccountId] = useState(() => googleAccounts[0]?.id || "");
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
 
   const save = async () => {
@@ -1029,7 +1030,7 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       if (kind === "task") {
         onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
       } else {
-        await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], bypassProtected: bypass });
+        await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], bypassProtected: bypass, targetGoogleAccountId });
       }
       onClose();
     } finally { setSaving(false); }
@@ -1044,7 +1045,8 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />
-      {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? "Will be added to the primary lamound2407@gmail.com Google Calendar." : "Will stay in Abide until Google Calendar is connected."}</div>}
+      {kind === "event" && googleAccounts.length > 0 && <><div className="fb-label">Google account</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{googleAccounts.map((account) => <div key={account.id} className={`filter-chip ${targetGoogleAccountId === account.id ? "active" : ""}`} onClick={() => setTargetGoogleAccountId(account.id)}>{account.label || account.id}</div>)}</div></>}
+      {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? `Will be added to ${googleAccounts.find((a) => a.id === targetGoogleAccountId)?.label || "the selected Google account"}.` : "Will stay in Abide until Google Calendar is connected."}</div>}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
     </div>
@@ -1104,25 +1106,41 @@ function EventEditor({ event, areas, onSave, onCancel }) {
   );
 }
 
-function CalendarsPanel({ calendars, setCalendars, connected, configured, onConnect, onRefresh, error }) {
+function CalendarsPanel({ accounts, setAccounts, configured, onConnect, onRefresh, onDisconnect, onToggleCalendar, error }) {
+  const connectedAccounts = accounts.filter((a) => a.token);
   return (
-    <div className="card cal-account" style={{ marginBottom: 14 }}>
-      <div className="cal-account-title">lamound2407@gmail.com</div>
-      {!configured ? (
-        <div className="insight-line" style={{ padding: "8px 0 4px" }}>Google Calendar is ready in the code, but the Google OAuth client ID still needs to be added to Abide before it can connect.</div>
-      ) : !connected ? (
-        <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 8 }} onClick={onConnect}>Connect Google Calendar</div>
-      ) : (
-        <>
-          {calendars.map((c) => (
+    <div style={{ marginBottom: 14 }}>
+      <div className="card cal-account" style={{ marginBottom: 10 }}>
+        <div className="cal-account-title">Connected Google accounts</div>
+        {!configured ? (
+          <div className="insight-line" style={{ padding: "8px 0 4px" }}>Google Calendar is ready in the code, but the Google OAuth client ID still needs to be added to Abide before it can connect.</div>
+        ) : (
+          <>
+            <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 0 10px" }}>Connect personal, work, or any other Google account. Abide merges the calendars into one view.</div>
+            <div className="filter-chip active" style={{ display: "inline-flex" }} onClick={onConnect}><Plus size={12} />Add Google Account</div>
+          </>
+        )}
+      </div>
+
+      {connectedAccounts.map((account) => (
+        <div className="card cal-account" key={account.id} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div>
+              <div className="cal-account-title">{account.label || account.id}</div>
+              <div style={{ fontSize: 10.5, color: "var(--text3)", marginTop: 2 }}>{account.calendars?.length || 0} calendar{account.calendars?.length === 1 ? "" : "s"}</div>
+            </div>
+            <div className="filter-chip" onClick={() => onDisconnect(account.id)}>Disconnect</div>
+          </div>
+          {(account.calendars || []).map((c) => (
             <div key={c.id} className="cal-item">
               <div className="cal-item-name"><span className="cal-swatch" style={{ background: c.color }} />{c.label}</div>
-              <Toggle on={c.on} onClick={() => setCalendars((p) => p.map((x) => x.id === c.id ? { ...x, on: !x.on } : x))} />
+              <Toggle on={c.on} onClick={() => onToggleCalendar(account.id, c.id)} />
             </div>
           ))}
-          <div className="link-others" onClick={onRefresh}>Refresh Google Calendar →</div>
-        </>
-      )}
+        </div>
+      ))}
+
+      {connectedAccounts.length > 0 && <div className="link-others" onClick={onRefresh}>Refresh all Google calendars →</div>}
       {error && <div style={{ fontSize: 11.5, color: "#E68080", marginTop: 8 }}>{error}</div>}
     </div>
   );
@@ -1133,10 +1151,17 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const [selectedDateKey, setSelectedDateKey] = useState(REFERENCE_DATE_KEY);
   const [adding, setAdding] = useState(false);
   const [calsOpen, setCalsOpen] = useState(false);
-  const [calendars, setCalendars] = useState([]);
+  const [calendarPrefs, setCalendarPrefs] = usePersistentState("abide-google-calendar-prefs", {});
   const [events, setEvents] = usePersistentState("abide-calendar-events", []);
   const [googleError, setGoogleError] = useState("");
-  const [googleToken, setGoogleToken] = useState(() => { try { return sessionStorage.getItem("abideGoogleCalendarToken") || ""; } catch { return ""; } });
+  const [googleAccounts, setGoogleAccounts] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("abideGoogleCalendarAccounts");
+      if (raw) return JSON.parse(raw);
+      const legacyToken = sessionStorage.getItem("abideGoogleCalendarToken");
+      return legacyToken ? [{ id: "legacy", label: "Previously connected Google", token: legacyToken, calendars: [] }] : [];
+    } catch { return []; }
+  });
   const tokenClientRef = useRef(null);
   const [overridden, setOverridden] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
@@ -1145,34 +1170,76 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const googleConfigured = Boolean(googleClientId);
-  const googleConnected = Boolean(googleToken);
+  const googleConnected = googleAccounts.some((a) => Boolean(a.token));
   const weekKeys = buildWeekKeys(selectedDateKey);
   const selectedDate = dateFromKey(selectedDateKey);
   const selectedMonthKey = selectedDateKey.slice(0, 7);
   const monthLabel = selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const selectedDayName = selectedDate.toLocaleDateString("en-US", { weekday: "short" });
   const todaysBlock = protectedBlocks.find((b) => b.day === selectedDayName);
-  const activeCount = calendars.filter((c) => c.on).length;
-  const visibleCalendarIds = new Set(calendars.filter((c) => c.on).map((c) => c.id));
+  const connectedGoogleAccounts = googleAccounts.filter((a) => a.token);
+  const flatCalendars = connectedGoogleAccounts.flatMap((account) => (account.calendars || []).map((c) => ({ ...c, accountId: account.id, accountLabel: account.label })));
+  const activeCount = flatCalendars.filter((c) => c.on).length;
+  const visibleCalendarKeys = new Set(flatCalendars.filter((c) => c.on).map((c) => `${c.accountId}::${c.id}`));
   const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
-  const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarIds.has(e.calendarId)));
+  const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarKeys.has(e.calendarKey || `${e.accountId || "legacy"}::${e.calendarId}`)));
 
   useEffect(() => { if (openAddSignal) setAdding(true); }, [openAddSignal]);
 
-  const clearGoogleConnection = () => { setGoogleToken(""); try { sessionStorage.removeItem("abideGoogleCalendarToken"); } catch {} };
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("abideGoogleCalendarAccounts", JSON.stringify(googleAccounts));
+      sessionStorage.removeItem("abideGoogleCalendarToken");
+    } catch {}
+  }, [googleAccounts]);
 
-  const fetchGoogleData = async (token = googleToken) => {
-    if (!token) return;
+  const disconnectGoogleAccount = (accountId) => {
+    setGoogleAccounts((prev) => prev.filter((a) => a.id !== accountId));
+    setEvents((prev) => prev.filter((e) => !(e.source === "google" && e.accountId === accountId)));
+  };
+
+  const toggleGoogleCalendar = (accountId, calendarId) => {
+    const account = googleAccounts.find((a) => a.id === accountId);
+    const calendar = account?.calendars?.find((c) => c.id === calendarId);
+    const nextOn = !Boolean(calendar?.on);
+    const key = `${accountId}::${calendarId}`;
+    setCalendarPrefs((prev) => ({ ...prev, [key]: nextOn }));
+    setGoogleAccounts((prev) => prev.map((item) => item.id !== accountId ? item : {
+      ...item,
+      calendars: (item.calendars || []).map((cal) => cal.id === calendarId ? { ...cal, on: nextOn } : cal),
+    }));
+  };
+
+  const fetchGoogleAccountData = async (token, knownAccountId = "") => {
+    if (!token) return null;
     setGoogleError("");
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const calRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", { headers });
-      if (calRes.status === 401) { clearGoogleConnection(); throw new Error("Google Calendar authorization expired. Tap Connect Google Calendar again."); }
-      if (!calRes.ok) throw new Error("Could not load your Google calendars.");
+      if (calRes.status === 401) {
+        if (knownAccountId) disconnectGoogleAccount(knownAccountId);
+        throw new Error("A Google Calendar authorization expired. Reconnect that Google account.");
+      }
+      if (!calRes.ok) throw new Error("Could not load Google calendars for this account.");
       const calJson = await calRes.json();
-      const priorOn = new Map(calendars.map((c) => [c.id, c.on]));
-      const nextCalendars = (calJson.items || []).map((c) => ({ id: c.id, label: c.summaryOverride || c.summary || c.id, color: c.backgroundColor || "#8FA88A", on: priorOn.has(c.id) ? priorOn.get(c.id) : c.selected !== false, primary: Boolean(c.primary) }));
-      setCalendars(nextCalendars);
+      const items = calJson.items || [];
+      const primary = items.find((c) => c.primary) || items[0];
+      if (!primary) throw new Error("This Google account does not have a calendar available.");
+      const accountId = primary.id;
+      const accountLabel = primary.id;
+      const existingAccount = googleAccounts.find((a) => a.id === accountId);
+      const existingOn = new Map((existingAccount?.calendars || []).map((c) => [c.id, c.on]));
+      const nextCalendars = items.map((c) => {
+        const prefKey = `${accountId}::${c.id}`;
+        const savedPref = Object.prototype.hasOwnProperty.call(calendarPrefs, prefKey) ? calendarPrefs[prefKey] : undefined;
+        return {
+          id: c.id,
+          label: c.summaryOverride || c.summary || c.id,
+          color: c.backgroundColor || "#8FA88A",
+          on: savedPref !== undefined ? savedPref : (existingOn.has(c.id) ? existingOn.get(c.id) : c.selected !== false),
+          primary: Boolean(c.primary),
+        };
+      });
 
       const rangeStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1, 0, 0, 0);
       const rangeEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 2, 1, 0, 0, 0);
@@ -1183,14 +1250,44 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         const res = await fetch(url, { headers });
         if (!res.ok) return [];
         const json = await res.json();
-        return (json.items || []).filter((e) => e.status !== "cancelled").map((e) => ({ id: `google:${cal.id}:${e.id}`, googleEventId: e.id, calendarId: cal.id, calendarLabel: cal.label, color: cal.color, source: "google", title: e.summary || "(Untitled event)", date: googleEventDateKey(e), time: googleEventTimeLabel(e), start: e.start, end: e.end }));
+        return (json.items || []).filter((event) => event.status !== "cancelled").map((event) => ({
+          id: `google:${accountId}:${cal.id}:${event.id}`,
+          googleEventId: event.id,
+          accountId,
+          accountLabel,
+          calendarId: cal.id,
+          calendarKey: `${accountId}::${cal.id}`,
+          calendarLabel: cal.label,
+          color: cal.color,
+          source: "google",
+          title: event.summary || "(Untitled event)",
+          date: googleEventDateKey(event),
+          time: googleEventTimeLabel(event),
+          start: event.start,
+          end: event.end,
+        }));
       }));
-      setEvents((prev) => {
-        const prior = new Map(prev.map((e) => [e.id, e]));
-        const refreshedGoogle = eventGroups.flat().map((e) => ({ ...e, activities: prior.get(e.id)?.activities || [], notes: "" }));
-        return [...prev.filter((e) => e.source !== "google"), ...refreshedGoogle];
+
+      setGoogleAccounts((prev) => {
+        const nextAccount = { id: accountId, label: accountLabel, token, calendars: nextCalendars };
+        const exists = prev.some((a) => a.id === accountId);
+        if (exists) return prev.map((a) => a.id === accountId ? nextAccount : a).filter((a) => a.id !== "legacy");
+        return [...prev.filter((a) => a.id !== "legacy"), nextAccount];
       });
-    } catch (err) { setGoogleError(err.message || "Google Calendar could not be loaded."); }
+      setEvents((prev) => {
+        const prior = new Map(prev.map((event) => [event.id, event]));
+        const refreshedGoogle = eventGroups.flat().map((event) => ({ ...event, activities: prior.get(event.id)?.activities || [], notes: "" }));
+        return [...prev.filter((event) => !(event.source === "google" && event.accountId === accountId)), ...refreshedGoogle];
+      });
+      return accountId;
+    } catch (err) {
+      setGoogleError(err.message || "Google Calendar could not be loaded.");
+      return null;
+    }
+  };
+
+  const refreshAllGoogleAccounts = async () => {
+    await Promise.all(connectedGoogleAccounts.map((account) => fetchGoogleAccountData(account.token, account.id)));
   };
 
   useEffect(() => {
@@ -1199,30 +1296,32 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     loadGoogleIdentityScript().then(() => {
       if (!active || !window.google?.accounts?.oauth2) return;
       tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-        client_id: googleClientId, scope: GOOGLE_CALENDAR_SCOPE,
-        callback: (response) => {
+        client_id: googleClientId,
+        scope: GOOGLE_CALENDAR_SCOPE,
+        callback: async (response) => {
           if (response.error) { setGoogleError(response.error_description || response.error); return; }
-          setGoogleToken(response.access_token);
-          try { sessionStorage.setItem("abideGoogleCalendarToken", response.access_token); } catch {}
-          fetchGoogleData(response.access_token);
+          await fetchGoogleAccountData(response.access_token);
         },
       });
     }).catch(() => setGoogleError("Google sign-in could not load."));
     return () => { active = false; };
-  }, [googleClientId]);
+  }, [googleClientId, selectedMonthKey]);
 
-  useEffect(() => { if (googleToken) fetchGoogleData(googleToken); }, [googleToken, selectedMonthKey]);
+  useEffect(() => {
+    if (connectedGoogleAccounts.length) refreshAllGoogleAccounts();
+  }, [selectedMonthKey]);
 
   const connectGoogle = () => {
     setGoogleError("");
     if (!googleConfigured) { setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first."); return; }
     if (!tokenClientRef.current) { setGoogleError("Google sign-in is still loading. Try again in a moment."); return; }
-    tokenClientRef.current.requestAccessToken({ prompt: googleToken ? "" : "consent" });
+    tokenClientRef.current.requestAccessToken({ prompt: "select_account consent" });
   };
 
-  const createEvent = async ({ title, date, time, area, recurrence, notes, bypassProtected }) => {
+  const createEvent = async ({ title, date, time, area, recurrence, notes, bypassProtected, targetGoogleAccountId }) => {
     const recurrenceRule = googleRecurrenceRule(recurrence, date);
-    if (!googleToken) {
+    const targetAccount = connectedGoogleAccounts.find((a) => a.id === targetGoogleAccountId) || connectedGoogleAccounts[0];
+    if (!targetAccount?.token) {
       setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, notes, bypassProtected }]);
       return;
     }
@@ -1238,10 +1337,10 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       const end = dateFromKey(date); end.setDate(end.getDate() + 1);
       body.start = { date }; body.end = { date: localDateKey(end) };
     }
-    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", headers: { Authorization: `Bearer ${googleToken}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.status === 401) { clearGoogleConnection(); setGoogleError("Google Calendar authorization expired. Reconnect and try again."); throw new Error("Google authorization expired"); }
-    if (!res.ok) { setGoogleError("The event could not be added to lamound2407@gmail.com."); throw new Error("Google event creation failed"); }
-    await fetchGoogleData(googleToken);
+    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", headers: { Authorization: `Bearer ${targetAccount.token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.status === 401) { disconnectGoogleAccount(targetAccount.id); setGoogleError(`${targetAccount.label} authorization expired. Reconnect it and try again.`); throw new Error("Google authorization expired"); }
+    if (!res.ok) { setGoogleError(`The event could not be added to ${targetAccount.label}.`); throw new Error("Google event creation failed"); }
+    await fetchGoogleAccountData(targetAccount.token, targetAccount.id);
   };
 
   const saveEditedTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
@@ -1264,7 +1363,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       <div className="section-label">Events</div>
       <div className="card">{dayEvents.length ? dayEvents.map((e) => {
         const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
-        return <div className="task-row" key={e.id} style={{ cursor: "pointer" }} onClick={() => { setAdding(false); setEditingTask(null); setEditingEvent(e); }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}{normalizeActivity(e).length > 0 && <span className="time-chip">{normalizeActivity(e).length} update{normalizeActivity(e).length === 1 ? "" : "s"}</span>}</div></div><Pencil size={14} color="var(--text3)" /></div>;
+        return <div className="task-row" key={e.id} style={{ cursor: "pointer" }} onClick={() => { setAdding(false); setEditingTask(null); setEditingEvent(e); }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? `${e.calendarLabel || "Google Calendar"}${e.accountLabel ? ` · ${e.accountLabel}` : ""}` : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}{normalizeActivity(e).length > 0 && <span className="time-chip">{normalizeActivity(e).length} update{normalizeActivity(e).length === 1 ? "" : "s"}</span>}</div></div><Pencil size={14} color="var(--text3)" /></div>;
       }) : <div className="insight-line">{googleConnected ? "No calendar events this day." : "No Abide events this day. Connect Google Calendar to pull in your real events."}</div>}</div>
     </>
   );
@@ -1278,9 +1377,9 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     <>
       <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => { setEditingTask(null); setEditingEvent(null); setAdding(!adding); } }]} />
       <div className="scroll">
-        <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
-        {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} connected={googleConnected} configured={googleConfigured} onConnect={connectGoogle} onRefresh={() => fetchGoogleData()} error={googleError} />}
-        {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} onCreateArea={onCreateArea} />}
+        <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${connectedGoogleAccounts.length} Google account${connectedGoogleAccounts.length === 1 ? "" : "s"} · ${activeCount} calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"}</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
+        {calsOpen && <CalendarsPanel accounts={googleAccounts} setAccounts={setGoogleAccounts} configured={googleConfigured} onConnect={connectGoogle} onRefresh={refreshAllGoogleAccounts} onDisconnect={disconnectGoogleAccount} onToggleCalendar={toggleGoogleCalendar} error={googleError} />}
+        {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} googleAccounts={connectedGoogleAccounts} onCreateArea={onCreateArea} />}
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} onCreateArea={onCreateArea} />}
         {editingEvent && <EventEditor event={editingEvent} areas={areas} onSave={saveEditedEvent} onCancel={() => setEditingEvent(null)} />}
 

@@ -69,14 +69,26 @@ const styles = `
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
   /* Fresh responsive task/event editor popup */
-  .modal-backdrop { position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:max(16px, env(safe-area-inset-top, 0px)) 14px max(16px, env(safe-area-inset-bottom, 0px)); background:rgba(2,5,10,0.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); overflow:hidden; }
-  .task-editor-modal { width:min(92vw,560px); max-height:min(78dvh,760px); margin:0!important; padding:0!important; display:flex; flex-direction:column; overflow:hidden!important; border-radius:24px!important; border:1px solid var(--pillBorder)!important; background:var(--card)!important; color:var(--text)!important; box-shadow:0 30px 100px rgba(0,0,0,0.58); }
-  .editor-shell { display:flex; flex-direction:column; min-height:0; max-height:inherit; }
+  .modal-backdrop { position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:max(16px, env(safe-area-inset-top, 0px)) 14px max(16px, env(safe-area-inset-bottom, 0px)); background:rgba(2,5,10,0.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif; }
+  .task-editor-modal { width:min(92vw,560px); max-height:min(78dvh,760px); margin:0!important; padding:0!important; display:flex; flex-direction:column; overflow:hidden!important; border-radius:24px!important; border:1px solid var(--pillBorder)!important; background:var(--card)!important; color:var(--text)!important; box-shadow:0 30px 100px rgba(0,0,0,0.58); font-family:inherit; }
+  .editor-shell { display:flex; flex-direction:column; min-height:0; max-height:inherit; width:100%; overflow:hidden; }
   .editor-header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:16px 18px 13px; background:var(--card); border-bottom:1px solid var(--divider); }
   .editor-title { font-size:16px; font-weight:750; color:var(--text); letter-spacing:-0.1px; }
   .editor-close { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--pillBg); color:var(--text2); cursor:pointer; }
-  .editor-scroll { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:14px 18px 18px; }
+  .editor-scroll { flex:1; min-height:0; width:100%; max-width:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; touch-action:pan-y; padding:14px 18px 18px; }
   .editor-scroll::-webkit-scrollbar { display:none; }
+  .task-editor-modal input,
+  .task-editor-modal textarea,
+  .task-editor-modal button,
+  .task-editor-modal select,
+  .task-editor-modal .filter-chip,
+  .task-editor-modal .fb-label,
+  .task-editor-modal .activity-item {
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif;
+  }
+  .task-editor-modal input,
+  .task-editor-modal textarea { min-width:0; max-width:100%; }
+  .task-editor-modal .filter-row { max-width:100%; }
   .editor-footer { flex-shrink:0; display:flex; gap:8px; padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px)); background:var(--card); border-top:1px solid var(--divider); }
   .editor-delete { margin-top:10px; justify-content:center; color:#E68080; border-color:#E6808055; }
   .activity-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
@@ -751,7 +763,10 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
     document.documentElement.style.overflow = "hidden";
 
     const frame = requestAnimationFrame(() => {
-      if (modalRef.current) modalRef.current.scrollTop = 0;
+      if (modalRef.current) {
+        modalRef.current.scrollTop = 0;
+        modalRef.current.scrollLeft = 0;
+      }
       window.scrollTo(0, 0);
     });
 

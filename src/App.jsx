@@ -68,21 +68,24 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
-  .modal-backdrop { position:fixed; inset:0; z-index:99999; background:rgba(2,5,10,0.72); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:max(18px, env(safe-area-inset-top, 0px)) 14px max(18px, env(safe-area-inset-bottom, 0px)); overflow:hidden; }
-  .task-editor-modal { width:min(92vw, 640px); max-height:min(86dvh, 820px); overflow-y:auto !important; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 !important; border-radius:22px !important; box-shadow:0 28px 90px rgba(0,0,0,0.56); border:1px solid var(--pillBorder); padding:18px; }
-  .modal-title-row { position:sticky; top:-18px; z-index:5; margin:-18px -18px 12px; padding:17px 18px 12px; background:var(--card); border-bottom:1px solid var(--divider); display:flex; align-items:center; justify-content:space-between; }
-  .modal-title { font-size:16px; font-weight:750; color:var(--text); }
+  /* Fresh responsive task/event editor popup */
+  .modal-backdrop { position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:max(16px, env(safe-area-inset-top, 0px)) 14px max(16px, env(safe-area-inset-bottom, 0px)); background:rgba(2,5,10,0.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); overflow:hidden; }
+  .task-editor-modal { width:min(92vw,560px); max-height:min(78dvh,760px); margin:0!important; padding:0!important; display:flex; flex-direction:column; overflow:hidden!important; border-radius:24px!important; border:1px solid var(--pillBorder)!important; background:var(--card)!important; color:var(--text)!important; box-shadow:0 30px 100px rgba(0,0,0,0.58); }
+  .editor-shell { display:flex; flex-direction:column; min-height:0; max-height:inherit; }
+  .editor-header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:16px 18px 13px; background:var(--card); border-bottom:1px solid var(--divider); }
+  .editor-title { font-size:16px; font-weight:750; color:var(--text); letter-spacing:-0.1px; }
+  .editor-close { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--pillBg); color:var(--text2); cursor:pointer; }
+  .editor-scroll { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:14px 18px 18px; }
+  .editor-scroll::-webkit-scrollbar { display:none; }
+  .editor-footer { flex-shrink:0; display:flex; gap:8px; padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px)); background:var(--card); border-top:1px solid var(--divider); }
+  .editor-delete { margin-top:10px; justify-content:center; color:#E68080; border-color:#E6808055; }
   .activity-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
   .activity-item { border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; padding:10px 11px; }
   .activity-time { font-size:10.5px; color:var(--text3); margin-bottom:4px; }
   .activity-text { font-size:13px; line-height:1.45; color:var(--body2); white-space:pre-wrap; overflow-wrap:anywhere; }
   .activity-compose { display:flex; gap:8px; align-items:flex-end; margin-top:8px; }
   .activity-compose .notes-box { margin:0; min-height:64px; }
-  @media (max-width: 520px) {
-    .modal-backdrop { padding:max(12px, env(safe-area-inset-top, 0px)) 10px max(12px, env(safe-area-inset-bottom, 0px)); }
-    .task-editor-modal { width:94vw; max-height:82dvh; border-radius:20px !important; padding:14px; }
-    .modal-title-row { top:-14px; margin:-14px -14px 10px; padding:14px 14px 10px; }
-  }
+  @media (max-width:520px) { .modal-backdrop { padding:max(12px, env(safe-area-inset-top,0px)) 10px max(12px, env(safe-area-inset-bottom,0px)); } .task-editor-modal { width:92vw; max-height:74dvh; border-radius:22px!important; } .editor-header { padding:14px 14px 11px; } .editor-scroll { padding:12px 14px 14px; } .editor-footer { padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)); } }
   .quick-area-create { margin-top:8px; padding:10px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
   .notification-status { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; }
   .fb-label { font-size:11.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color: var(--text3); margin: 10px 0 7px 0; }
@@ -775,25 +778,31 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
 
   return createPortal(
     <div ref={modalRef} className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="card composer-card task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
-      <div className="modal-title-row"><span className="modal-title">Edit Task</span><X size={18} color="var(--text2)" style={{ cursor: "pointer" }} onClick={onCancel} /></div>
-      <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
-      <div style={{ display: "flex", gap: 8 }}><div style={{ flex: 1 }}><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (recurrence?.freq === "weekly" && !(recurrence.days || []).length) setRecurrence({ ...recurrence, days: [weekdayCodeFromDate(e.target.value)] }); }} /></div><div style={{ flex: 1 }}><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)} /></div></div>
-      <div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
-      <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
-      <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div>
-      <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
-      <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
-      <div className="fb-label">Subtasks</div>
-      {subtasks.map((sub) => <div className="subtask-row" key={sub.id}><input type="checkbox" checked={Boolean(sub.done)} onChange={() => setSubtasks((p) => p.map((x) => x.id === sub.id ? { ...x, done: !x.done } : x))} /><span style={{ flex: 1, textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}
-      <div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
-      <div className="fb-label">Activity</div>
-      <div className="activity-list">
-        {activities.length ? activities.map((a) => <div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>) : <div style={{ fontSize: 12, color: "var(--text3)" }}>No activity yet.</div>}
-      </div>
-      <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
-      <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12} />Delete Task</div>
+      <div className="task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="editor-shell">
+          <div className="editor-header"><div className="editor-title">Edit Task</div><div className="editor-close" onClick={onCancel}><X size={17} /></div></div>
+          <div className="editor-scroll">
+            <div className="fb-label" style={{ marginTop:0 }}>Task</div>
+            <input className="input-line" style={{ marginTop:0 }} value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Task title" />
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              <div><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop:0 }} value={dueDate} onChange={(e)=>{ setDueDate(e.target.value); if (recurrence?.freq === "weekly" && !(recurrence.days||[]).length) setRecurrence({ ...recurrence, days:[weekdayCodeFromDate(e.target.value)] }); }} /></div>
+              <div><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop:0 }} value={dueTime} onChange={(e)=>setDueTime(e.target.value)} /></div>
+            </div>
+            <div className="fb-label">Priority</div><div className="filter-row" style={{ padding:"0 0 2px 0" }}>{[["high","High"],["med","Medium"],["low","Low"]].map(([k,label])=><div key={k} className={`filter-chip ${priority===k?"active":""}`} onClick={()=>setPriority(k)}>{label}</div>)}</div>
+            <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
+            <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding:"0 0 2px 0" }}><div className={`filter-chip ${goal===""?"active":""}`} onClick={()=>setGoal("")}>No Goal</div>{goals.map((g)=><div key={g.id} className={`filter-chip ${goal===g.id?"active":""}`} onClick={()=>setGoal(g.id)}>{g.name}</div>)}</div>
+            <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
+            <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
+            <div className="fb-label">Subtasks</div>
+            {subtasks.map((sub)=><div className="subtask-row" key={sub.id}><input type="checkbox" checked={Boolean(sub.done)} onChange={()=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,done:!x.done}:x))}/><span style={{ flex:1, textDecoration:sub.done?"line-through":"none", opacity:sub.done?0.65:1 }}>{sub.label}</span><X size={13} style={{ cursor:"pointer" }} onClick={()=>setSubtasks((p)=>p.filter((x)=>x.id!==sub.id))}/></div>)}
+            <div style={{ display:"flex", gap:8 }}><input className="input-line" style={{ margin:0 }} value={subtaskDraft} onChange={(e)=>setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e)=>{ if(e.key==="Enter"){ e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
+            <div className="fb-label">Activity</div>
+            <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
+            <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e)=>setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
+            <div className="filter-chip editor-delete" onClick={()=>{ if(window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12}/>Delete Task</div>
+          </div>
+          <div className="editor-footer"><div className="filter-chip active" style={{ flex:1, justifyContent:"center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex:1, justifyContent:"center" }} onClick={onCancel}>Cancel</div></div>
+        </div>
       </div>
     </div>,
     document.body
@@ -1993,6 +2002,19 @@ export default function App() {
   const [quickAddSignal, setQuickAddSignal] = useState(0);
   const [viewport, setViewport] = useState(() => (typeof window !== "undefined" ? getViewport(window.innerWidth) : "phone"));
   const tk = THEME[theme] || THEME.dark;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const entries = {
+      "--pageBg": tk.pageBg, "--appBg": tk.appBg, "--shadow": tk.shadow, "--card": tk.card, "--cardBorder": tk.cardBorder,
+      "--text": tk.text, "--text2": tk.text2, "--text3": tk.text3, "--body": tk.body, "--body2": tk.body2,
+      "--pillBg": tk.pillBg, "--pillBorder": tk.pillBorder, "--inputBg": tk.inputBg, "--inputBorder": tk.inputBorder,
+      "--track": tk.track, "--divider": tk.divider, "--subtleBg": tk.subtleBg, "--tabbarBg": tk.tabbarBg,
+      "--segActive": tk.segActive, "--protectedText": tk.protectedText, "--emptyHeat": tk.emptyHeat,
+    };
+    Object.entries(entries).forEach(([key,value]) => root.style.setProperty(key,value));
+  }, [tk]);
+
 
   useEffect(() => {
     const onResize = () => setViewport(getViewport(window.innerWidth));

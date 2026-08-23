@@ -99,11 +99,39 @@ reviews/{reviewId}                // GTD weekly review record
 
 **Recurrence engine:** recurrence rules support an interval plus an optional weekday, so rules can express patterns like every third Sunday, every seventh Wednesday, or every third year. A Cloud Function runs nightly, looks at `recurrence` rules, and materializes the next `task` instance a few days ahead — so "recurring" is just regular tasks under the hood, and your history of completions is a real, queryable log (this is what powers the streaks and the bar charts in Insights, and it's the same pattern your Iron Log already uses for workouts).
 
-**Calendar sync — multiple calendars, one Google account:** all five of your addresses (`lamound2407@gmail.com` as the primary authenticating account, plus `tylerandelizabethharris@gmail.com`, `tyler@chialpha.com`, `tylerlamoundministry@gmail.com`, `themarginpublication@gmail.com`) are calendars *within or shared to* that one Google account — so this is one OAuth grant against `lamound2407@gmail.com`, then a `calendarList.list()` call to enumerate every calendar visible to that account (which is also how the "show other calendars on this account" toggle works — anything shared to you, like Beth's calendar, or subscribed calendars like US Holidays, shows up in that same list without a separate connection). Each calendar gets its own on/off toggle and inherits your Area color where one matches.
+**Calendar sync — multiple Google accounts and multiple calendars
+**
+Abide supports multiple independent Google OAuth grants for the same Abide user. A user can connect a personal Google account, a work Google Workspace account, and additional Google accounts. Each connected Google account is treated as an account container, and each account can expose multiple calendars through calendarList.list().
 
-- **Pull:** a Cloud Function polls (or uses a push notification channel via `watch()`) per enabled calendar and mirrors events into `calendarEvents` with `source: "google"` + `calendarId` — read-only, so you're never editing your real calendars from inside a half-finished custom app.
-- **Push:** any task with a `dueTime` optionally creates a linked Google Calendar event on a calendar *you choose* (`googleEventId` + `targetCalendarId` stored back on the task) — toggleable per-task, since not every task deserves a calendar block.
-- **Protected/unhurried blocks are soft, not hard:** stored as `calendarEvents` with `protected: true`. The UI warns before letting something get scheduled on top of one — "Schedule Anyway" is always available — because the point (per your correction) isn't an unbreakable rule, it's making sure *time with the Lord* doesn't quietly get anxious or crowded by work, not adding a new source of friction itself.
+Data shape
+
+users/{uid}/googleAccounts/{googleAccountId}
+  email, displayLabel, connectedAt, lastSyncAt, status
+
+users/{uid}/googleAccounts/{googleAccountId}/calendars/{calendarId}
+  label, color, primary, enabled
+
+calendarEvents/{eventId}
+  title, start, end, source: google|native,
+  googleAccountId (nullable), calendarId (nullable), googleEventId (nullable)
+
+OAuth access/refresh credentials must not be stored in client-readable Firestore. In the durable production architecture, OAuth credentials are stored server-side and Google Calendar calls run through Cloud Functions. The current browser prototype is an interim implementation: it can hold more than one short-lived Google access token in sessionStorage, keyed by the primary calendar/account email, and merges events from all connected accounts into the same Calendar UI.
+
+Connect: + Add Google Account always invokes Google's account chooser so a second or third Google account can be authorized without replacing the first one.
+
+Identify account: after authorization, Abide calls calendarList.list(). The primary calendar ID is used as the Google account identifier/email.
+
+Calendars: every connected account owns its own calendar list and per-calendar visibility toggles. Calendar identity in the client is composite: googleAccountId::calendarId, preventing collisions when the same shared calendar is visible from more than one Google account.
+
+Pull: Abide fetches events for enabled/visible calendars from every connected account and merges them into one agenda. Imported events retain googleAccountId, account label, calendarId, calendar label, and Google event ID.
+
+Create: when creating an event, the user chooses which connected Google account receives it; Abide creates the event on that account's primary calendar.
+
+Disconnect: disconnecting one account removes only that account's live Google events/tokens. Other connected Google accounts remain active.
+
+Workspace policy: a managed Google Workspace administrator may block Abide's OAuth client. In that case the account cannot be connected until the administrator permits the app.
+
+Token expiry: browser prototype access tokens are short-lived. If one expires, only that account needs to be reconnected. Durable multi-account sync requires the server-side Cloud Functions OAuth flow described above.
 
 **Scratchbook:** `scratchPages/{pageId}` — `{ type: "draw" | "type", content, contentHtml (typed pages), uid, createdAt }`. Typed pages support rich text (bold, italic, underline, font selection, and highlight colors). Drawings save as PNG (canvas `toDataURL()` client-side → uploaded to **Firebase Storage**, with the Firestore doc just holding the storage URL — don't store base64 PNGs directly in Firestore, it blows past the 1MB document limit fast). On iPad this is standard HTML5 Pointer Events (`pointerdown/move/up`), which already report Apple Pencil `pressure` and `tiltX/tiltY` natively in Safari — no extra SDK needed, which is what the prototype's canvas is already wired for.
 

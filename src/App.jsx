@@ -68,11 +68,20 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
-  .modal-backdrop { position:fixed; inset:0; z-index:99999; background:rgba(5,7,12,0.96); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); overflow:auto; -webkit-overflow-scrolling:touch; }
-  .task-editor-modal { width:min(100%, 620px); max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y:auto !important; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
+  .modal-backdrop { position:fixed; inset:0; z-index:99999; background:rgba(2,5,10,0.72); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:max(18px, env(safe-area-inset-top, 0px)) 14px max(18px, env(safe-area-inset-bottom, 0px)); overflow:hidden; }
+  .task-editor-modal { width:min(92vw, 640px); max-height:min(86dvh, 820px); overflow-y:auto !important; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 !important; border-radius:22px !important; box-shadow:0 28px 90px rgba(0,0,0,0.56); border:1px solid var(--pillBorder); padding:18px; }
+  .modal-title-row { position:sticky; top:-18px; z-index:5; margin:-18px -18px 12px; padding:17px 18px 12px; background:var(--card); border-bottom:1px solid var(--divider); display:flex; align-items:center; justify-content:space-between; }
+  .modal-title { font-size:16px; font-weight:750; color:var(--text); }
+  .activity-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .activity-item { border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; padding:10px 11px; }
+  .activity-time { font-size:10.5px; color:var(--text3); margin-bottom:4px; }
+  .activity-text { font-size:13px; line-height:1.45; color:var(--body2); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .activity-compose { display:flex; gap:8px; align-items:flex-end; margin-top:8px; }
+  .activity-compose .notes-box { margin:0; min-height:64px; }
   @media (max-width: 520px) {
-    .modal-backdrop { display:block; padding:0; background:var(--appBg); backdrop-filter:none; -webkit-backdrop-filter:none; }
-    .task-editor-modal { width:100%; min-height:100%; height:auto; max-height:none; margin:0 !important; border-radius:0 !important; border:none !important; box-shadow:none; padding:calc(18px + env(safe-area-inset-top, 0px)) 18px calc(30px + env(safe-area-inset-bottom, 0px)); overflow:visible !important; }
+    .modal-backdrop { padding:max(12px, env(safe-area-inset-top, 0px)) 10px max(12px, env(safe-area-inset-bottom, 0px)); }
+    .task-editor-modal { width:94vw; max-height:82dvh; border-radius:20px !important; padding:14px; }
+    .modal-title-row { top:-14px; margin:-14px -14px 10px; padding:14px 14px 10px; }
   }
   .quick-area-create { margin-top:8px; padding:10px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
   .notification-status { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; }
@@ -457,7 +466,9 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
           {(task.subtasks || []).length > 0 && <div style={{ paddingTop: 8 }}>{task.subtasks.map((sub) => <div key={sub.id} className="subtask-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><Check size={12} color={sub.done ? "#E8B45C" : "var(--text3)"} /><span style={{ textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span></div>)}</div>}
-          <div className="notes-box" style={{ minHeight: 38, cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}>{task.notes || "Add a note…"}</div>
+          <div className="notes-box" style={{ minHeight: 38, cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}>
+            {normalizeActivity(task).length ? `${normalizeActivity(task).length} activit${normalizeActivity(task).length === 1 ? "y" : "ies"} · ${normalizeActivity(task)[normalizeActivity(task).length - 1].text}` : "Add an activity update…"}
+          </div>
         </div>
       )}
     </div>
@@ -700,6 +711,22 @@ function taskReminderMoment(task) {
   return new Date(base.getTime() - offset * 60000);
 }
 
+function normalizeActivity(item) {
+  const existing = Array.isArray(item?.activities) ? item.activities.filter((a) => a?.text) : [];
+  if (existing.length) return existing;
+  if (String(item?.notes || "").trim()) {
+    return [{ id: `legacy_${item.id || Date.now()}`, text: String(item.notes).trim(), createdAt: item.createdAt || new Date().toISOString() }];
+  }
+  return [];
+}
+
+function activityTimeLabel(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateArea }) {
   const modalRef = useRef(null);
   const [title, setTitle] = useState(task.title || "");
@@ -710,7 +737,8 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   const [goal, setGoal] = useState(task.goal || "");
   const [recurrence, setRecurrence] = useState(normalizeRecurrence(task, taskDateKey(task)));
   const [reminder, setReminder] = useState(task.reminder || "None");
-  const [notes, setNotes] = useState(task.notes || "");
+  const [activities, setActivities] = useState(() => normalizeActivity(task));
+  const [activityDraft, setActivityDraft] = useState("");
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const [subtaskDraft, setSubtaskDraft] = useState("");
   useEffect(() => {
@@ -733,17 +761,22 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
 
 
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
+  const addActivity = () => {
+    if (!activityDraft.trim()) return;
+    setActivities((p) => [...p, { id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }]);
+    setActivityDraft("");
+  };
   const save = () => {
     if (!title.trim() || !dueDate) return;
     const dueOffsetDays = offsetFromDateKey(dueDate);
     const due = dueTime ? formatTimeLabel(dueTime) : formatDateLabel(dueDate);
-    onSave({ ...task, title: title.trim(), dueDate, dueTime: dueTime || null, due, dueOffsetDays, priority, area: area || null, goal: goal || null, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, notes, subtasks });
+    onSave({ ...task, title: title.trim(), dueDate, dueTime: dueTime || null, due, dueOffsetDays, priority, area: area || null, goal: goal || null, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, notes: "", activities, subtasks });
   };
 
   return createPortal(
     <div ref={modalRef} className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="card composer-card task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
-      <div className="fb-label" style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>Edit Task</span><X size={16} style={{ cursor: "pointer" }} onClick={onCancel} /></div>
+      <div className="modal-title-row"><span className="modal-title">Edit Task</span><X size={18} color="var(--text2)" style={{ cursor: "pointer" }} onClick={onCancel} /></div>
       <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
       <div style={{ display: "flex", gap: 8 }}><div style={{ flex: 1 }}><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate} onChange={(e) => { setDueDate(e.target.value); if (recurrence?.freq === "weekly" && !(recurrence.days || []).length) setRecurrence({ ...recurrence, days: [weekdayCodeFromDate(e.target.value)] }); }} /></div><div style={{ flex: 1 }}><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)} /></div></div>
       <div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
@@ -754,7 +787,11 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
       <div className="fb-label">Subtasks</div>
       {subtasks.map((sub) => <div className="subtask-row" key={sub.id}><input type="checkbox" checked={Boolean(sub.done)} onChange={() => setSubtasks((p) => p.map((x) => x.id === sub.id ? { ...x, done: !x.done } : x))} /><span style={{ flex: 1, textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}
       <div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
-      <div className="fb-label">Notes</div><textarea className="notes-box" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" />
+      <div className="fb-label">Activity</div>
+      <div className="activity-list">
+        {activities.length ? activities.map((a) => <div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>) : <div style={{ fontSize: 12, color: "var(--text3)" }}>No activity yet.</div>}
+      </div>
+      <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
       <div className="filter-chip" style={{ marginTop: 8, justifyContent: "center", color: "#E68080", borderColor: "#E6808055" }} onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12} />Delete Task</div>
       </div>
@@ -842,8 +879,23 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
-  const openEditor = (t) => { setAdding(false); setEditingTask(t); };
-  const renderTask = (t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={expandedId === t.id} onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)} onToggleDone={toggleDone} onEdit={openEditor} />;
+  const openEditor = (t) => {
+    setAdding(false);
+    setEditingTask(t);
+  };
+
+  const renderTask = (t) => (
+    <TaskRow
+      key={t.id}
+      task={t}
+      goals={goals}
+      areas={areas}
+      expanded={expandedId === t.id}
+      onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
+      onToggleDone={toggleDone}
+      onEdit={openEditor}
+    />
+  );
   const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
@@ -867,7 +919,7 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         {overdue.length > 0 && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}</div></>)}
 
         <div className="section-label">Today</div>
-        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">No tasks due today. Tap "Add a task" above to create one.</div>}</div>
+        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}</div>
 
         <div className="section-label"><span>Coming Up</span></div>
         <div className="segmented" style={{ margin: "0 0 10px 0" }}>
@@ -930,10 +982,9 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [priority, setPriority] = useState("med");
   const [recurrence, setRecurrence] = useState(null);
   const [reminder, setReminder] = useState("None");
-  const [notes, setNotes] = useState("");
+  const [activityDraft, setActivityDraft] = useState("");
   const [subtasks, setSubtasks] = useState([]);
   const [subtaskDraft, setSubtaskDraft] = useState("");
-
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
@@ -943,9 +994,9 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
+        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
       } else {
-        await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes, bypassProtected: bypass });
+        await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], bypassProtected: bypass });
       }
       onClose();
     } finally { setSaving(false); }
@@ -959,11 +1010,64 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
       {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
-      <div className="fb-label">Notes</div><textarea className="notes-box" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
+      <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />
       {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? "Will be added to the primary lamound2407@gmail.com Google Calendar." : "Will stay in Abide until Google Calendar is connected."}</div>}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
     </div>
+  );
+}
+
+
+function EventEditor({ event, areas, onSave, onCancel }) {
+  const modalRef = useRef(null);
+  const isGoogle = event.source === "google";
+  const [title, setTitle] = useState(event.title || "");
+  const [date, setDate] = useState(event.date || REFERENCE_DATE_KEY);
+  const [area, setArea] = useState(event.area && areas[event.area] ? event.area : "");
+  const [activities, setActivities] = useState(() => normalizeActivity(event));
+  const [activityDraft, setActivityDraft] = useState("");
+
+  useEffect(() => {
+    const bodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => { if (modalRef.current) modalRef.current.scrollTop = 0; });
+    return () => { document.body.style.overflow = bodyOverflow; };
+  }, []);
+
+  const addActivity = () => {
+    if (!activityDraft.trim()) return;
+    setActivities((p) => [...p, { id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }]);
+    setActivityDraft("");
+  };
+
+  const save = () => {
+    onSave({
+      ...event,
+      title: isGoogle ? event.title : title.trim(),
+      date: isGoogle ? event.date : date,
+      area: isGoogle ? event.area : (area || null),
+      notes: "",
+      activities,
+    });
+  };
+
+  return createPortal(
+    <div ref={modalRef} className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="card composer-card task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="modal-title-row"><span className="modal-title">Edit Event</span><X size={18} color="var(--text2)" style={{ cursor: "pointer" }} onClick={onCancel} /></div>
+        {isGoogle ? <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10 }}>Google event details are read-only here. Abide activity updates are saved locally with this event.</div> : null}
+        <input className="input-line" style={{ marginTop: 0 }} value={title} disabled={isGoogle} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" />
+        {!isGoogle && <><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop: 0 }} value={date} onChange={(e) => setDate(e.target.value)} /><div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} /></>}
+        <div className="fb-label">Activity</div>
+        <div className="activity-list">
+          {activities.length ? activities.map((a) => <div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>) : <div style={{ fontSize: 12, color: "var(--text3)" }}>No activity yet.</div>}
+        </div>
+        <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div></div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1004,6 +1108,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const [overridden, setOverridden] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const googleConfigured = Boolean(googleClientId);
@@ -1047,7 +1152,11 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         const json = await res.json();
         return (json.items || []).filter((e) => e.status !== "cancelled").map((e) => ({ id: `google:${cal.id}:${e.id}`, googleEventId: e.id, calendarId: cal.id, calendarLabel: cal.label, color: cal.color, source: "google", title: e.summary || "(Untitled event)", date: googleEventDateKey(e), time: googleEventTimeLabel(e), start: e.start, end: e.end }));
       }));
-      setEvents((prev) => [...prev.filter((e) => e.source !== "google"), ...eventGroups.flat()]);
+      setEvents((prev) => {
+        const prior = new Map(prev.map((e) => [e.id, e]));
+        const refreshedGoogle = eventGroups.flat().map((e) => ({ ...e, activities: prior.get(e.id)?.activities || [], notes: "" }));
+        return [...prev.filter((e) => e.source !== "google"), ...refreshedGoogle];
+      });
     } catch (err) { setGoogleError(err.message || "Google Calendar could not be loaded."); }
   };
 
@@ -1103,6 +1212,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   };
 
   const saveEditedTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
+  const saveEditedEvent = (updated) => { setEvents((prev) => prev.map((e) => e.id === updated.id ? updated : e)); setEditingEvent(null); };
   const deleteEditedTask = (id) => { onDeleteTask(id); setEditingTask(null); };
   const moveMonth = (delta) => { const d = dateFromKey(selectedDateKey); d.setMonth(d.getMonth() + delta, 1); setSelectedDateKey(localDateKey(d)); setOverridden(false); setOverrideOpen(false); };
 
@@ -1121,7 +1231,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       <div className="section-label">Events</div>
       <div className="card">{dayEvents.length ? dayEvents.map((e) => {
         const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
-        return <div className="task-row" key={e.id} style={{ cursor: "default" }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}</div></div></div>;
+        return <div className="task-row" key={e.id} style={{ cursor: "pointer" }} onClick={() => { setAdding(false); setEditingTask(null); setEditingEvent(e); }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}{normalizeActivity(e).length > 0 && <span className="time-chip">{normalizeActivity(e).length} update{normalizeActivity(e).length === 1 ? "" : "s"}</span>}</div></div><Pencil size={14} color="var(--text3)" /></div>;
       }) : <div className="insight-line">{googleConnected ? "No calendar events this day." : "No Abide events this day. Connect Google Calendar to pull in your real events."}</div>}</div>
     </>
   );
@@ -1133,12 +1243,13 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
   return (
     <>
-      <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => { setEditingTask(null); setAdding(!adding); } }]} />
+      <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => { setEditingTask(null); setEditingEvent(null); setAdding(!adding); } }]} />
       <div className="scroll">
         <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${activeCount} Google calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"} · lamound2407@gmail.com</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
         {calsOpen && <CalendarsPanel calendars={calendars} setCalendars={setCalendars} connected={googleConnected} configured={googleConfigured} onConnect={connectGoogle} onRefresh={() => fetchGoogleData()} error={googleError} />}
         {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} onCreateArea={onCreateArea} />}
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} onCreateArea={onCreateArea} />}
+        {editingEvent && <EventEditor event={editingEvent} areas={areas} onSave={saveEditedEvent} onCancel={() => setEditingEvent(null)} />}
 
         <div className="segmented"><div className={`seg-btn ${mode === "week" ? "active" : ""}`} onClick={() => setMode("week")}>Week</div><div className={`seg-btn ${mode === "month" ? "active" : ""}`} onClick={() => setMode("month")}>Month</div></div>
 
@@ -1768,7 +1879,7 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
           ))}
           {Object.keys(areas).length === 0 && <div className="insight-line">No areas yet. Add one with the + button.</div>}
         </div>
-        <div className="insight-line" style={{ padding: "8px 4px" }}>Rename or recolor an Area with the pencil. Deleting it keeps existing tasks and goals but makes them "No Area."</div>
+        <div className="insight-line" style={{ padding: "8px 4px" }}>Rename or recolor an Area with the pencil. Deleting it keeps existing tasks and goals but makes them “No Area.”</div>
 
         <div className="section-label"><span>Protected Time Blocks</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setBlockComposer(blockComposer === "add" ? null : "add")} /></div>
         {blockComposer === "add" && <ProtectedBlockComposer onSave={saveBlock} onCancel={() => setBlockComposer(null)} />}
@@ -1888,22 +1999,6 @@ export default function App() {
     onResize(); window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-
-  // The Edit Task modal renders via a React portal straight onto <body>, outside
-  // this component's own div. CSS custom properties set only via inline style on
-  // that div don't reach the portal, so the theme vars are also applied to the
-  // <html> element here — every element on the page, portaled or not, inherits from it.
-  useEffect(() => {
-    const tokens = THEME[theme] || THEME.dark;
-    const rootVars = {
-      "--pageBg": tokens.pageBg, "--appBg": tokens.appBg, "--shadow": tokens.shadow, "--card": tokens.card, "--cardBorder": tokens.cardBorder,
-      "--text": tokens.text, "--text2": tokens.text2, "--text3": tokens.text3, "--body": tokens.body, "--body2": tokens.body2,
-      "--pillBg": tokens.pillBg, "--pillBorder": tokens.pillBorder, "--inputBg": tokens.inputBg, "--inputBorder": tokens.inputBorder,
-      "--track": tokens.track, "--divider": tokens.divider, "--subtleBg": tokens.subtleBg, "--tabbarBg": tokens.tabbarBg,
-      "--segActive": tokens.segActive, "--protectedText": tokens.protectedText, "--emptyHeat": tokens.emptyHeat,
-    };
-    Object.entries(rootVars).forEach(([key, value]) => document.documentElement.style.setProperty(key, value));
-  }, [theme]);
 
   useEffect(() => {
     const migrationKey = "abide-user-task-migration-2026-08-21-v1";

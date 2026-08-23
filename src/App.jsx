@@ -45,7 +45,9 @@ const styles = `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   .app { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; background: var(--appBg); color: var(--text); width: 100%; max-width: 430px; margin: 0 auto; height: 100vh; min-height: 100vh; border-radius: 0; overflow: hidden; position: relative; box-shadow: none; display: flex; flex-direction: column; }
   .statusbar { height: calc(30px + env(safe-area-inset-top, 0px)); flex-shrink:0; position:relative; display:flex; align-items:flex-end; justify-content:space-between; padding: env(safe-area-inset-top, 0px) 18px 0; }
-  .brand { font-size: 12px; font-weight: 700; color: var(--text3); letter-spacing: 0.5px; }
+  .brand { display:flex; align-items:center; gap:8px; min-width:0; }
+  .brand-mark { width:28px; height:28px; border-radius:8px; object-fit:cover; display:block; box-shadow:0 2px 10px rgba(0,0,0,0.22); }
+  .brand-word { font-size:12px; font-weight:700; color:var(--text2); letter-spacing:1.25px; }
   .theme-toggle { width:28px; height:28px; border-radius:50%; background: var(--pillBg); display:flex; align-items:center; justify-content:center; }
   .scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 18px 24px 18px; }
   .scroll::-webkit-scrollbar { display: none; }
@@ -237,9 +239,13 @@ const styles = `
   .sidebar { display:flex; flex-direction:column; background: var(--card); border-right:1px solid var(--cardBorder); flex-shrink:0; height:100%; min-height:0; overflow-y:auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
   .sidebar-compact { width:88px; align-items:center; padding:20px 0 14px 0; }
   .sidebar-wide { width:238px; padding:24px 14px 16px 14px; }
-  .sidebar-brand { font-weight:800; color: var(--text); margin-bottom:26px; }
-  .sidebar-compact .sidebar-brand { font-size:16px; color:#E8B45C; }
-  .sidebar-wide .sidebar-brand { font-size:20px; letter-spacing:-0.3px; padding-left:10px; }
+  .sidebar-brand { font-weight:800; color:var(--text); margin-bottom:26px; display:flex; align-items:center; gap:10px; }
+  .sidebar-brand-logo { width:38px; height:38px; border-radius:11px; object-fit:cover; display:block; box-shadow:0 5px 16px rgba(0,0,0,0.22); }
+  .sidebar-brand-word { font-size:16px; letter-spacing:1.4px; color:var(--text); }
+  .sidebar-compact .sidebar-brand { justify-content:center; }
+  .sidebar-compact .sidebar-brand-logo { width:40px; height:40px; border-radius:12px; }
+  .sidebar-compact .sidebar-brand-word { display:none; }
+  .sidebar-wide .sidebar-brand { padding-left:8px; }
   .sidebar-nav { display:flex; flex-direction:column; gap:4px; flex:1; width:100%; }
   .sidebar-item { display:flex; align-items:center; gap:12px; color: var(--text3); padding:11px 14px; border-radius:10px; cursor:pointer; }
   .sidebar-item span { font-size:14px; font-weight:600; }
@@ -427,7 +433,10 @@ function Sidebar({ tabs, tab, setTab, viewport, theme, setTheme }) {
   const compact = viewport === "tablet";
   return (
     <div className={`sidebar ${compact ? "sidebar-compact" : "sidebar-wide"}`}>
-      <div className="sidebar-brand">{compact ? "A" : "Abide"}</div>
+      <div className="sidebar-brand">
+        <img className="sidebar-brand-logo" src="/abide-logo.png" alt="Abide" />
+        <span className="sidebar-brand-word">ABIDE</span>
+      </div>
       <div className="sidebar-nav">
         {tabs.map((t) => {
           const Icon = t.icon;
@@ -2118,7 +2127,7 @@ export default function App() {
       <style>{styles}</style>
       {viewport === "phone" ? (
         <div className="app">
-          <div className="statusbar"><span className="brand">{APP_NAME.toUpperCase()}</span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>
+          <div className="statusbar"><span className="brand"><img className="brand-mark" src="/abide-logo.png" alt="" /><span className="brand-word">{APP_NAME.toUpperCase()}</span></span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>
           <div className="phone-content">{activeTab}</div>
           <button className="fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button>
           <div className="tabbar">{tabs.map((t) => { const Icon = t.icon; const active = tab === t.id; return <div key={t.id} className={`tab ${active ? "active" : ""}`} style={{ cursor: "pointer" }} onClick={() => setTab(t.id)}><Icon size={20} strokeWidth={active ? 2.3 : 1.8} /><span>{t.label}</span></div>; })}</div>

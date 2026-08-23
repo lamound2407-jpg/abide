@@ -155,6 +155,68 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 ---
 
+
+## 4.5 Review workspace — weekly and monthly
+
+Abide treats **Review** as a first-class workflow, not an analytics widget.
+
+### Navigation hierarchy
+
+Primary navigation is intentionally limited to the surfaces that support the core rhythm of the app:
+
+1. **Today** — engage with the next trusted actions.
+2. **Calendar** — the hard landscape of time-specific commitments.
+3. **Review** — reflect, regain perspective, and prepare the week/month.
+4. **Journal** — protected spiritual reflection that is not reduced to productivity.
+5. **More** — secondary utilities and configuration.
+
+**Goals, Scratchbook, Reminders, Insights, and Settings** live under More. They remain fully functional and reachable, but no longer compete for primary-navigation attention. Goals are also linked directly from Review when the process reaches higher-horizon reflection.
+
+### Review data model
+
+```text
+reviews/{reviewId}
+  cadence: weekly|monthly
+  periodKey
+  periodLabel
+  status: in_progress|completed
+  currentStep
+  checklistState: { [stepItemKey]: boolean }
+  notes: { [stepIndex]: string }
+  focusOutcomes: [string, string, string]
+  startedAt
+  completedAt
+```
+
+The current prototype persists this workspace and its completion history in localStorage. When the rest of Abide's core data moves to Firestore, these records should move to the `reviews` collection above without changing the user-facing workflow.
+
+### Weekly review methodology
+
+The Weekly Review keeps GTD's **Get Clear → Get Current → Get Creative** sequence, then deliberately adds an unhurried planning layer:
+
+- **Arrive:** become present before planning; clarity is the goal, not maximum output.
+- **Get Clear:** collect inputs, process capture points, and do a mind sweep.
+- **Get Current:** review the previous calendar, upcoming calendar, open actions, waiting-fors, goals/outcomes, and ensure active work has a next action.
+- **Protect the Pace:** confirm protected time and Sabbath/rest rhythms, identify overload, leave buffers, and explicitly choose what will *not* be done.
+- **Get Creative:** review Someday/Maybe and allow quieter ideas to surface.
+- **Commit:** name no more than three meaningful weekly outcomes and stop planning once the system is trustworthy.
+
+### Monthly review methodology
+
+The Monthly Review is a wider-horizon planning process:
+
+- Arrive and reflect on the month without turning it into a performance score.
+- Clear stale open loops and make conscious defer/delegate/archive decisions.
+- Review goals, Areas, and higher horizons.
+- Scan the next 4–6 weeks of the Calendar for deadlines, preparation, travel, and recovery needs.
+- Review the user's Rule-of-Life rhythms: daily, weekly, and monthly practices that create space for formation.
+- **Subtract before adding:** stop, pause, simplify, or delegate before committing new volume.
+- Choose no more than three meaningful monthly outcomes.
+- Close the review with protected rhythms visible and enough unscheduled margin for the month to remain human.
+
+This design intentionally combines GTD's trusted-system discipline with Abide's existing principle that hurry should not become the governing logic of the schedule.
+
+
 ## 5. Tech stack (matches what you already run)
 
 - **Frontend:** React + Vite, deployed as a installable **PWA** — "Add to Home Screen" gets you a full-screen, icon-on-homescreen app on iPhone and iPad with zero App Store friction, and it's the same shell on your laptop in a browser tab. (Native wrap via Capacitor is a viable later step if you ever want push notifications beyond what web push allows on iOS.)

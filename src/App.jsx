@@ -2178,82 +2178,93 @@ const WEEKLY_REVIEW_BLUEPRINT = [
 
 const MONTHLY_REVIEW_BLUEPRINT = [
   {
-    phase: "Arrive",
-    title: "Look at the month without judgment",
-    copy: "Monthly planning is not a performance review. It is a wider horizon for noticing what is forming you and what is crowding your life.",
-    checks: ["Slow down enough to tell the truth about the month", "Notice gratitude, grief, energy, and fatigue", "Separate what was important from what was merely loud"],
-    noteLabel: "What stands out as I look back?",
+    phase: "Close",
+    title: "Close the previous month briefly",
+    copy: "Look back only long enough to learn. This is not a scorecard; it is a clean handoff into the month ahead.",
+    checks: ["Notice what actually moved forward", "Identify open loops that should not drift into the new month", "Decide what should be dropped instead of carried forward"],
+    noteLabel: "What from last month should inform the month ahead?",
   },
   {
-    phase: "Clear",
-    title: "Close loops that should not cross months",
-    copy: "Sweep the system for stale commitments, lingering waiting-fors, and unfinished work that needs a conscious decision.",
-    checks: ["Review overdue and unassigned tasks", "Review waiting-fors and follow-ups", "Archive, defer, delegate, or recommit stale items"],
-    noteLabel: "What needs a decision before I move forward?",
+    phase: "Clear the Deck",
+    title: "Clear before you plan",
+    copy: "GTD works best when the system is current. Clean up stale commitments before adding new ones.",
+    checks: ["Review overdue and unassigned tasks", "Review waiting-fors and follow-ups", "Clarify, delegate, defer, archive, or delete stale items", "Capture anything still living only in your head"],
+    noteLabel: "What needs a decision before I plan the month?",
     shortcut: "today",
     shortcutLabel: "Open Today",
   },
   {
-    phase: "Horizons",
-    title: "Review goals, areas, and responsibilities",
-    copy: "GTD's higher horizons keep the month connected to the life you are actually trying to live, not just the next deadline.",
-    checks: ["Review each active goal and its next meaningful milestone", "Review each Area for imbalance or neglect", "Pause anything that is no longer active"],
-    noteLabel: "What needs more or less attention next month?",
-    shortcut: "goals",
-    shortcutLabel: "Open Goals",
-  },
-  {
-    phase: "Look Ahead",
-    title: "Scan the next four to six weeks",
-    copy: "The calendar is the hard landscape. See travel, deadlines, events, preparation, and recovery needs early enough to respond calmly.",
-    checks: ["Review the next 4–6 weeks of calendar commitments", "Capture preparation work triggered by those commitments", "Notice weeks that need extra margin or recovery"],
-    noteLabel: "What is coming that I should prepare for now?",
+    phase: "Survey the Month",
+    title: "Look at the next four to six weeks",
+    copy: "The calendar is the hard landscape. Start with what is already true before deciding what else belongs.",
+    checks: ["Review the next 4–6 weeks of commitments", "Notice travel, deadlines, events, and preparation needs", "Notice unusually heavy weeks", "Identify recovery or buffer time that should exist around demanding commitments"],
+    noteLabel: "What is already true about this month?",
     shortcut: "calendar",
     shortcutLabel: "Open Calendar",
   },
   {
-    phase: "Rule of Life",
-    title: "Protect the rhythms that make life livable",
-    copy: "Practicing the Way frames a Rule of Life as daily, weekly, and monthly rhythms that create space for formation. Plan those rhythms before optional volume.",
-    checks: ["Review daily rhythms that need attention", "Review weekly Sabbath, community, prayer, and rest rhythms", "Review monthly relational, spiritual, and restorative rhythms", "Adjust protected time blocks where the season has changed"],
-    noteLabel: "Which rhythm most needs protection this month?",
-  },
-  {
-    phase: "Subtract",
-    title: "Decide what not to carry",
-    copy: "A month becomes unhurried by subtraction as much as organization. Make conscious room for what matters.",
-    checks: ["Name one commitment to stop, pause, or decline", "Name one thing to simplify or delegate", "Leave unscheduled margin instead of filling every open space"],
-    noteLabel: "What am I intentionally not doing?",
+    phase: "Areas",
+    title: "Review the major areas of life",
+    copy: "Scan responsibilities and relationships so the month is not shaped only by the loudest deadline.",
+    checks: ["Review each active Area for needed attention", "Notice anything being neglected", "Notice anything taking disproportionate energy", "Create a next action where attention is required"],
+    noteLabel: "Where does life need appropriate attention this month?",
+    shortcut: "goals",
+    shortcutLabel: "Open Goals & Areas",
   },
   {
     phase: "Focus",
     title: "Choose the month's few meaningful outcomes",
-    copy: "Choose up to three outcomes that deserve disproportionate attention. Everything important does not have to become a monthly priority.",
-    checks: ["These outcomes reflect my real responsibilities and season", "There is enough space to pursue them without chronic hurry", "Each outcome has a concrete next action"],
-    noteLabel: "What would make this month feel faithful and well-lived?",
+    copy: "Choose no more than three outcomes. They are directional outcomes, not a list of every important responsibility.",
+    checks: ["These outcomes fit the season I am actually in", "They reflect real responsibilities and values", "There is enough capacity to pursue them without chronic hurry"],
+    noteLabel: "What would make the coming month meaningful and well-lived?",
     focusLabel: "Three monthly outcomes at most",
   },
   {
-    phase: "Close",
-    title: "Enter the month with open hands",
-    copy: "Finish with a trustworthy system, protected rhythms, and enough flexibility for life to remain human.",
-    checks: ["My commitments fit the calendar I actually have", "Rest and formation are planned, not leftover", "I know what can move if the month changes", "I am finished planning for now"],
-    noteLabel: "Closing reflection",
+    phase: "Next Actions",
+    title: "Turn outcomes into real next actions",
+    copy: "GTD keeps intentions from staying abstract. Every outcome that matters should have a concrete next physical action in Abide.",
+    checks: ["Each active monthly outcome has a next action", "Time-specific actions are on the calendar", "Delegated items are clear waiting-fors", "Preparation work exists before the event or deadline that triggers it"],
+    noteLabel: "What still needs a concrete next action?",
+  },
+  {
+    phase: "Rule of Life",
+    title: "Protect the rhythms that shape the month",
+    copy: "Practicing the Way treats a Rule of Life as a set of intentional rhythms. Use it here as a practical structure for the life you want your calendar to support.",
+    checks: ["Review daily rhythms", "Review weekly rhythms such as Sabbath/rest, community, relationships, prayer, exercise, and home life", "Review monthly relational, spiritual, financial, and restorative rhythms", "Adjust the rhythm to the season instead of forcing an ideal schedule"],
+    noteLabel: "Which rhythms most need protection this month?",
+  },
+  {
+    phase: "Subtract & Protect",
+    title: "Make room before adding more",
+    copy: "An unhurried month is created by subtraction and margin as much as by organization.",
+    checks: ["Name at least one thing to stop, pause, simplify, delegate, or decline", "Protect genuine rest", "Leave unscheduled margin", "Check overloaded weeks before committing more"],
+    noteLabel: "What am I intentionally saying no to, and where do I need margin?",
+  },
+  {
+    phase: "Commit",
+    title: "Enter the month with a trustworthy plan",
+    copy: "Finish when the system is clear enough to live. The goal is not a perfect month; it is a month with direction, next actions, and room to remain human.",
+    checks: ["My commitments fit the calendar I actually have", "My important outcomes have real next actions", "My rhythms and rest are visible", "I know what can move if reality changes", "I am finished planning for now"],
+    noteLabel: "One sentence for the kind of month I want to live",
     complete: true,
   },
 ];
 
-function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
+function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, onCreateTask, onUpdateTask, onDeleteTask, onCreateArea }) {
   const [cadence, setCadence] = usePersistentState("abide-review-cadence", "weekly");
-  const [workspace, setWorkspace] = usePersistentState("abide-review-workspace-v1", {
-    weekly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""] },
-    monthly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""] },
+  const [workspace, setWorkspace] = usePersistentState("abide-review-workspace-v2", {
+    weekly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""], linkedTaskIdsByStep: {} },
+    monthly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""], linkedTaskIdsByStep: {} },
   });
   const [history, setHistory] = usePersistentState("abide-review-history-v1", []);
   const [editingHistory, setEditingHistory] = useState(null);
+  const [addingTask, setAddingTask] = useState(false);
+  const [linkingTask, setLinkingTask] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
+  const [editingTask, setEditingTask] = useState(null);
 
   const blueprint = cadence === "weekly" ? WEEKLY_REVIEW_BLUEPRINT : MONTHLY_REVIEW_BLUEPRINT;
-  const state = workspace[cadence] || { step: 0, checked: {}, notes: {}, focus: ["", "", ""] };
+  const state = workspace[cadence] || { step: 0, checked: {}, notes: {}, focus: ["", "", ""], linkedTaskIdsByStep: {} };
   const stepIndex = Math.min(state.step || 0, blueprint.length - 1);
   const step = blueprint[stepIndex];
 
@@ -2263,7 +2274,9 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
   const openGoals = goals.length;
   const weekKeys = buildWeekKeys(REFERENCE_DATE_KEY);
   const weekEnd = weekKeys[weekKeys.length - 1];
-  const monthLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const nextMonthDate = new Date(dateFromKey(REFERENCE_DATE_KEY));
+  nextMonthDate.setMonth(nextMonthDate.getMonth() + 1, 1);
+  const monthLabel = nextMonthDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const periodLabel = cadence === "weekly" ? `${formatDateLabel(weekKeys[0])} – ${formatDateLabel(weekEnd)}` : monthLabel;
 
   const updateState = (patch) => setWorkspace((prev) => ({
@@ -2284,8 +2297,46 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
     updateState({ focus: next });
   };
 
-  const next = () => updateState({ step: Math.min(stepIndex + 1, blueprint.length - 1) });
-  const back = () => updateState({ step: Math.max(stepIndex - 1, 0) });
+  const linkedIds = state.linkedTaskIdsByStep?.[stepIndex] || [];
+  const linkedTasks = linkedIds.map((id) => tasks.find((t) => String(t.id) === String(id))).filter(Boolean);
+
+  const setLinkedIds = (ids) => updateState({
+    linkedTaskIdsByStep: {
+      ...(state.linkedTaskIdsByStep || {}),
+      [stepIndex]: ids,
+    },
+  });
+
+  const linkTask = (id) => {
+    if (id == null) return;
+    const normalized = String(id);
+    if (linkedIds.some((x) => String(x) === normalized)) return;
+    setLinkedIds([...linkedIds, id]);
+  };
+
+  const unlinkTask = (id) => setLinkedIds(linkedIds.filter((x) => String(x) !== String(id)));
+
+  const createAndLinkTask = (task) => {
+    const id = onCreateTask(task);
+    linkTask(id);
+    setAddingTask(false);
+  };
+
+  const candidateTasks = tasks
+    .filter((t) => !t.done && !linkedIds.some((id) => String(id) === String(t.id)))
+    .filter((t) => !linkSearch.trim() || String(t.title || "").toLowerCase().includes(linkSearch.trim().toLowerCase()))
+    .slice(0, 12);
+
+  const next = () => {
+    setAddingTask(false);
+    setLinkingTask(false);
+    updateState({ step: Math.min(stepIndex + 1, blueprint.length - 1) });
+  };
+  const back = () => {
+    setAddingTask(false);
+    setLinkingTask(false);
+    updateState({ step: Math.max(stepIndex - 1, 0) });
+  };
 
   const completeReview = () => {
     const entry = {
@@ -2295,11 +2346,12 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
       completedAt: new Date().toISOString(),
       notes: state.notes || {},
       focus: (state.focus || []).filter((x) => x?.trim()),
+      linkedTaskIdsByStep: state.linkedTaskIdsByStep || {},
     };
     setHistory((prev) => [entry, ...prev].slice(0, 24));
     setWorkspace((prev) => ({
       ...prev,
-      [cadence]: { step: 0, checked: {}, notes: {}, focus: ["", "", ""] },
+      [cadence]: { step: 0, checked: {}, notes: {}, focus: ["", "", ""], linkedTaskIdsByStep: {} },
     }));
   };
 
@@ -2321,19 +2373,19 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
 
   return (
     <>
-      <Header eyebrow="Reflect, then engage" title="Review" />
+      <Header eyebrow={cadence === "weekly" ? "Reflect, then engage" : "Prepare the month ahead"} title="Review" />
       <div className="scroll">
         <div className="segmented">
-          <div className={`seg-btn ${cadence === "weekly" ? "active" : ""}`} onClick={() => setCadence("weekly")}>Weekly</div>
-          <div className={`seg-btn ${cadence === "monthly" ? "active" : ""}`} onClick={() => setCadence("monthly")}>Monthly</div>
+          <div className={`seg-btn ${cadence === "weekly" ? "active" : ""}`} onClick={() => { setCadence("weekly"); setAddingTask(false); setLinkingTask(false); }}>Weekly Review</div>
+          <div className={`seg-btn ${cadence === "monthly" ? "active" : ""}`} onClick={() => { setCadence("monthly"); setAddingTask(false); setLinkingTask(false); }}>Monthly Prep</div>
         </div>
 
         <div className="card review-hero">
-          <div className="review-kicker">{cadence === "weekly" ? "Weekly reset" : "Monthly horizon"}</div>
+          <div className="review-kicker">{cadence === "weekly" ? "Weekly reset" : "Plan the month ahead"}</div>
           <div className="review-hero-title">{periodLabel}</div>
-          <div className="review-hero-copy">{cadence === "weekly" ? "Get clear, get current, get creative, and protect an unhurried pace before the week begins." : "Review the wider horizon, subtract before adding, and build the next month around faithful rhythms rather than maximum volume."}</div>
+          <div className="review-hero-copy">{cadence === "weekly" ? "Get clear, get current, get creative, and protect an unhurried pace before the week begins." : "Use last month only as information. Clear the system, survey the next 4–6 weeks, choose a few outcomes, create their next actions, and protect the rhythms and margin that make the month livable."}</div>
           <div className="review-progress"><div className="review-progress-fill" style={{ width: `${progress}%` }} /></div>
-          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{progress}% of this review checked · step {stepIndex + 1} of {blueprint.length}</div>
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{progress}% checked · step {stepIndex + 1} of {blueprint.length}</div>
         </div>
 
         <div className="stat-grid" style={{ marginTop: 0 }}>
@@ -2360,14 +2412,69 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
             })}
           </div>
 
-          {step.shortcut && (
-            <div className="review-shortcuts">
-              <div className="filter-chip" onClick={() => onOpen(step.shortcut)}><ChevronRight size={12} />{step.shortcutLabel}</div>
+          <div className="fb-label" style={{ marginTop: 14 }}>Take action without duplicating it</div>
+          <div className="review-shortcuts" style={{ flexWrap: "wrap" }}>
+            <div className={`filter-chip ${addingTask ? "active" : ""}`} onClick={() => { setAddingTask(!addingTask); setLinkingTask(false); }}><Plus size={12} />Add Task</div>
+            <div className={`filter-chip ${linkingTask ? "active" : ""}`} onClick={() => { setLinkingTask(!linkingTask); setAddingTask(false); }}><ChevronRight size={12} />Link Existing</div>
+            <div className="filter-chip" onClick={onOpenAdd}><CalendarDays size={12} />Add Event</div>
+            {step.shortcut && <div className="filter-chip" onClick={() => onOpen(step.shortcut)}><ChevronRight size={12} />{step.shortcutLabel}</div>}
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 7 }}>Tasks created or linked here are the real Abide tasks. Completing or editing them anywhere in the app updates what you see here.</div>
+
+          {addingTask && (
+            <div style={{ marginTop: 12 }}>
+              <AddSheet
+                goals={goals}
+                areas={areas}
+                initialDate={REFERENCE_DATE_KEY}
+                allowEvents={false}
+                onClose={() => setAddingTask(false)}
+                onCreateTask={createAndLinkTask}
+                onCreateEvent={async () => {}}
+                googleConnected={false}
+                onCreateArea={onCreateArea}
+              />
             </div>
           )}
 
+          {linkingTask && (
+            <div className="card" style={{ marginTop: 12, padding: 12, background: "var(--subtleBg)" }}>
+              <div className="fb-label" style={{ marginTop: 0 }}>Link an existing open task</div>
+              <input className="input-line" style={{ margin: "0 0 8px" }} value={linkSearch} onChange={(e) => setLinkSearch(e.target.value)} placeholder="Search tasks…" />
+              <div style={{ maxHeight: 240, overflowY: "auto" }}>
+                {candidateTasks.length ? candidateTasks.map((task) => (
+                  <div key={task.id} className="nav-row" onClick={() => linkTask(task.id)} style={{ paddingLeft: 0, paddingRight: 0 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, color: "var(--text)", fontWeight: 600 }}>{task.title}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>{formatDateLabel(taskDateKey(task))}{task.area && areas[task.area] ? ` · ${areas[task.area].name}` : ""}</div>
+                    </div>
+                    <Plus size={15} color="#E8B45C" />
+                  </div>
+                )) : <div className="insight-line">No matching open tasks.</div>}
+              </div>
+            </div>
+          )}
+
+          {linkedTasks.length > 0 && (
+            <>
+              <div className="fb-label">Linked real tasks</div>
+              <div className="card" style={{ background: "var(--subtleBg)" }}>
+                {linkedTasks.map((task) => (
+                  <div key={task.id} className="review-history-row" style={{ cursor: "pointer" }} onClick={() => setEditingTask(task)}>
+                    <div className={`checkbox ${task.done ? "done" : ""}`} style={{ width: 18, height: 18, marginTop: 1 }}>{task.done && <Check size={11} color="#14100A" strokeWidth={3} />}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div className="review-history-title" style={{ textDecoration: task.done ? "line-through" : "none", opacity: task.done ? .65 : 1 }}>{task.title}</div>
+                      <div className="review-history-meta">{formatDateLabel(taskDateKey(task))}{task.area && areas[task.area] ? ` · ${areas[task.area].name}` : ""}</div>
+                    </div>
+                    <X size={15} color="var(--text3)" onClick={(e) => { e.stopPropagation(); unlinkTask(task.id); }} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <div className="fb-label" style={{ marginTop: 14 }}>{step.noteLabel}</div>
-          <textarea className="review-note" value={state.notes?.[stepIndex] || ""} onChange={(e) => setNote(e.target.value)} placeholder="Write what you notice…" />
+          <textarea className="review-note" value={state.notes?.[stepIndex] || ""} onChange={(e) => setNote(e.target.value)} placeholder="Write only what belongs in the review itself. Actionable commitments should become tasks or events above." />
 
           {step.focusLabel && (
             <>
@@ -2383,7 +2490,7 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
 
         <div className="review-nav">
           <div className="filter-chip" style={{ opacity: stepIndex === 0 ? .45 : 1, pointerEvents: stepIndex === 0 ? "none" : "auto" }} onClick={back}><ChevronLeft size={13} />Previous</div>
-          {step.complete ? <div className="filter-chip active" onClick={completeReview}><Check size={13} />Complete Review</div> : <div className="filter-chip active" onClick={next}>Next<ChevronRight size={13} /></div>}
+          {step.complete ? <div className="filter-chip active" onClick={completeReview}><Check size={13} />{cadence === "weekly" ? "Complete Review" : "Complete Monthly Prep"}</div> : <div className="filter-chip active" onClick={next}>Next<ChevronRight size={13} /></div>}
         </div>
 
         <div className="section-label">Quick Access</div>
@@ -2398,32 +2505,29 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
           {history.length ? history.slice(0, 6).map((item) => (
             <div className="review-history-row" key={item.id} onClick={() => setEditingHistory({ ...item, focus: [...(item.focus || [])], notes: { ...(item.notes || {}) } })} style={{ cursor: "pointer" }}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="review-history-title">{item.cadence === "weekly" ? "Weekly Review" : "Monthly Review"} · {item.periodLabel}</div>
+                <div className="review-history-title">{item.cadence === "weekly" ? "Weekly Review" : "Monthly Prep"} · {item.periodLabel}</div>
                 <div className="review-history-meta">{new Date(item.completedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}{item.focus?.length ? ` · ${item.focus.length} focus outcome${item.focus.length === 1 ? "" : "s"}` : ""}</div>
               </div>
               <ChevronRight size={17} color="var(--text3)" style={{ flexShrink: 0 }} />
             </div>
-          )) : <div className="insight-line">Completed reviews will appear here.</div>}
+          )) : <div className="insight-line">Completed reviews and monthly preps will appear here.</div>}
         </div>
       </div>
+
+      {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={(updated) => { onUpdateTask(updated); setEditingTask(null); }} onCancel={() => setEditingTask(null)} onDelete={(id) => { onDeleteTask(id); setEditingTask(null); }} onCreateArea={onCreateArea} />}
 
       {editingHistory && createPortal(
         <div className="modal-backdrop" onClick={() => setEditingHistory(null)}>
           <div className="card composer-card task-editor-modal" onClick={(e) => e.stopPropagation()}>
             <div className="editor-shell">
               <div className="editor-header">
-                <div className="editor-title">Edit {editingHistory.cadence === "weekly" ? "Weekly" : "Monthly"} Review</div>
+                <div className="editor-title">Edit {editingHistory.cadence === "weekly" ? "Weekly Review" : "Monthly Prep"}</div>
                 <div className="editor-close" onClick={() => setEditingHistory(null)}><X size={17} /></div>
               </div>
 
               <div className="editor-scroll">
                 <div className="fb-label">Review period</div>
-                <input
-                  className="notes-box"
-                  style={{ minHeight: 0, marginTop: 0 }}
-                  value={editingHistory.periodLabel || ""}
-                  onChange={(e) => setEditingHistory((prev) => ({ ...prev, periodLabel: e.target.value }))}
-                />
+                <input className="notes-box" style={{ minHeight: 0, marginTop: 0 }} value={editingHistory.periodLabel || ""} onChange={(e) => setEditingHistory((prev) => ({ ...prev, periodLabel: e.target.value }))} />
 
                 <div className="fb-label">Completed</div>
                 <div style={{ fontSize: 13.5, color: "var(--text2)", padding: "2px 0 6px" }}>
@@ -2433,17 +2537,11 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
                 <div className="fb-label">Focus outcomes</div>
                 <div className="review-focus-grid">
                   {[0, 1, 2].map((i) => (
-                    <input
-                      key={i}
-                      className="review-focus-input"
-                      value={editingHistory.focus?.[i] || ""}
-                      onChange={(e) => {
-                        const next = [...(editingHistory.focus || [])];
-                        next[i] = e.target.value;
-                        setEditingHistory((prev) => ({ ...prev, focus: next }));
-                      }}
-                      placeholder={`${i + 1}. Outcome`}
-                    />
+                    <input key={i} className="review-focus-input" value={editingHistory.focus?.[i] || ""} onChange={(e) => {
+                      const next = [...(editingHistory.focus || [])];
+                      next[i] = e.target.value;
+                      setEditingHistory((prev) => ({ ...prev, focus: next }));
+                    }} placeholder={`${i + 1}. Outcome`} />
                   ))}
                 </div>
 
@@ -2451,25 +2549,16 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
                 {(editingHistory.cadence === "weekly" ? WEEKLY_REVIEW_BLUEPRINT : MONTHLY_REVIEW_BLUEPRINT).map((reviewStep, i) => (
                   <div key={i} style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text2)", marginBottom: 6 }}>{i + 1}. {reviewStep.title}</div>
-                    <textarea
-                      className="review-note"
-                      value={editingHistory.notes?.[i] || ""}
-                      onChange={(e) => setEditingHistory((prev) => ({ ...prev, notes: { ...(prev.notes || {}), [i]: e.target.value } }))}
-                      placeholder="No notes saved for this step."
-                    />
+                    <textarea className="review-note" value={editingHistory.notes?.[i] || ""} onChange={(e) => setEditingHistory((prev) => ({ ...prev, notes: { ...(prev.notes || {}), [i]: e.target.value } }))} placeholder="No notes saved for this step." />
                   </div>
                 ))}
 
-                <div className="filter-chip editor-delete" onClick={() => deleteHistoryEntry(editingHistory.id)}>
-                  <Trash2 size={14} />Delete Review
-                </div>
+                <div className="filter-chip editor-delete" onClick={() => deleteHistoryEntry(editingHistory.id)}><Trash2 size={14} />Delete {editingHistory.cadence === "weekly" ? "Review" : "Monthly Prep"}</div>
               </div>
 
               <div className="editor-footer">
                 <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={() => setEditingHistory(null)}>Cancel</div>
-                <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={() => saveHistoryEntry({ ...editingHistory, focus: (editingHistory.focus || []).map((x) => x || "") })}>
-                  <Check size={14} />Save Changes
-                </div>
+                <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={() => saveHistoryEntry({ ...editingHistory, focus: (editingHistory.focus || []).map((x) => x || "") })}><Check size={14} />Save Changes</div>
               </div>
             </div>
           </div>
@@ -2682,7 +2771,11 @@ export default function App() {
   });
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
-  const createTask = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
+  const createTask = (task) => {
+    const id = Date.now();
+    setTasks((prev) => [{ id, ...task }, ...prev]);
+    return id;
+  };
   const createArea = ({ name, color = "#8FA88A" }) => {
     const id = `area_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     setAreas((prev) => ({ ...prev, [id]: { name: String(name || "").trim(), color } }));
@@ -2715,7 +2808,7 @@ export default function App() {
     <>
       {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} onCreateArea={createArea} />}
       {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} openAddSignal={quickAddSignal} onCreateArea={createArea} />}
-      {tab === "review" && <ReviewTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} onOpen={setTab} />}
+      {tab === "review" && <ReviewTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} onOpen={setTab} onOpenAdd={openGlobalAdd} onCreateTask={createTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
       {tab === "goals" && <GoalsTab goals={goals} setGoals={setGoals} viewport={viewport} areas={areas} onCreateArea={createArea} />}
       {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}

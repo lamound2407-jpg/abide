@@ -184,11 +184,27 @@ reviews/{reviewId}
   checklistState: { [stepItemKey]: boolean }
   notes: { [stepIndex]: string }
   focusOutcomes: [string, string, string]
+  linkedTaskIdsByStep: { [stepIndex]: [taskId, ...] }
+  linkedEventIdsByStep: { [stepIndex]: [eventId, ...] }   // durable backend target
   startedAt
   completedAt
 ```
 
 The current prototype persists this workspace and its completion history in localStorage. When the rest of Abide's core data moves to Firestore, these records should move to the `reviews` collection above without changing the user-facing workflow.
+
+### Review as a live operating layer
+
+Review must not become a second task list. Actionable commitments discovered during a review are created as real `tasks` or `calendarEvents`, or linked to existing ones. The review stores only references to those canonical objects. Editing or completing a linked task anywhere in Abide is immediately reflected when the review is reopened.
+
+Current prototype behavior:
+- **Add Task** creates a real Abide task and stores its task id on the current review step.
+- **Link Existing** attaches an existing real task without copying it.
+- Linked tasks can be opened in the normal Task Editor directly from Review.
+- Removing a task from a review only removes the link; it does not delete the task.
+- **Add Event** opens Calendar's real event composer and preserves the in-progress review workspace.
+- Durable Firestore architecture should add linked event ids the same way once Calendar event state is lifted into the shared data layer.
+
+Review notes are reserved for reflection/context. They should not be used as a duplicate place to store actionable tasks or events.
 
 ### Weekly review methodology
 
@@ -201,18 +217,19 @@ The Weekly Review keeps GTD's **Get Clear → Get Current → Get Creative** seq
 - **Get Creative:** review Someday/Maybe and allow quieter ideas to surface.
 - **Commit:** name no more than three meaningful weekly outcomes and stop planning once the system is trustworthy.
 
-### Monthly review methodology
+### Monthly Prep methodology
 
-The Monthly Review is a wider-horizon planning process:
+Monthly Prep is primarily forward-looking. A brief look back exists only to inform the month ahead:
 
-- Arrive and reflect on the month without turning it into a performance score.
-- Clear stale open loops and make conscious defer/delegate/archive decisions.
-- Review goals, Areas, and higher horizons.
-- Scan the next 4–6 weeks of the Calendar for deadlines, preparation, travel, and recovery needs.
-- Review the user's Rule-of-Life rhythms: daily, weekly, and monthly practices that create space for formation.
-- **Subtract before adding:** stop, pause, simplify, or delegate before committing new volume.
-- Choose no more than three meaningful monthly outcomes.
-- Close the review with protected rhythms visible and enough unscheduled margin for the month to remain human.
+- **Close briefly:** notice what moved, what remains open, and what should not be carried forward.
+- **Clear the deck:** process stale open loops, waiting-fors, and uncaptured commitments.
+- **Survey the next 4–6 weeks:** treat the calendar as the hard landscape and identify preparation, travel, deadlines, heavy weeks, and recovery needs.
+- **Review Areas:** scan responsibilities and relationships so planning is not driven only by urgency.
+- **Choose up to three outcomes:** name the few results that deserve disproportionate attention this month.
+- **Define next actions:** every active outcome gets a real next physical action in the canonical task/calendar system.
+- **Review Rule-of-Life rhythms:** daily, weekly, and monthly practices may be spiritual or ordinary; the purpose is to arrange life intentionally rather than reactively.
+- **Subtract and protect:** stop, pause, simplify, delegate, or decline; protect rest and unscheduled margin before adding optional volume.
+- **Commit:** enter the month with a trustworthy system, visible rhythms, and flexibility for reality to change.
 
 This design intentionally combines GTD's trusted-system discipline with Abide's existing principle that hurry should not become the governing logic of the schedule.
 

@@ -2250,6 +2250,7 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
     monthly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""] },
   });
   const [history, setHistory] = usePersistentState("abide-review-history-v1", []);
+  const [editingHistory, setEditingHistory] = useState(null);
 
   const blueprint = cadence === "weekly" ? WEEKLY_REVIEW_BLUEPRINT : MONTHLY_REVIEW_BLUEPRINT;
   const state = workspace[cadence] || { step: 0, checked: {}, notes: {}, focus: ["", "", ""] };
@@ -2300,6 +2301,17 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
       ...prev,
       [cadence]: { step: 0, checked: {}, notes: {}, focus: ["", "", ""] },
     }));
+  };
+
+  const saveHistoryEntry = (updated) => {
+    setHistory((prev) => prev.map((item) => item.id === updated.id ? updated : item));
+    setEditingHistory(null);
+  };
+
+  const deleteHistoryEntry = (id) => {
+    if (!window.confirm("Delete this completed review? This cannot be undone.")) return;
+    setHistory((prev) => prev.filter((item) => item.id !== id));
+    setEditingHistory(null);
   };
 
   const checkedInStep = step.checks.filter((_, i) => state.checked?.[checkKey(i)]).length;
@@ -2384,13 +2396,86 @@ function ReviewTab({ tasks, goals, protectedBlocks, onOpen }) {
         <div className="section-label">Review History</div>
         <div className="card">
           {history.length ? history.slice(0, 6).map((item) => (
-            <div className="review-history-row" key={item.id}>
-              <div className="review-history-title">{item.cadence === "weekly" ? "Weekly Review" : "Monthly Review"} · {item.periodLabel}</div>
-              <div className="review-history-meta">{new Date(item.completedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}{item.focus?.length ? ` · ${item.focus.length} focus outcome${item.focus.length === 1 ? "" : "s"}` : ""}</div>
+            <div className="review-history-row" key={item.id} onClick={() => setEditingHistory({ ...item, focus: [...(item.focus || [])], notes: { ...(item.notes || {}) } })} style={{ cursor: "pointer" }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="review-history-title">{item.cadence === "weekly" ? "Weekly Review" : "Monthly Review"} · {item.periodLabel}</div>
+                <div className="review-history-meta">{new Date(item.completedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}{item.focus?.length ? ` · ${item.focus.length} focus outcome${item.focus.length === 1 ? "" : "s"}` : ""}</div>
+              </div>
+              <ChevronRight size={17} color="var(--text3)" style={{ flexShrink: 0 }} />
             </div>
           )) : <div className="insight-line">Completed reviews will appear here.</div>}
         </div>
       </div>
+
+      {editingHistory && createPortal(
+        <div className="modal-backdrop" onClick={() => setEditingHistory(null)}>
+          <div className="card composer-card task-editor-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="editor-shell">
+              <div className="editor-header">
+                <div className="editor-title">Edit {editingHistory.cadence === "weekly" ? "Weekly" : "Monthly"} Review</div>
+                <div className="editor-close" onClick={() => setEditingHistory(null)}><X size={17} /></div>
+              </div>
+
+              <div className="editor-scroll">
+                <div className="fb-label">Review period</div>
+                <input
+                  className="notes-box"
+                  style={{ minHeight: 0, marginTop: 0 }}
+                  value={editingHistory.periodLabel || ""}
+                  onChange={(e) => setEditingHistory((prev) => ({ ...prev, periodLabel: e.target.value }))}
+                />
+
+                <div className="fb-label">Completed</div>
+                <div style={{ fontSize: 13.5, color: "var(--text2)", padding: "2px 0 6px" }}>
+                  {new Date(editingHistory.completedAt).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                </div>
+
+                <div className="fb-label">Focus outcomes</div>
+                <div className="review-focus-grid">
+                  {[0, 1, 2].map((i) => (
+                    <input
+                      key={i}
+                      className="review-focus-input"
+                      value={editingHistory.focus?.[i] || ""}
+                      onChange={(e) => {
+                        const next = [...(editingHistory.focus || [])];
+                        next[i] = e.target.value;
+                        setEditingHistory((prev) => ({ ...prev, focus: next }));
+                      }}
+                      placeholder={`${i + 1}. Outcome`}
+                    />
+                  ))}
+                </div>
+
+                <div className="fb-label">Review notes</div>
+                {(editingHistory.cadence === "weekly" ? WEEKLY_REVIEW_BLUEPRINT : MONTHLY_REVIEW_BLUEPRINT).map((reviewStep, i) => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text2)", marginBottom: 6 }}>{i + 1}. {reviewStep.title}</div>
+                    <textarea
+                      className="review-note"
+                      value={editingHistory.notes?.[i] || ""}
+                      onChange={(e) => setEditingHistory((prev) => ({ ...prev, notes: { ...(prev.notes || {}), [i]: e.target.value } }))}
+                      placeholder="No notes saved for this step."
+                    />
+                  </div>
+                ))}
+
+                <div className="filter-chip editor-delete" onClick={() => deleteHistoryEntry(editingHistory.id)}>
+                  <Trash2 size={14} />Delete Review
+                </div>
+              </div>
+
+              <div className="editor-footer">
+                <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={() => setEditingHistory(null)}>Cancel</div>
+                <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={() => saveHistoryEntry({ ...editingHistory, focus: (editingHistory.focus || []).map((x) => x || "") })}>
+                  <Check size={14} />Save Changes
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }

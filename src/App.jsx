@@ -1,3 +1,4 @@
+import ImportTasksPanel from "./ImportTasksPanel.jsx";
 import React, { useState, useRef, useEffect } from "react";
 import {
   ListTodo, CalendarDays, Target, BookOpen, BarChart3, Plus, X,
@@ -66,6 +67,13 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
+  .import-drop { border:1px dashed var(--pillBorder); background:var(--subtleBg); border-radius:14px; padding:20px 16px; text-align:center; cursor:pointer; }
+  .import-drop-title { font-size:14px; font-weight:700; color:var(--text); }
+  .import-drop-copy { font-size:11.5px; line-height:1.5; color:var(--text3); margin-top:6px; }
+  .import-textarea { width:100%; min-height:180px; resize:vertical; border:1px solid var(--inputBorder); background:var(--inputBg); color:var(--text); border-radius:12px; padding:12px; font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; outline:none; }
+  .import-summary { margin-top:12px; padding:12px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
+  .import-stat-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .import-error { font-size:11.5px; line-height:1.45; color:#E68080; margin-top:6px; }
   .modal-backdrop { position:absolute; inset:0; z-index:90; background:rgba(2,5,10,0.72); backdrop-filter:blur(8px); display:flex; align-items:flex-start; justify-content:center; padding:52px 14px 110px; overflow-y:auto; }
   .task-editor-modal { width:min(100%, 620px); max-height:none; margin:0 !important; box-shadow:0 24px 80px rgba(0,0,0,0.45); }
   .quick-area-create { margin-top:8px; padding:10px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
@@ -908,14 +916,27 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [subtaskDraft, setSubtaskDraft] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
-  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
+
+  const addSubtask = () => {
+    if (!subtaskDraft.trim()) return;
+    setSubtasks((p) => [...p, { id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, label: subtaskDraft.trim(), done: false }]);
+    setSubtaskDraft("");
+  };
 
   const save = async () => {
     if (!title.trim() || !date || saving) return;
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
+        onCreateTask({
+          title: title.trim(), dueDate: date, dueTime: time || null,
+          due: time ? formatTimeLabel(time) : formatDateLabel(date),
+          dueOffsetDays: offsetFromDateKey(date), priority,
+          area: area || null, goal: goal || null, notes,
+          activities: [], repeat: recurrence ? recurrenceLabel(recurrence) : null,
+          recurrence, reminder, subtasks, done: false, status: "next",
+          bypassProtected: bypass,
+        });
       } else {
         await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes, bypassProtected: bypass });
       }
@@ -923,15 +944,29 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
     } finally { setSaving(false); }
   };
 
+  if (kind === "import") {
+    return <ImportTasksPanel areas={areas} onCreateArea={onCreateArea} onCreateTask={onCreateTask} onClose={onClose} />;
+  }
+
   return (
     <div className="card composer-card">
-      {allowEvents && <div className="segmented" style={{ margin: "0 0 4px 0" }}><div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div><div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div></div>}
+      <div className="segmented" style={{ margin: "0 0 4px 0" }}>
+        <div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div>
+        {allowEvents && <div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div>}
+        <div className={`seg-btn ${kind === "import" ? "active" : ""}`} onClick={() => setKind("import")}>Import</div>
+      </div>
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
-      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
+      {kind === "task" && <>
+        <div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div>
+        <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div>
+        <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
+        <div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}
+        <div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
+      </>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
-      <div className="fb-label">Notes</div><textarea className="notes-box" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
+      <div className="fb-label">Notes</div><textarea className="notes-box" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={kind === "task" ? "Task notes…" : "Event notes…"} />
       {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? "Will be added to the primary lamound2407@gmail.com Google Calendar." : "Will stay in Abide until Google Calendar is connected."}</div>}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
@@ -1898,7 +1933,22 @@ export default function App() {
   });
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
-  const createTask = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
+  const createTask = (task) => {
+    const dueDate = task.dueDate || REFERENCE_DATE_KEY;
+    const normalized = {
+      ...task,
+      dueDate,
+      dueOffsetDays: Number.isFinite(task.dueOffsetDays) ? task.dueOffsetDays : offsetFromDateKey(dueDate),
+      due: task.due || (task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(dueDate)),
+      notes: task.notes || "",
+      activities: Array.isArray(task.activities) ? task.activities : [],
+      subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
+      reminder: task.reminder || "None",
+      status: task.status || "next",
+      done: Boolean(task.done),
+    };
+    setTasks((prev) => [{ id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, ...normalized }, ...prev]);
+  };
   const createArea = ({ name, color = "#8FA88A" }) => {
     const id = `area_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     setAreas((prev) => ({ ...prev, [id]: { name: String(name || "").trim(), color } }));

@@ -234,6 +234,43 @@ Monthly Prep is primarily forward-looking. A brief look back exists only to info
 This design intentionally combines GTD's trusted-system discipline with Abide's existing principle that hurry should not become the governing logic of the schedule.
 
 
+
+## 4.6 Transitional cross-device sync bridge
+
+Before the feature-by-feature Firestore normalization is complete, Abide uses an authenticated real-time sync bridge so the existing application can work across laptop, phone, and tablet without rewriting every feature at once.
+
+### Authentication
+
+Firebase Authentication is the identity boundary. A person signs into the same Abide account on each device. Firestore rules restrict every sync document to `request.auth.uid == userId`.
+
+### Transitional state shape
+
+```text
+users/{uid}/syncState/{encodedLocalStateKey}
+  key
+  value
+  deviceId
+  updatedAt
+```
+
+The bridge intentionally preserves the existing `usePersistentState` feature code during this transition. On first sign-in:
+
+1. If a cloud state key already exists, the cloud version wins.
+2. If the cloud key does not exist, the current device uploads its existing local value.
+3. After initialization, local changes are written to Firestore and Firestore changes from another device are applied locally.
+4. Because the legacy state hooks read localStorage at mount time, a remote update triggers a small page reload so every existing feature receives the new state consistently.
+
+This is an intermediate migration layer, not the final normalized database. The long-term collections already defined in this architecture (`tasks`, `goals`, `journalEntries`, `reviews`, etc.) remain the target data model.
+
+### Explicit exclusions
+
+- Scratchbook drawings are not mirrored into Firestore state documents because base64 drawing data can exceed Firestore's document-size limit. Scratchbook cross-device sync must use Firebase Storage plus Firestore metadata as already specified above.
+- Google OAuth access tokens remain device/session-local and are never written to Firestore.
+- Device notification-fired history and one-time migration flags remain device-local.
+
+This bridge makes core Abide data (tasks, Areas, goals, journal entries, review workspace/history, protected time, preferences, and other normal JSON state) available across signed-in devices immediately while the normalized Firestore migration continues safely.
+
+
 ## 5. Tech stack (matches what you already run)
 
 - **Frontend:** React + Vite, deployed as a installable **PWA** — "Add to Home Screen" gets you a full-screen, icon-on-homescreen app on iPhone and iPad with zero App Store friction, and it's the same shell on your laptop in a browser tab. (Native wrap via Capacitor is a viable later step if you ever want push notifications beyond what web push allows on iOS.)

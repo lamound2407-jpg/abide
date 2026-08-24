@@ -71,6 +71,13 @@ const styles = `
   .filter-chip .x { opacity:0.7; margin-left:2px; }
 
   .filter-builder, .composer-card { padding:14px; margin-bottom:12px; }
+  .import-drop { border:1px dashed var(--pillBorder); background:var(--subtleBg); border-radius:14px; padding:20px 16px; text-align:center; cursor:pointer; }
+  .import-drop-title { font-size:14px; font-weight:700; color:var(--text); }
+  .import-drop-copy { font-size:11.5px; line-height:1.5; color:var(--text3); margin-top:6px; }
+  .import-textarea { width:100%; min-height:180px; resize:vertical; border:1px solid var(--inputBorder); background:var(--inputBg); color:var(--text); border-radius:12px; padding:12px; font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; outline:none; }
+  .import-summary { margin-top:12px; padding:12px; border:1px solid var(--pillBorder); background:var(--subtleBg); border-radius:12px; }
+  .import-stat-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .import-error { font-size:11.5px; line-height:1.45; color:#E68080; margin-top:6px; }
   /* Fresh responsive task/event editor popup */
   .modal-backdrop { position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:max(16px, env(safe-area-inset-top, 0px)) 14px max(16px, env(safe-area-inset-bottom, 0px)); background:rgba(2,5,10,0.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif; }
   .task-editor-modal { width:min(92vw,560px); max-height:min(78dvh,760px); margin:0!important; padding:0!important; display:flex; flex-direction:column; overflow:hidden!important; border-radius:24px!important; border:1px solid var(--pillBorder)!important; background:var(--card)!important; color:var(--text)!important; box-shadow:0 30px 100px rgba(0,0,0,0.58); font-family:inherit; }
@@ -1059,7 +1066,7 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const [targetGoogleAccountId, setTargetGoogleAccountId] = useState(() => googleAccounts[0]?.id || "");
-  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
+  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
 
   const save = async () => {
     if (!title.trim() || !date || saving) return;
@@ -1074,9 +1081,17 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
     } finally { setSaving(false); }
   };
 
+  if (kind === "import") {
+    return <ImportTasksPanel areas={areas} onCreateArea={onCreateArea} onCreateTask={onCreateTask} onClose={onClose} />;
+  }
+
   return (
     <div className="card composer-card">
-      {allowEvents && <div className="segmented" style={{ margin: "0 0 4px 0" }}><div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div><div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div></div>}
+      <div className="segmented" style={{ margin: "0 0 4px 0" }}>
+        <div className={`seg-btn ${kind === "task" ? "active" : ""}`} onClick={() => setKind("task")}>Task</div>
+        {allowEvents && <div className={`seg-btn ${kind === "event" ? "active" : ""}`} onClick={() => setKind("event")}>Event</div>}
+        <div className={`seg-btn ${kind === "import" ? "active" : ""}`} onClick={() => setKind("import")}>Import</div>
+      </div>
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
@@ -2773,8 +2788,21 @@ export default function App() {
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
   const createTask = (task) => {
-    const id = Date.now();
-    setTasks((prev) => [{ id, ...task }, ...prev]);
+    const dueDate = task.dueDate || REFERENCE_DATE_KEY;
+    const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const normalized = {
+      ...task,
+      dueDate,
+      dueOffsetDays: Number.isFinite(task.dueOffsetDays) ? task.dueOffsetDays : offsetFromDateKey(dueDate),
+      due: task.due || (task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(dueDate)),
+      notes: task.notes || "",
+      activities: Array.isArray(task.activities) ? task.activities : [],
+      subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
+      reminder: task.reminder || "None",
+      status: task.status || "next",
+      done: Boolean(task.done),
+    };
+    setTasks((prev) => [{ id, ...normalized }, ...prev]);
     return id;
   };
   const createArea = ({ name, color = "#8FA88A" }) => {

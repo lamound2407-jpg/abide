@@ -156,14 +156,17 @@ function AuthScreen() {
       color: "#F7F6F1",
       display: "grid",
       placeItems: "center",
-      padding: 20,
+      padding: 16,
+      boxSizing: "border-box",
       fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif',
     }}>
       <div style={{
         width: "min(100%, 420px)",
         maxWidth: "420px",
+        maxHeight: "calc(100dvh - 32px)",
         boxSizing: "border-box",
-        overflow: "hidden",
+        overflowX: "hidden",
+        overflowY: "auto",
         background: "#141A28",
         border: "1px solid rgba(255,255,255,.08)",
         borderRadius: 24,
@@ -174,7 +177,7 @@ function AuthScreen() {
           <img src="/abide-logo.png" alt="Abide" style={{ width: 48, height: 48, borderRadius: 14 }} />
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2 }}>ABIDE</div>
-            <div style={{ fontSize: 12.5, color: "#8E97A8", marginTop: 2 }}>One account. Every device.</div>
+            <div style={{ fontSize: 12.5, color: "#8E97A8", marginTop: 2, lineHeight: 1.4 }}>Sign in once. Keep Abide with you.</div>
           </div>
         </div>
 
@@ -198,6 +201,9 @@ function AuthScreen() {
             font: "inherit",
             fontSize: 13.5,
             fontWeight: 750,
+            lineHeight: 1.25,
+            textAlign: "center",
+            whiteSpace: "normal",
             cursor: busy ? "default" : "pointer",
             opacity: busy ? .6 : 1,
           }}
@@ -243,7 +249,7 @@ function AuthScreen() {
           }}
         >
           <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,.08)" }} />
-          Or use email
+          Or continue with email
           <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,.08)" }} />
         </div>
 
@@ -334,10 +340,10 @@ function AuthScreen() {
           </button>
         </form>
 
-        <div style={{ marginTop: 14, fontSize: 11.5, lineHeight: 1.5, color: "#6E7686" }}>
+        <div style={{ marginTop: 14, padding: "0 2px", fontSize: 11.5, lineHeight: 1.5, color: "#6E7686", overflowWrap: "anywhere" }}>
           {mode === "create"
-            ? "A new Abide account starts clean and private. Your data syncs only with devices signed into this account."
-            : "Sign in to restore this account’s Abide data and keep it synced across your devices."}
+            ? "Create a private Abide account. It starts clean, and only devices signed into this account can sync its data."
+            : "Sign in to open your existing Abide account and keep your data synced across your devices."}
         </div>
       </div>
     </div>

@@ -146,6 +146,14 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 **Daily Brief:** Today begins with a compact, computed Daily Brief that helps the user engage with confidence without creating more hurry. The brief is derived from existing Abide data rather than stored as a separate record. It summarizes: overdue open work, urgent/high-priority work due today, today's actionable load, upcoming high-priority tasks and milestones, and a short pace/focus observation when the current workload is unusually heavy. The brief should prioritize clarity over volume: surface the few items that genuinely need attention rather than restating the entire task list. Completed items are excluded from attention counts. Milestone tasks participate exactly like other tasks. Scheduled subtasks participate according to their own due dates. Calendar/event load may join the brief once calendar events are available in shared application state.
 
+**Multi-user / share-ready accounts:** Abide is one shared application codebase with private per-user data, not a separate fork or deployment for each person. Every signed-in user owns an isolated Firebase namespace under `users/{uid}`. No user's tasks, goals, journal entries, Areas, filters, review state, or other synced Abide state may be visible to another user. Authentication identity is the boundary for cloud data access.
+
+A brand-new Abide account starts clean and neutral. New users should not inherit prototype seed tasks, personal Areas, journal entries, goals, or developer/user-specific migration data. First-run onboarding may help the user create their own Areas and understand Today, Calendar, Review, Journal, and More, but onboarding must create only data the new user explicitly chooses.
+
+Prototype-era personal migration routines are legacy compatibility code for existing accounts only. They must not auto-inject data into a fresh account or fresh device. Any retained migration must be gated so it only applies to the intended existing user state; otherwise it should be removed after existing data has already been preserved in cloud sync.
+
+The intended sharing model is: one Abide URL, one maintained GitHub codebase, one deployed app, separate user accounts, separate private data, and common application updates for everyone.
+
 The Daily Brief is collapsible. It opens expanded the first time Today is viewed on a new calendar day, then the user may collapse it into a compact one-line summary such as "Daily Brief · 2 overdue · 1 urgent." The collapsed state is remembered only for that date so the brief opens fresh again the next day. This keeps the briefing useful at the start of the day without permanently consuming Today-screen space.
 
 

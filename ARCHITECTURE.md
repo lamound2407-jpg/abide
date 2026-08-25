@@ -161,6 +161,10 @@ The intended sharing model is: one Abide URL, one maintained GitHub codebase, on
 
 **Authentication layout:** The Sign In / Create Account card must remain fully contained within its outer card at narrow mobile widths. Inputs, segmented controls, labels, errors, and action buttons must use responsive sizing and may wrap or shrink as necessary; overlapping pills, controls, or text are considered layout defects.
 
+
+**Google sign-in:** Abide supports Firebase Authentication with Google as a first-class sign-in option in addition to email/password. "Continue with Google" authenticates the user's Abide identity and must preserve the same private `users/{uid}` data boundary as every other authentication method. Google sign-in is separate from Google Calendar authorization: signing into Abide with Google does not automatically grant Calendar access. Calendar permissions are requested independently from inside Abide only when the user chooses to connect Google Calendar. Email/password remains available as a fallback authentication method, including password visibility controls on the auth screen.
+
+
 **Personal companion tools:** Iron Log and Trophé are not part of the shared Abide product. The shared application must not expose personal companion-app links or a "Your Tools" section. Personal external tools may be reintroduced later only through an explicitly user-configurable feature.
 
 

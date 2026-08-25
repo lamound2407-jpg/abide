@@ -2305,19 +2305,71 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCr
   );
 }
 
-function GoalsTab({ goals, setGoals, viewport, areas = AREAS, onCreateArea }) {
+function GoalsTab({
+  goals,
+  setGoals,
+  viewport,
+  areas = AREAS,
+  tasks,
+  onCreateTask,
+  onUpdateTask,
+  onCreateArea,
+}) {
   const [composer, setComposer] = useState(null); // null | "add" | goalId
+  const [milestoneDrafts, setMilestoneDrafts] = useState({});
+
+  const milestoneTasksForGoal = (goalId) =>
+    tasks.filter(
+      (task) =>
+        task.kind === "milestone" &&
+        String(task.goal) === String(goalId)
+    );
 
   const saveGoal = (g) => {
     setGoals((prev) => prev.some((x) => x.id === g.id) ? prev.map((x) => x.id === g.id ? g : x) : [...prev, g]);
     setComposer(null);
   };
-  const deleteGoal = (id) => { setGoals((prev) => prev.filter((g) => g.id !== id)); setComposer(null); };
-  const toggleGoalMilestone = (goalId, mId) => setGoals((prev) => prev.map((g) => {
-    if (g.id !== goalId) return g;
-    const milestones = g.milestones.map((m) => m.id === mId ? { ...m, done: !m.done } : m);
-    return { ...g, milestones, progress: milestones.length ? Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100) : g.progress };
-  }));
+  const deleteGoal = (id) => {
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    setComposer(null);
+  };
+
+  const createMilestoneTask = (goal) => {
+    const draft = milestoneDrafts[goal.id] || {};
+    if (!String(draft.title || "").trim() || !draft.dueDate) return;
+
+    onCreateTask({
+      title: String(draft.title).trim(),
+      kind: "milestone",
+      goal: goal.id,
+      area: goal.area || null,
+      dueDate: draft.dueDate,
+      dueTime: null,
+      priority: "med",
+      status: "next",
+      progress: "not_started",
+      done: false,
+      reminder: "None",
+      notes: "",
+      activities: [],
+      subtasks: [],
+    });
+
+    setMilestoneDrafts((prev) => ({
+      ...prev,
+      [goal.id]: { title: "", dueDate: "" },
+    }));
+  };
+
+  const toggleMilestoneTask = (task) => {
+    const done = !task.done;
+    onUpdateTask({
+      ...task,
+      done,
+      progress: done ? "completed" : "not_started",
+      completedAt: done ? new Date().toISOString() : null,
+    });
+  };
 
   return (
     <>
@@ -2327,6 +2379,14 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS, onCreateArea }) {
         <div className={viewport === "desktop" ? "goal-grid" : undefined}>
           {goals.map((g) => {
             const area = g.area && areas[g.area] ? areas[g.area] : { name: "No Area", color: "#9AA2B1" };
+            const milestoneTasks = milestoneTasksForGoal(g.id);
+            const milestoneProgress = milestoneTasks.length
+              ? Math.round(
+                  (milestoneTasks.filter((task) => task.done).length / milestoneTasks.length) * 100
+                )
+              : g.progress || 0;
+            const milestoneDraft = milestoneDrafts[g.id] || { title: "", dueDate: "" };
+
             if (composer === g.id) {
               return <GoalComposer key={g.id} areas={areas} onCreateArea={onCreateArea} initial={g} onSave={saveGoal} onCancel={() => setComposer(null)} onDelete={() => deleteGoal(g.id)} />;
             }
@@ -2336,18 +2396,98 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS, onCreateArea }) {
                   <div><span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span><div className="goal-name" style={{ marginTop: 6 }}>{g.name}</div></div>
                   <Pencil size={15} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => setComposer(g.id)} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12.5, color: "var(--text2)" }}><span>{g.progress}% complete</span><span>
-                  Target · {g.targetDate
-                    ? formatDateLabel(g.targetDate)
-                    : (g.target || "—")}
-                </span></div>
-                <div className="progress-track"><div className="progress-fill" style={{ width: `${g.progress}%`, background: area.color }} /></div>
-                {g.milestones.map((m) => (
-                  <div className="milestone-row" key={m.id} onClick={() => toggleGoalMilestone(g.id, m.id)}>
-                    <span className="dot" style={{ background: m.done ? area.color : "var(--track)" }} />
-                    <span style={{ color: m.done ? "var(--text2)" : "var(--body)", textDecoration: m.done ? "line-through" : "none" }}>{m.label}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12.5, color: "var(--text2)" }}>
+                  <span>{milestoneProgress}% complete</span>
+                  <span>
+                    Target · {g.targetDate
+                      ? formatDateLabel(g.targetDate)
+                      : (g.target || "—")}
+                  </span>
+                </div>
+
+                <div className="progress-track">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${milestoneProgress}%`, background: area.color }}
+                  />
+                </div>
+
+                <div className="fb-label" style={{ marginTop: 14 }}>Milestones</div>
+
+                {milestoneTasks.length ? milestoneTasks.map((task) => (
+                  <div
+                    className="milestone-row"
+                    key={task.id}
+                    onClick={() => toggleMilestoneTask(task)}
+                    style={{ alignItems: "flex-start" }}
+                  >
+                    <Target
+                      size={14}
+                      color={task.done ? area.color : "#E8B45C"}
+                      style={{ marginTop: 2, flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          color: task.done ? "var(--text2)" : "var(--body)",
+                          textDecoration: task.done ? "line-through" : "none",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {task.title}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3 }}>
+                        {formatDateLabel(taskDateKey(task))}
+                      </div>
+                    </div>
                   </div>
-                ))}
+                )) : (
+                  <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8 }}>
+                    No milestone tasks yet.
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 150px auto",
+                    gap: 8,
+                    marginTop: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <input
+                    className="input-line"
+                    style={{ margin: 0 }}
+                    placeholder="Milestone title"
+                    value={milestoneDraft.title}
+                    onChange={(e) =>
+                      setMilestoneDrafts((prev) => ({
+                        ...prev,
+                        [g.id]: { ...milestoneDraft, title: e.target.value },
+                      }))
+                    }
+                  />
+                  <input
+                    type="date"
+                    className="input-line"
+                    style={{ margin: 0 }}
+                    value={milestoneDraft.dueDate}
+                    onChange={(e) =>
+                      setMilestoneDrafts((prev) => ({
+                        ...prev,
+                        [g.id]: { ...milestoneDraft, dueDate: e.target.value },
+                      }))
+                    }
+                  />
+                  <div
+                    className="filter-chip active"
+                    onClick={() => createMilestoneTask(g)}
+                  >
+                    <Plus size={12} />Add
+                  </div>
+                </div>
+
                 {g.notes && <div className="insight-line" style={{ padding: "10px 0 0 0" }}>{g.notes}</div>}
               </div>
             );
@@ -3698,6 +3838,7 @@ export default function App() {
       subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
       reminder: task.reminder || "None",
       status: task.status || "next",
+      kind: task.kind || "task",
       done: Boolean(task.done),
       progress: Boolean(task.done) ? "completed" : (task.progress || "not_started"),
     };

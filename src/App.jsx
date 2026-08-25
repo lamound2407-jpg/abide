@@ -8,7 +8,7 @@ import {
   Flag, Repeat, ChevronRight, ChevronDown, ChevronLeft, Flame, TrendingUp,
   Check, Clock, Pencil, Sparkles, Filter, PenTool, Type, Trash2,
   RefreshCw, ShieldCheck, Archive, Bell, SlidersHorizontal, Sun, Moon,
-  Dumbbell, Salad, ExternalLink, Settings as SettingsIcon
+  Dumbbell, Salad, ExternalLink, Search, Settings as SettingsIcon
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, PieChart, Pie, Cell, Tooltip
@@ -1783,6 +1783,8 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const googleConfigured = Boolean(googleClientId);
@@ -1800,6 +1802,53 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
   const daySubtasks = scheduledSubtaskEntries(tasks).filter((entry) => entry.dueDate === selectedDateKey);
   const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarKeys.has(e.calendarKey || `${e.accountId || "legacy"}::${e.calendarId}`)));
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const taskSearchResults = normalizedSearchQuery
+    ? tasks.filter((task) => {
+        const areaName = task.area && areas[task.area] ? areas[task.area].name : "";
+        const goalName = goals.find((goal) => String(goal.id) === String(task.goal))?.name || "";
+        const activityText = normalizeActivity(task).map((item) => item.text).join(" ");
+        const subtaskText = (task.subtasks || []).map((sub) => sub.label).join(" ");
+
+        return [
+          task.title,
+          areaName,
+          goalName,
+          task.notes,
+          activityText,
+          subtaskText,
+          taskProgressLabel(task),
+          formatDateLabel(taskDateKey(task)),
+        ].join(" ").toLowerCase().includes(normalizedSearchQuery);
+      })
+    : [];
+
+  const eventSearchResults = normalizedSearchQuery
+    ? events.filter((event) => {
+        if (
+          event.source === "google" &&
+          !visibleCalendarKeys.has(event.calendarKey || `${event.accountId || "legacy"}::${event.calendarId}`)
+        ) return false;
+
+        const areaName = event.area && areas[event.area] ? areas[event.area].name : "";
+        const activityText = normalizeActivity(event).map((item) => item.text).join(" ");
+
+        return [
+          event.title,
+          event.calendarLabel,
+          event.accountLabel,
+          areaName,
+          event.notes,
+          activityText,
+          event.date ? formatDateLabel(event.date) : "",
+          event.time,
+        ].join(" ").toLowerCase().includes(normalizedSearchQuery);
+      })
+    : [];
+
+  const searchResultCount = taskSearchResults.length + eventSearchResults.length;
 
   const toggleCalendarSubtask = (parentId, subtaskId) => {
     const parent = tasks.find((task) => task.id === parentId);
@@ -2014,8 +2063,137 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
   return (
     <>
-      <Header eyebrow={monthLabel} title="Calendar" actions={[{ icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) }, { icon: adding ? X : Plus, onClick: () => { setEditingTask(null); setEditingEvent(null); setAdding(!adding); } }]} />
+      <Header
+        eyebrow={monthLabel}
+        title="Calendar"
+        actions={[
+          {
+            icon: Search,
+            onClick: () => {
+              setSearchOpen(!searchOpen);
+              setAdding(false);
+              setEditingTask(null);
+              setEditingEvent(null);
+            },
+          },
+          { icon: SlidersHorizontal, onClick: () => setCalsOpen(!calsOpen) },
+          {
+            icon: adding ? X : Plus,
+            onClick: () => {
+              setSearchOpen(false);
+              setSearchQuery("");
+              setEditingTask(null);
+              setEditingEvent(null);
+              setAdding(!adding);
+            },
+          },
+        ]}
+      />
       <div className="scroll">
+        {searchOpen && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="capture-bar" style={{ marginTop: 0 }}>
+              <Search size={16} />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks and events..."
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "var(--text)",
+                  font: "inherit",
+                }}
+              />
+              {searchQuery && (
+                <X
+                  size={15}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setSearchQuery("")}
+                />
+              )}
+            </div>
+
+            {normalizedSearchQuery && (
+              <>
+                <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "0 4px 8px" }}>
+                  {searchResultCount} result{searchResultCount === 1 ? "" : "s"}
+                </div>
+
+                {taskSearchResults.length > 0 && (
+                  <>
+                    <div className="section-label" style={{ marginTop: 10 }}>Tasks</div>
+                    <div className="card">
+                      {taskSearchResults.map((task) => (
+                        <div
+                          key={`search-task-${task.id}`}
+                          className="task-row"
+                          onClick={() => {
+                            setSelectedDateKey(taskDateKey(task));
+                            setSearchOpen(false);
+                            setSearchQuery("");
+                            setEditingTask(task);
+                          }}
+                        >
+                          <Search size={15} color="#E8B45C" />
+                          <div style={{ flex: 1 }}>
+                            <div className="task-title">{task.title}</div>
+                            <div className="task-meta">
+                              <span className="time-chip">{taskProgressLabel(task)}</span>
+                              <span className="time-chip">{formatDateLabel(taskDateKey(task))}</span>
+                            </div>
+                          </div>
+                          <ChevronRight size={14} color="var(--text3)" />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {eventSearchResults.length > 0 && (
+                  <>
+                    <div className="section-label" style={{ marginTop: 10 }}>Events</div>
+                    <div className="card">
+                      {eventSearchResults.map((event) => (
+                        <div
+                          key={`search-event-${event.id}`}
+                          className="task-row"
+                          onClick={() => {
+                            if (event.date) setSelectedDateKey(event.date);
+                            setSearchOpen(false);
+                            setSearchQuery("");
+                            setEditingEvent(event);
+                          }}
+                        >
+                          <CalendarDays size={15} color={event.color || "#7C93C9"} />
+                          <div style={{ flex: 1 }}>
+                            <div className="task-title">{event.title}</div>
+                            <div className="task-meta">
+                              <span className="time-chip">{event.date ? formatDateLabel(event.date) : "No date"}</span>
+                              <span className="time-chip">{event.time || "All day"}</span>
+                            </div>
+                          </div>
+                          <ChevronRight size={14} color="var(--text3)" />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {searchResultCount === 0 && (
+                  <div className="card">
+                    <div className="insight-line">No matching tasks or events.</div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${connectedGoogleAccounts.length} Google account${connectedGoogleAccounts.length === 1 ? "" : "s"} · ${activeCount} calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"}</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
         {calsOpen && <CalendarsPanel accounts={googleAccounts} setAccounts={setGoogleAccounts} configured={googleConfigured} onConnect={connectGoogle} onRefresh={refreshAllGoogleAccounts} onDisconnect={disconnectGoogleAccount} onToggleCalendar={toggleGoogleCalendar} onRenameAccount={renameGoogleAccount} error={googleError} />}
         {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} googleAccounts={connectedGoogleAccounts} onCreateArea={onCreateArea} />}

@@ -69,7 +69,7 @@ tasks/{taskId}
   title, notes, areaId, goalId (nullable),
   dueDate, dueTime (nullable), priority: low|med|high,
   status: inbox|next|scheduled|done|someday,
-  subtasks: [{ id, label, done }],
+  subtasks: [{ id, label, done, dueDate (nullable), dueTime (nullable) }],
   recurrence: { freq: daily|weekly|monthly|yearly, interval: number, days: [], endDate },
   parentRecurringId (nullable — links generated instances back to their rule),
   createdAt, completedAt, reminders: [{ offsetMinutes }]
@@ -148,6 +148,9 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 **Reminders/alerts:** each task's `reminders: [{ offsetMinutes }]` array (already in the model above) drives **Firebase Cloud Messaging** push notifications — a Cloud Function runs on a schedule, finds tasks whose reminder time has arrived, and pushes a notification to whichever devices you're logged into (phone, iPad, laptop via web push). No separate reminders system to maintain — it's the same task data, just watched.
 
 **Tasks without goals:** `goalId` on a task is nullable by design (see model above) — a task only needs an `areaId`. Goals are an optional organizing layer on top, never a requirement to capture something.
+
+**Scheduled subtasks:** subtasks may optionally carry their own `dueDate` and `dueTime`. A dated subtask remains structurally owned by its parent task, but it also appears as an actionable item in Today/upcoming views and on Calendar according to the subtask's own date. Calendar and task-list presentations must identify the parent task so the subtask never appears detached from its larger outcome. Completing the subtask from any surface updates the same embedded subtask record. Undated subtasks remain visible only within their parent task. Subtasks inherit the parent task's Area and Goal rather than duplicating those fields.
+
 
 **Theme:** `users/{uid}.theme: "light" | "dark" | "system"` — stored once, applied instantly on load via CSS custom properties (exactly how the prototype does it), so it's consistent across phone/iPad/laptop without a flash of the wrong theme.
 

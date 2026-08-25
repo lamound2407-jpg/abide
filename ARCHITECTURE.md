@@ -165,6 +165,17 @@ The intended sharing model is: one Abide URL, one maintained GitHub codebase, on
 **Google sign-in:** Abide supports Firebase Authentication with Google as a first-class sign-in option in addition to email/password. "Continue with Google" authenticates the user's Abide identity and must preserve the same private `users/{uid}` data boundary as every other authentication method. Google sign-in is separate from Google Calendar authorization: signing into Abide with Google does not automatically grant Calendar access. Calendar permissions are requested independently from inside Abide only when the user chooses to connect Google Calendar. Email/password remains available as a fallback authentication method, including password visibility controls on the auth screen.
 
 
+**Calendar providers:** Abide supports external calendar providers independently from Abide authentication. Google Calendar remains supported, and Microsoft Outlook / Microsoft 365 Calendar is supported as a second provider through Microsoft identity authorization and Microsoft Graph. A user may connect Google, Microsoft, or both. Connected provider accounts remain separate from the user's Abide sign-in identity.
+
+Each connected calendar account owns its own provider identifier, account identifier, display name, short-lived authorization state, calendar list, visibility preferences, and imported events. Calendar records and event identifiers must include the provider so a Google calendar and Microsoft calendar can never collide even when they use the same email address or calendar name.
+
+Calendar authorization credentials are device/session credentials and must never be synced through Firestore. Signing out of Abide must clear Google and Microsoft calendar authorization state from the browser before another Abide account can use that device.
+
+The Calendar UI presents provider-neutral actions such as "Add calendar account" and identifies connected accounts as Google or Outlook/Microsoft 365. When creating an event, the user may choose any writable connected calendar account. If no external provider is connected, the event remains an Abide-only calendar event.
+
+Microsoft calendar integration uses least-privilege delegated permissions needed to identify the signed-in Microsoft account and read/write that user's calendars. Abide must not request mail, contacts, files, organization administration, or unrelated Microsoft permissions as part of Calendar connection.
+
+
 **Personal companion tools:** Iron Log and Trophé are not part of the shared Abide product. The shared application must not expose personal companion-app links or a "Your Tools" section. Personal external tools may be reintroduced later only through an explicitly user-configurable feature.
 
 

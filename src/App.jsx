@@ -3426,15 +3426,15 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
             </span>
           </div>
 
-          <div className="settings-row">
-            <div>
+          <div className="settings-row" style={{ alignItems: "flex-start", gap: 12 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div className="settings-row-name">
-                {updateAvailable ? "Update available" : "App updates"}
+                {updateAvailable ? "Update ready" : "App updates"}
               </div>
-              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3 }}>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, lineHeight: 1.4 }}>
                 {updateAvailable
-                  ? "A newer version is ready to install."
-                  : updateMessage || "Abide checks automatically when you return to the app."}
+                  ? "A newer version of Abide is ready."
+                  : updateMessage || "Abide checks for updates automatically."}
               </div>
             </div>
 
@@ -3444,6 +3444,7 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
                 opacity: updateChecking ? 0.65 : 1,
                 pointerEvents: updateChecking ? "none" : "auto",
                 flexShrink: 0,
+                whiteSpace: "nowrap",
               }}
               onClick={updateAvailable ? updateNow : checkForUpdatesNow}
             >
@@ -3458,7 +3459,7 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
         </div>
 
         <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 4px 0" }}>
-          Future Abide releases can be installed here without deleting the Home Screen app.
+          Install future Abide updates here without removing the Home Screen app.
         </div>
 
         <div className="section-label">Learn Abide</div>
@@ -3468,7 +3469,7 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
               <BookOpen size={16} color="#E8B45C" />
               <div>
                 <div style={{ fontWeight: 650, color: "var(--text)", fontSize: 13.5 }}>How Abide Works</div>
-                <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>Purpose, rhythm, and a guided tour</div>
+                <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 2, lineHeight: 1.4 }}>A guided tour of Abide’s purpose and rhythm</div>
               </div>
             </div>
             <ChevronRight size={16} color="var(--text3)" />
@@ -3477,15 +3478,23 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
 
         <div className="section-label">Account & Sync</div>
         <div className="card">
-          <div className="settings-row">
-            <div style={{ minWidth: 0 }}>
-              <div className="settings-row-name">Signed in</div>
-              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, overflowWrap: "anywhere" }}>
-                {accountSync?.email || "Abide account"}
+          <div className="settings-row" style={{ alignItems: "flex-start", gap: 12 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="settings-row-name">Abide account</div>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, overflowWrap: "anywhere", lineHeight: 1.4 }}>
+                {accountSync?.email || "Signed in"}
               </div>
             </div>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: accountSync?.syncError ? "#E68080" : "#8FA88A", flexShrink: 0 }}>
-              {accountSync?.syncError ? "Needs attention" : "Cloud synced"}
+            <span
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: accountSync?.syncError ? "#E68080" : "#8FA88A",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {accountSync?.syncError ? "Sync issue" : "Synced"}
             </span>
           </div>
 
@@ -3495,16 +3504,16 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
             </div>
           )}
 
-          <div className="settings-row">
-            <div>
-              <div className="settings-row-name">Sign out of Abide</div>
-              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3 }}>
-                Your cloud data stays with this account.
+          <div className="settings-row" style={{ alignItems: "flex-start", gap: 12 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="settings-row-name">Sign out</div>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, lineHeight: 1.4 }}>
+                Your Abide data remains safely stored with this account.
               </div>
             </div>
             <div
               className="filter-chip"
-              style={{ color: "#E68080", flexShrink: 0 }}
+              style={{ color: "#E68080", flexShrink: 0, whiteSpace: "nowrap" }}
               onClick={() => accountSync?.signOut?.()}
             >
               Sign Out

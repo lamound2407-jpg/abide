@@ -4101,28 +4101,6 @@ export default function App() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => {
-    const migrationKey = "abide-user-task-migration-2026-08-21-v1";
-    try { if (localStorage.getItem(migrationKey)) return; } catch {}
-    setAreas((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(USER_TASK_MIGRATION_AREAS).filter(([id]) => !prev[id])) }));
-    setTasks((prev) => {
-      const ids = new Set(prev.map((t) => String(t.id)));
-      return [...USER_TASK_MIGRATION_TASKS.filter((t) => !ids.has(String(t.id))), ...prev];
-    });
-    try { localStorage.setItem(migrationKey, "1"); } catch {}
-  }, []);
-
-
-  useEffect(() => {
-    const migrationKey = "abide-user-task-migration-2026-08-21-v2-work-margin";
-    try { if (localStorage.getItem(migrationKey)) return; } catch {}
-    setAreas((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(USER_TASK_MIGRATION_WORK_MARGIN_AREAS).filter(([id]) => !prev[id])) }));
-    setTasks((prev) => {
-      const ids = new Set(prev.map((t) => String(t.id)));
-      return [...USER_TASK_MIGRATION_WORK_MARGIN_TASKS.filter((t) => !ids.has(String(t.id))), ...prev];
-    });
-    try { localStorage.setItem(migrationKey, "1"); } catch {}
-  }, []);
 
   const toggleDone = (id) => setTasks((prev) => {
     const task = prev.find((t) => t.id === id);

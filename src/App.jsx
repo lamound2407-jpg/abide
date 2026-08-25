@@ -105,6 +105,12 @@ async function checkForPwaUpdate() {
     await registration.update();
   } catch {}
 
+  pwaUpdateAvailable = Boolean(registration.waiting);
+
+  if (!pwaUpdateAvailable) {
+    emitPwaUpdateState();
+  }
+
   return pwaUpdateAvailable;
 }
 
@@ -161,9 +167,42 @@ function usePwaUpdateStatus() {
   const updateNow = async () => {
     setMessage("Updating Abide…");
 
+    let registration = pwaUpdateRegistration;
+
+    if (!registration) {
+      try {
+        registration = await navigator.serviceWorker.getRegistration();
+        pwaUpdateRegistration = registration || null;
+      } catch {}
+    }
+
+    const waitingWorker = registration?.waiting;
+
+    if (waitingWorker) {
+      let reloaded = false;
+
+      const reloadOnce = () => {
+        if (reloaded) return;
+        reloaded = true;
+        pwaUpdateAvailable = false;
+        emitPwaUpdateState();
+        window.location.reload();
+      };
+
+      navigator.serviceWorker.addEventListener("controllerchange", reloadOnce, { once: true });
+
+      try {
+        waitingWorker.postMessage({ type: "SKIP_WAITING" });
+      } catch {}
+
+      window.setTimeout(reloadOnce, 1800);
+      return;
+    }
+
     if (pwaUpdateSW) {
       try {
         await pwaUpdateSW(true);
+        window.setTimeout(() => window.location.reload(), 800);
         return;
       } catch {}
     }
@@ -203,6 +242,7 @@ function PwaUpdateBanner() {
         alignItems: "center",
         justifyContent: "space-between",
         gap: 12,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif',
       }}
     >
       <div style={{ minWidth: 0 }}>

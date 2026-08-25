@@ -75,6 +75,7 @@ function AuthScreen() {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -174,13 +175,51 @@ function AuthScreen() {
           />
 
           <label style={{ display: "block", fontSize: 11, fontWeight: 800, letterSpacing: .6, textTransform: "uppercase", color: "#6E7686", margin: "14px 0 6px" }}>Password</label>
-          <input
-            autoComplete={mode === "create" ? "new-password" : "current-password"}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.055)", color: "#F7F6F1", borderRadius: 11, padding: "12px 13px", font: "inherit", fontSize: 14, outline: "none" }}
-          />
+
+          <div style={{ position: "relative", width: "100%", minWidth: 0 }}>
+            <input
+              autoComplete={mode === "create" ? "new-password" : "current-password"}
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                minWidth: 0,
+                boxSizing: "border-box",
+                border: "1px solid rgba(255,255,255,.09)",
+                background: "rgba(255,255,255,.055)",
+                color: "#F7F6F1",
+                borderRadius: 11,
+                padding: "12px 68px 12px 13px",
+                font: "inherit",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                border: 0,
+                background: "transparent",
+                color: "#E8B45C",
+                font: "inherit",
+                fontSize: 11.5,
+                fontWeight: 750,
+                padding: "6px 4px",
+                cursor: "pointer",
+              }}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
 
           {error && <div style={{ color: "#E68080", fontSize: 12.5, lineHeight: 1.45, marginTop: 12 }}>{error}</div>}
 

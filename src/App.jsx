@@ -2241,16 +2241,9 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCr
   const [area, setArea] = useState(initial?.area && areas[initial.area] ? initial.area : (Object.keys(areas)[0] || ""));
   const [targetDate, setTargetDate] = useState(initial?.targetDate || "");
   const [notes, setNotes] = useState(initial?.notes || "");
-  const [milestones, setMilestones] = useState(initial?.milestones || []);
-  const [mDraft, setMDraft] = useState("");
-
-  const addMilestone = () => { if (!mDraft.trim()) return; setMilestones((p) => [...p, { id: Date.now(), label: mDraft.trim(), done: false }]); setMDraft(""); };
-  const removeMilestone = (id) => setMilestones((p) => p.filter((m) => m.id !== id));
-  const toggleMilestone = (id) => setMilestones((p) => p.map((m) => m.id === id ? { ...m, done: !m.done } : m));
 
   const save = () => {
     if (!name.trim()) return;
-    const progress = milestones.length ? Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100) : 0;
     onSave({
       id: initial?.id || Date.now(),
       name: name.trim(),
@@ -2258,8 +2251,8 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCr
       targetDate: targetDate || null,
       target: initial?.target || "",
       notes,
-      milestones,
-      progress,
+      milestones: initial?.milestones || [],
+      progress: initial?.progress || 0,
     });
   };
 
@@ -2284,18 +2277,9 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCr
       )}
       <div className="fb-label">Notes</div>
       <textarea className="notes-box" rows={2} placeholder="Why this goal matters, context, links…" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      <div className="fb-label">Milestones</div>
-      {milestones.map((m) => (
-        <span key={m.id} className="milestone-chip" style={{ cursor: "pointer", opacity: m.done ? 0.65 : 1, textDecoration: m.done ? "line-through" : "none" }} onClick={() => toggleMilestone(m.id)}>
-          <span style={{ width: 14, height: 14, borderRadius: 7, border: "1px solid var(--text3)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{m.done && <Check size={9} />}</span>
-          {m.label}<X size={12} style={{ cursor: "pointer", opacity: 0.6 }} onClick={(e) => { e.stopPropagation(); removeMilestone(m.id); }} />
-        </span>
-      ))}
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <input className="input-line" style={{ margin: 0 }} placeholder="Add a milestone…" value={mDraft} onChange={(e) => setMDraft(e.target.value)} />
-        <div className="filter-chip active" style={{ flexShrink: 0 }} onClick={addMilestone}>Add</div>
+      <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 10 }}>
+        Milestones are managed from the Goal card as real tasks, with their own due dates and task properties.
       </div>
-      <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8 }}>Regular tasks link to this goal from their own "Goal" picker when you create or edit them.</div>
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
         <div className="filter-chip active" style={{ flex: 1, justifyContent: "center" }} onClick={save}>Save Goal</div>
         <div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</div>
@@ -3855,6 +3839,64 @@ export default function App() {
     setTasks((prev) => prev.map((t) => t.area === id ? { ...t, area: null } : t));
     setGoals((prev) => prev.map((g) => g.area === id ? { ...g, area: null } : g));
   };
+  useEffect(() => {
+    const goalsWithLegacyMilestones = goals.filter(
+      (goal) => Array.isArray(goal.milestones) &&
+        goal.milestones.length > 0 &&
+        goal.targetDate
+    );
+
+    if (!goalsWithLegacyMilestones.length) return;
+
+    setTasks((prev) => {
+      const next = [...prev];
+
+      goalsWithLegacyMilestones.forEach((goal) => {
+        goal.milestones.forEach((milestone) => {
+          const legacyKey = `${goal.id}:${milestone.id}`;
+
+          if (next.some((task) => task.legacyMilestoneKey === legacyKey)) return;
+
+          const dueDate = milestone.dueDate || goal.targetDate;
+
+          next.unshift({
+            id: `milestone_${goal.id}_${milestone.id}`,
+            kind: "milestone",
+            legacyMilestoneKey: legacyKey,
+            title: milestone.label || "Milestone",
+            goal: goal.id,
+            area: goal.area || null,
+            dueDate,
+            dueOffsetDays: offsetFromDateKey(dueDate),
+            due: formatDateLabel(dueDate),
+            dueTime: null,
+            priority: "med",
+            status: "next",
+            progress: milestone.done ? "completed" : "not_started",
+            done: Boolean(milestone.done),
+            completedAt: milestone.done ? new Date().toISOString() : null,
+            reminder: "None",
+            notes: "",
+            activities: [],
+            subtasks: [],
+            recurrence: null,
+            repeat: null,
+          });
+        });
+      });
+
+      return next;
+    });
+
+    setGoals((prev) =>
+      prev.map((goal) =>
+        goalsWithLegacyMilestones.some((item) => String(item.id) === String(goal.id))
+          ? { ...goal, milestones: [] }
+          : goal
+      )
+    );
+  }, [goals]);
+
   const openGlobalAdd = () => { setTab("calendar"); setQuickAddSignal((n) => n + 1); };
 
   const tabs = [

@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
 } from "firebase/auth";
 import {
@@ -68,6 +70,10 @@ function friendlyAuthError(error) {
   if (code === "auth/invalid-email") return "Enter a valid email address.";
   if (code === "auth/operation-not-allowed") return "Email/Password sign-in is not enabled in Firebase yet.";
   if (code === "auth/network-request-failed") return "Abide could not reach Firebase. Check your internet connection.";
+  if (code === "auth/popup-closed-by-user") return "Google sign-in was closed before it finished.";
+  if (code === "auth/popup-blocked") return "Your browser blocked the Google sign-in window. Allow popups for Abide and try again.";
+  if (code === "auth/unauthorized-domain") return "This Abide web address is not authorized for Google sign-in yet.";
+  if (code === "auth/account-exists-with-different-credential") return "An Abide account already exists with this email using another sign-in method. Sign in that way first.";
   return error?.message || "Abide could not sign in.";
 }
 
@@ -85,6 +91,33 @@ function AuthScreen() {
     import.meta.env.VITE_FIREBASE_PROJECT_ID &&
     import.meta.env.VITE_FIREBASE_APP_ID
   );
+
+  const continueWithGoogle = async () => {
+    if (!firebaseConfigured || busy) {
+      if (!firebaseConfigured) {
+        setError("Firebase environment values are missing from this build.");
+      }
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+
+    // Start from a clean local Abide state. Existing Google-authenticated
+    // accounts will immediately restore their own state from Firestore.
+    sessionStorage.setItem(FRESH_ACCOUNT_KEY, "1");
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      sessionStorage.removeItem(FRESH_ACCOUNT_KEY);
+      setError(friendlyAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -143,6 +176,69 @@ function AuthScreen() {
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2 }}>ABIDE</div>
             <div style={{ fontSize: 12.5, color: "#8E97A8", marginTop: 2 }}>One account. Every device.</div>
           </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={continueWithGoogle}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 9,
+            border: "1px solid rgba(255,255,255,.12)",
+            background: "#F7F6F1",
+            color: "#20242D",
+            borderRadius: 12,
+            padding: "11px 13px",
+            font: "inherit",
+            fontSize: 13.5,
+            fontWeight: 750,
+            cursor: busy ? "default" : "pointer",
+            opacity: busy ? .6 : 1,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 999,
+              display: "grid",
+              placeItems: "center",
+              background: "#FFFFFF",
+              border: "1px solid #DADCE0",
+              fontSize: 13,
+              fontWeight: 800,
+              color: "#4285F4",
+              flexShrink: 0,
+            }}
+          >
+            G
+          </span>
+          Continue with Google
+        </button>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            margin: "15px 0",
+            color: "#6E7686",
+            fontSize: 10.5,
+            fontWeight: 750,
+            letterSpacing: .5,
+            textTransform: "uppercase",
+          }}
+        >
+          <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,.08)" }} />
+          Or use email
+          <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,.08)" }} />
         </div>
 
         <div style={{ display: "flex", width: "100%", minWidth: 0, overflow: "hidden", background: "rgba(255,255,255,.055)", borderRadius: 11, padding: 3, marginBottom: 16 }}>

@@ -69,6 +69,7 @@ tasks/{taskId}
   title, notes, areaId, goalId (nullable),
   dueDate, dueTime (nullable), priority: low|med|high,
   status: inbox|next|scheduled|done|someday,
+  progress: not_started|in_progress|completed,
   subtasks: [{ id, label, done, dueDate (nullable), dueTime (nullable) }],
   recurrence: { freq: daily|weekly|monthly|yearly, interval: number, days: [], endDate },
   parentRecurringId (nullable — links generated instances back to their rule),
@@ -135,7 +136,9 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 **Scratchbook:** `scratchPages/{pageId}` — `{ type: "draw" | "type", content, contentHtml (typed pages), uid, createdAt }`. Typed pages support rich text (bold, italic, underline, font selection, and highlight colors). Drawings save as PNG (canvas `toDataURL()` client-side → uploaded to **Firebase Storage**, with the Firestore doc just holding the storage URL — don't store base64 PNGs directly in Firestore, it blows past the 1MB document limit fast). On iPad this is standard HTML5 Pointer Events (`pointerdown/move/up`), which already report Apple Pencil `pressure` and `tiltX/tiltY` natively in Safari — no extra SDK needed, which is what the prototype's canvas is already wired for.
 
-**Filtering:** area + priority filters are pure client-side state against whatever the current Firestore query already returned — no new backend needed. **Saved custom filters** (name + areas[] + priorities[]) persist to `users/{uid}/savedFilters/{id}` so "Margin only" or whatever combination you build shows up as a one-tap chip next time, on every device.
+**Filtering and search:** Area, priority, progress, and completed-visibility filters are client-side state against whatever the current Firestore query already returned — no new backend is required. Tasks carry a separate `progress: not_started|in_progress|completed` property in addition to GTD `status`; `status` answers where an item belongs in the GTD system, while `progress` answers whether work has started. Marking a task complete sets `progress: completed` and completion metadata; reopening it restores an actionable progress state. Working views hide completed items by default but provide a persistent "Show completed" control, similar to a database property filter. **Saved custom filters** may persist areas[], priorities[], progress[], and showCompleted so useful views can be restored across devices.
+
+**Global search:** Abide provides a unified search surface across tasks, scheduled subtasks, native events, and currently loaded Google Calendar events. Search matches user-facing text such as title, subtask label, Area, goal, notes/activity text, and calendar/event labels. Completed tasks remain searchable even when hidden from normal working views. Search is presentation/query behavior and does not duplicate task or event records.
 
 **Goals, fully editable:** `goals/{goalId}` now includes `notes` and owns its `milestones` as a subcollection (or embedded array at this scale) — both editable in place. Adding a goal is a single form: name, area, target date, notes, and an inline milestone builder (add/remove before saving). Editing reopens that exact form pre-filled, with a delete option. Milestones are tap-to-toggle from the goal card itself, not buried in an edit screen — same "flexible and editable" principle as tasks.
 

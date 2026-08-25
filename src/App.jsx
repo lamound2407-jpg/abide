@@ -3998,6 +3998,8 @@ export default function App() {
   const [expandedId, setExpandedId] = useState(null);
   const [theme, setTheme] = usePersistentState("abide-theme", "dark");
   const [protectedBlocks, setProtectedBlocks] = usePersistentState("abide-protected-blocks", []);
+  const [onboardingComplete, setOnboardingComplete] = usePersistentState("abide-onboarding-complete", false);
+  const [onboardingAreaName, setOnboardingAreaName] = useState("");
   const [quickAddSignal, setQuickAddSignal] = useState(0);
   const [viewport, setViewport] = useState(() => (typeof window !== "undefined" ? getViewport(window.innerWidth) : "phone"));
   const tk = THEME[theme] || THEME.dark;
@@ -4066,6 +4068,24 @@ export default function App() {
     setAreas((prev) => ({ ...prev, [id]: { name: String(name || "").trim(), color } }));
     return id;
   };
+
+  const isFreshAccount =
+    !onboardingComplete &&
+    tasks.length === 0 &&
+    goals.length === 0 &&
+    journalEntries.length === 0 &&
+    Object.keys(areas).length === 0;
+
+  const finishOnboarding = () => {
+    const name = onboardingAreaName.trim();
+
+    if (name) {
+      createArea({ name });
+    }
+
+    setOnboardingComplete(true);
+  };
+
   const deleteArea = (id) => {
     setAreas((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setTasks((prev) => prev.map((t) => t.area === id ? { ...t, area: null } : t));
@@ -4130,6 +4150,169 @@ export default function App() {
   }, [goals]);
 
   const openGlobalAdd = () => { setTab("calendar"); setQuickAddSignal((n) => n + 1); };
+
+  if (isFreshAccount) {
+    return (
+      <div
+        style={{
+          minHeight: "100dvh",
+          width: "100%",
+          background: tk.pageBg,
+          display: "grid",
+          placeItems: "center",
+          padding: 20,
+          fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif',
+        }}
+      >
+        <div
+          style={{
+            width: "min(92vw, 430px)",
+            background: tk.card,
+            border: `1px solid ${tk.cardBorder}`,
+            borderRadius: 26,
+            padding: 24,
+            boxShadow: tk.shadow,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 22,
+            }}
+          >
+            <img
+              src="/abide-logo.png"
+              alt="Abide"
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 15,
+              }}
+            />
+
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: 1.3,
+                  color: "#E8B45C",
+                }}
+              >
+                WELCOME TO ABIDE
+              </div>
+
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 750,
+                  color: tk.text,
+                  marginTop: 3,
+                }}
+              >
+                Begin with what matters.
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontSize: 14,
+              lineHeight: 1.55,
+              color: tk.body,
+              marginBottom: 20,
+            }}
+          >
+            Abide is a quiet place for your tasks, calendar, goals, reviews,
+            and journal. You do not need to set everything up today.
+          </div>
+
+          <div
+            style={{
+              fontSize: 11.5,
+              fontWeight: 750,
+              letterSpacing: .5,
+              textTransform: "uppercase",
+              color: tk.text3,
+              marginBottom: 7,
+            }}
+          >
+            Your first Area
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: tk.text2,
+              marginBottom: 10,
+            }}
+          >
+            An Area is a part of life you want to care for over time — for
+            example Home, Work, Family, Church, or Personal.
+          </div>
+
+          <input
+            type="text"
+            value={onboardingAreaName}
+            onChange={(event) => setOnboardingAreaName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") finishOnboarding();
+            }}
+            placeholder="Example: Personal"
+            autoFocus
+            style={{
+              width: "100%",
+              border: `1px solid ${tk.inputBorder}`,
+              background: tk.inputBg,
+              color: tk.text,
+              borderRadius: 12,
+              padding: "12px 13px",
+              font: "inherit",
+              fontSize: 14,
+              outline: "none",
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={finishOnboarding}
+            style={{
+              width: "100%",
+              marginTop: 16,
+              border: 0,
+              borderRadius: 12,
+              padding: "12px 14px",
+              background: "#E8B45C",
+              color: "#14100A",
+              font: "inherit",
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            {onboardingAreaName.trim()
+              ? "Create Area & Start"
+              : "Start Abide"}
+          </button>
+
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: 11.5,
+              color: tk.text3,
+              lineHeight: 1.45,
+              marginTop: 13,
+            }}
+          >
+            You can add or change Areas anytime in Settings.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const tabs = [
     { id: "today", label: "Today", icon: ListTodo },

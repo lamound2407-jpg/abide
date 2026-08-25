@@ -751,7 +751,7 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
           <div className={`task-title ${task.done ? "done" : ""}`}>{task.title}</div>
           <div className="task-meta">
             <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
-            {task.dueOffsetDays < 0 && !task.done && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
+            {taskOffsetDays(task) < 0 && !task.done && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
             <span className="time-chip"><Clock size={11} />{task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(taskDateKey(task))}</span>
             {task.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
             {(task.recurrence || task.repeat) && <span className="time-chip"><Repeat size={11} />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat}</span>}
@@ -835,6 +835,10 @@ function dateKeyFromOffset(offset = 0) {
 
 function taskDateKey(task) {
   return task.dueDate || dateKeyFromOffset(task.dueOffsetDays || 0);
+}
+
+function taskOffsetDays(task) {
+  return offsetFromDateKey(taskDateKey(task));
 }
 
 function scheduledSubtaskEntries(tasks = []) {
@@ -1278,10 +1282,13 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
   }, [areas]);
 
   const matches = (t) => (!t.area || selectedAreas.includes(t.area)) && selectedPriorities.includes(t.priority);
-  const overdue = tasks.filter((t) => t.dueOffsetDays < 0 && !t.done && matches(t));
-  const today = tasks.filter((t) => t.dueOffsetDays === 0 && matches(t));
+  const overdue = tasks.filter((t) => taskOffsetDays(t) < 0 && !t.done && matches(t));
+  const today = tasks.filter((t) => taskOffsetDays(t) === 0 && matches(t));
   const maxRange = range === "week" ? 7 : 14;
-  const upcoming = tasks.filter((t) => t.dueOffsetDays > 0 && t.dueOffsetDays <= maxRange && matches(t));
+  const upcoming = tasks.filter((t) => {
+    const offset = taskOffsetDays(t);
+    return offset > 0 && offset <= maxRange && matches(t);
+  });
 
   const scheduledSubtasks = scheduledSubtaskEntries(tasks).filter(({ parent }) => matches(parent));
   const overdueSubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays < 0 && !entry.sub.done);
@@ -1298,7 +1305,7 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
       ),
     });
   };
-  const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && t.dueOffsetDays <= 1);
+  const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && taskOffsetDays(t) <= 1);
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };

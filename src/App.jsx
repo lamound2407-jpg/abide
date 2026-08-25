@@ -1208,7 +1208,24 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
-      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>{subtasks.map((sub) => <div key={sub.id} className="subtask-row"><span style={{ flex: 1 }}>{sub.label}</span><X size={13} style={{ cursor: "pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} /></div>)}<div style={{ display: "flex", gap: 8 }}><input className="input-line" style={{ margin: 0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div></>}
+      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>
+{subtasks.map((sub) => <div key={sub.id} style={{ padding:"8px 0", borderBottom:"1px solid var(--divider)" }}>
+  <div className="subtask-row">
+    <span style={{ flex:1 }}>{sub.label}</span>
+    <X size={13} style={{ cursor:"pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} />
+  </div>
+  {(sub.dueDate || sub.dueTime) && <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:4 }}>
+    {sub.dueDate ? formatDateLabel(sub.dueDate) : "No date"}{sub.dueTime ? ` · ${formatTimeLabel(sub.dueTime)}` : ""}
+  </div>}
+</div>)}
+<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+  <input type="date" className="input-line" style={{ margin:0 }} value={subtaskDueDate} onChange={(e) => setSubtaskDueDate(e.target.value)} />
+  <input type="time" className="input-line" style={{ margin:0 }} value={subtaskDueTime} onChange={(e) => setSubtaskDueTime(e.target.value)} />
+</div>
+<div style={{ display:"flex", gap:8 }}>
+  <input className="input-line" style={{ margin:0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} />
+  <div className="filter-chip active" onClick={addSubtask}>Add</div>
+</div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />
       {kind === "event" && googleAccounts.length > 0 && <><div className="fb-label">Google account</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{googleAccounts.map((account) => <div key={account.id} className={`filter-chip ${targetGoogleAccountId === account.id ? "active" : ""}`} onClick={() => setTargetGoogleAccountId(account.id)}>{account.displayName || "Google Account"}</div>)}</div></>}

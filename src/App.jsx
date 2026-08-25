@@ -1,4 +1,6 @@
 import ImportTasksPanel from "./ImportTasksPanel.jsx";
+import { registerSW } from "virtual:pwa-register";
+import packageInfo from "../package.json";
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -41,6 +43,200 @@ const THEME = {
 };
 
 const APP_NAME = "Abide";
+const APP_VERSION = packageInfo.version;
+const APP_BUILD_DATE = __APP_BUILD_DATE__;
+
+let pwaUpdateAvailable = false;
+let pwaUpdateSW = null;
+let pwaUpdateRegistration = null;
+const pwaUpdateListeners = new Set();
+
+function emitPwaUpdateState() {
+  pwaUpdateListeners.forEach((listener) => listener(pwaUpdateAvailable));
+}
+
+function initPwaUpdateRegistration() {
+  if (
+    pwaUpdateSW ||
+    typeof window === "undefined" ||
+    !("serviceWorker" in navigator)
+  ) return;
+
+  pwaUpdateSW = registerSW({
+    immediate: true,
+
+    onNeedRefresh() {
+      pwaUpdateAvailable = true;
+      emitPwaUpdateState();
+    },
+
+    onRegisteredSW(_swUrl, registration) {
+      pwaUpdateRegistration = registration || null;
+
+      registration?.update().catch(() => {});
+
+      window.setInterval(() => {
+        registration?.update().catch(() => {});
+      }, 60 * 60 * 1000);
+    },
+  });
+}
+
+async function checkForPwaUpdate() {
+  if (
+    typeof window === "undefined" ||
+    !("serviceWorker" in navigator)
+  ) return false;
+
+  initPwaUpdateRegistration();
+
+  let registration = pwaUpdateRegistration;
+
+  if (!registration) {
+    try {
+      registration = await navigator.serviceWorker.getRegistration();
+      pwaUpdateRegistration = registration || null;
+    } catch {}
+  }
+
+  if (!registration) return false;
+
+  try {
+    await registration.update();
+  } catch {}
+
+  return pwaUpdateAvailable;
+}
+
+function usePwaUpdateStatus() {
+  const [available, setAvailable] = useState(pwaUpdateAvailable);
+  const [checking, setChecking] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    initPwaUpdateRegistration();
+
+    const listener = (next) => setAvailable(next);
+    pwaUpdateListeners.add(listener);
+
+    const checkWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        checkForPwaUpdate().catch(() => {});
+      }
+    };
+
+    const checkWhenFocused = () => {
+      checkForPwaUpdate().catch(() => {});
+    };
+
+    document.addEventListener("visibilitychange", checkWhenVisible);
+    window.addEventListener("focus", checkWhenFocused);
+
+    checkForPwaUpdate().catch(() => {});
+
+    return () => {
+      pwaUpdateListeners.delete(listener);
+      document.removeEventListener("visibilitychange", checkWhenVisible);
+      window.removeEventListener("focus", checkWhenFocused);
+    };
+  }, []);
+
+  const checkNow = async () => {
+    setChecking(true);
+    setMessage("Checking for updates…");
+
+    await checkForPwaUpdate();
+
+    window.setTimeout(() => {
+      setAvailable(pwaUpdateAvailable);
+      setMessage(
+        pwaUpdateAvailable
+          ? "A newer version of Abide is ready."
+          : "Update check complete."
+      );
+      setChecking(false);
+    }, 1200);
+  };
+
+  const updateNow = async () => {
+    setMessage("Updating Abide…");
+
+    if (pwaUpdateSW) {
+      try {
+        await pwaUpdateSW(true);
+        return;
+      } catch {}
+    }
+
+    window.location.reload();
+  };
+
+  return {
+    available,
+    checking,
+    message,
+    checkNow,
+    updateNow,
+  };
+}
+
+function PwaUpdateBanner() {
+  const { available, updateNow } = usePwaUpdateStatus();
+
+  if (!available) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left: "50%",
+        transform: "translateX(-50%)",
+        bottom: 86,
+        width: "min(92vw, 420px)",
+        zIndex: 9999,
+        background: "var(--card)",
+        border: "1px solid rgba(232,180,92,0.45)",
+        boxShadow: "0 14px 40px rgba(0,0,0,0.32)",
+        borderRadius: 15,
+        padding: 12,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13.5,
+            fontWeight: 700,
+            color: "var(--text)",
+          }}
+        >
+          Update available
+        </div>
+        <div
+          style={{
+            fontSize: 11.5,
+            color: "var(--text3)",
+            marginTop: 2,
+          }}
+        >
+          A newer version of Abide is ready.
+        </div>
+      </div>
+
+      <div
+        className="filter-chip active"
+        style={{ flexShrink: 0 }}
+        onClick={updateNow}
+      >
+        <RefreshCw size={12} />
+        Update now
+      </div>
+    </div>
+  );
+}
 
 const styles = `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -2367,6 +2563,13 @@ function AreaComposer({ initial, onSave, onCancel }) {
 function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar }) {
   const [blockComposer, setBlockComposer] = useState(null);
   const [areaComposer, setAreaComposer] = useState(null); // null | "add" | areaId
+  const {
+    available: updateAvailable,
+    checking: updateChecking,
+    message: updateMessage,
+    checkNow: checkForUpdatesNow,
+    updateNow,
+  } = usePwaUpdateStatus();
   const saveBlock = (b) => { setProtectedBlocks((prev) => prev.some((x) => x.id === b.id) ? prev.map((x) => x.id === b.id ? b : x) : [...prev, b]); setBlockComposer(null); };
   const deleteBlock = (id) => setProtectedBlocks((prev) => prev.filter((b) => b.id !== id));
   const saveArea = ({ id, name, color }) => { setAreas((prev) => ({ ...prev, [id]: { name, color } })); setAreaComposer(null); };
@@ -2397,6 +2600,59 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
 
         <div className="section-label">Connected Calendars</div>
         <div className="card"><div className="nav-row" onClick={onOpenCalendar}><div className="nav-row-left"><CalendarDays size={16} color="#8FA88A" />Manage calendars in Calendar</div><ChevronRight size={16} color="var(--text3)" /></div></div>
+
+        <div className="section-label">Abide</div>
+        <div className="card">
+          <div className="settings-row">
+            <span className="settings-row-name">Version</span>
+            <span style={{ fontSize: 12.5, color: "var(--text2)" }}>v{APP_VERSION}</span>
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-name">Updated</span>
+            <span style={{ fontSize: 12.5, color: "var(--text2)" }}>
+              {new Date(APP_BUILD_DATE).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-row-name">
+                {updateAvailable ? "Update available" : "App updates"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3 }}>
+                {updateAvailable
+                  ? "A newer version is ready to install."
+                  : updateMessage || "Abide checks automatically when you return to the app."}
+              </div>
+            </div>
+
+            <div
+              className={`filter-chip ${updateAvailable ? "active" : ""}`}
+              style={{
+                opacity: updateChecking ? 0.65 : 1,
+                pointerEvents: updateChecking ? "none" : "auto",
+                flexShrink: 0,
+              }}
+              onClick={updateAvailable ? updateNow : checkForUpdatesNow}
+            >
+              <RefreshCw size={12} />
+              {updateAvailable
+                ? "Update now"
+                : updateChecking
+                  ? "Checking…"
+                  : "Check for updates"}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 4px 0" }}>
+          Future Abide releases can be installed here without deleting the Home Screen app.
+        </div>
 
         <div className="section-label">Account</div>
         <div className="card"><div className="settings-row"><span className="settings-row-name">lamound2407@gmail.com</span></div><div className="settings-row"><span className="settings-row-name" style={{ color: "var(--text3)" }}>Sign out will be enabled when Firebase Auth is wired to this screen.</span></div></div>
@@ -3115,6 +3371,7 @@ export default function App() {
   return (
     <div className={`viewport-${viewport}`} style={{ display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch", padding: 0, background: viewport === "phone" ? tk.appBg : tk.pageBg, height: "100vh", minHeight: "100vh", width: "100%", overflow: "hidden", ...vars }}>
       <style>{styles}</style>
+      <PwaUpdateBanner />
       {viewport === "phone" ? (
         <div className="app">
           <div className="statusbar"><span className="brand"><img className="brand-mark" src="/abide-logo.png" alt="" /><span className="brand-word">{APP_NAME.toUpperCase()}</span></span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>

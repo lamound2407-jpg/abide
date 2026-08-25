@@ -6,10 +6,14 @@ import { VitePWA } from "vite-plugin-pwa";
 // The PWA plugin is what makes "Add to Home Screen" on iPhone/iPad behave
 // like a real installed app (own icon, no Safari chrome, offline shell).
 export default defineConfig({
+  define: {
+    __APP_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      injectRegister: null,
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Abide",

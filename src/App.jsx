@@ -622,7 +622,26 @@ function offsetFromDateKey(key) {
 
 function formatDateLabel(key) {
   const d = dateFromKey(key);
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const offset = offsetFromDateKey(key);
+
+  if (offset === 0) return "Today";
+  if (offset === 1) return "Tomorrow";
+  if (offset === -1) return "Yesterday";
+
+  if (offset > 1 && offset <= 7) {
+    return d.toLocaleDateString("en-US", { weekday: "long" });
+  }
+
+  if (offset < -1 && offset >= -7) {
+    return `${Math.abs(offset)} days ago`;
+  }
+
+  const today = dateFromKey(REFERENCE_DATE_KEY);
+  if (d.getFullYear() === today.getFullYear()) {
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatTimeLabel(value) {
@@ -1839,6 +1858,7 @@ function JournalTab({ entries, setEntries }) {
   const [editRef, setEditRef] = useState("");
   const [editHtml, setEditHtml] = useState("");
   const [editTag, setEditTag] = useState("yellow");
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const streak = journalStreak(entries);
 
   const save = () => {
@@ -1854,6 +1874,106 @@ function JournalTab({ entries, setEntries }) {
     <>
       <Header eyebrow={streak ? `${streak}-day streak` : "Start your first entry"} title="Time with the Lord" />
       <div className="scroll">
+
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div
+            onClick={() => setGlossaryOpen(!glossaryOpen)}
+            style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", gap:12 }}
+          >
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:"var(--text)" }}>The whole system · explained</div>
+              <div style={{ fontSize:12, color:"var(--text3)", marginTop:3 }}>Every color, in plain words.</div>
+            </div>
+            {glossaryOpen ? <ChevronDown size={17} color="var(--text3)" /> : <ChevronRight size={17} color="var(--text3)" />}
+          </div>
+
+          {glossaryOpen && (
+            <div style={{ marginTop:14, display:"grid", gap:10 }}>
+
+              <div style={{ padding:12, borderRadius:12, background:"#F4DE3D20", border:"1px solid #F4DE3D55" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:12, height:12, borderRadius:99, background:"#F4DE3D", flex:"0 0 auto" }} />
+                  <strong>Yellow — The point</strong>
+                </div>
+                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
+                  The single most important line — the one thing to remember. If you could keep only one sentence from the page, this is it.
+                </div>
+                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
+                  Examples: the main idea of a chapter; the decision made in a meeting. Use sparingly — one or two peaks, not everything important.
+                </div>
+              </div>
+
+              <div style={{ padding:12, borderRadius:12, background:"#5FD79A20", border:"1px solid #5FD79A55" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:12, height:12, borderRadius:99, background:"#5FD79A", flex:"0 0 auto" }} />
+                  <strong>Green — Who & where</strong>
+                </div>
+                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
+                  People, groups, and places. Use it when a name shows up or when you need to remember who owns something.
+                </div>
+                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
+                  Examples: Peter, the Pharisees, Capernaum; Derek owns this.
+                </div>
+              </div>
+
+              <div style={{ padding:12, borderRadius:12, background:"#F76FA620", border:"1px solid #F76FA655" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:12, height:12, borderRadius:99, background:"#F76FA6", flex:"0 0 auto" }} />
+                  <strong>Pink — The cost</strong>
+                </div>
+                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
+                  The price tag — what gets given up, lost, risked, or sacrificed. Ask: “What’s the price here?”
+                </div>
+                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
+                  Examples: Jesus dying on the cross; pulling Rachelle off the newsletter for a month. Pink is what it costs; orange/purple is what to do.
+                </div>
+              </div>
+
+              <div style={{ padding:12, borderRadius:12, background:"#5FC2D820", border:"1px solid #5FC2D855" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:12, height:12, borderRadius:99, background:"#5FC2D8", flex:"0 0 auto" }} />
+                  <strong>Blue / Aqua — What’s ahead</strong>
+                </div>
+                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
+                  Future promises, plans, deadlines, and what will happen. Ask: “Is this about later?”
+                </div>
+                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
+                  Examples: God’s promise to Abraham; a project deadline. Blue is what will happen or is promised; orange/purple is what you need to do.
+                </div>
+              </div>
+
+              <div style={{ padding:12, borderRadius:12, background:"#F6A23C20", border:"1px solid #F6A23C55" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:12, height:12, borderRadius:99, background:"#F6A23C", flex:"0 0 auto" }} />
+                  <span style={{ width:12, height:12, borderRadius:99, background:"#A98BE0", flex:"0 0 auto" }} />
+                  <strong>Orange / Purple — What to do</strong>
+                </div>
+                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
+                  An action, command, task, or to-do. Ask: “So what do I do?”
+                </div>
+                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
+                  Examples: Love one another; I draft comms by Friday. Kindle uses orange and Apple uses purple for the same job.
+                </div>
+              </div>
+
+              <div style={{ padding:12, borderRadius:12, background:"var(--surface2)", border:"1px solid var(--divider)" }}>
+                <strong>M: Notes — What you think</strong>
+                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
+                  Your own thoughts, reactions, questions, connections, and ideas — what is happening in your head, not what is printed on the page.
+                </div>
+                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
+                  Colors mark the text; notes hold your response. Useful tags: M: Margin post idea · Q: question.
+                </div>
+              </div>
+
+              <div style={{ fontSize:11.5, color:"var(--text3)", lineHeight:1.5, padding:"2px 2px 0" }}>
+                Custom color tools can use hex values directly. Kindle, Apple Books, and Notion use fixed palettes, so choose the closest named color. These colors are tuned to stay visually consistent across paper and screen.
+              </div>
+
+            </div>
+          )}
+        </div>
+
         <div className="card journal-compose">
           <input type="date" className="input-line" style={{ marginTop: 0 }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
           <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none", marginTop: 10 }} value={ref} onChange={(e) => setRef(e.target.value)} />

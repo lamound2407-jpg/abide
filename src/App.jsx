@@ -2651,10 +2651,12 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
           <div className="settings-row">
             <span className="settings-row-name">Updated</span>
             <span style={{ fontSize: 12.5, color: "var(--text2)" }}>
-              {new Date(APP_BUILD_DATE).toLocaleDateString("en-US", {
+              {new Date(APP_BUILD_DATE).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
                 year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
               })}
             </span>
           </div>

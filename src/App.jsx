@@ -516,7 +516,7 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
           <div className="task-meta">
             <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
             {task.dueOffsetDays < 0 && !task.done && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
-            <span className="time-chip"><Clock size={11} />{task.due}</span>
+            <span className="time-chip"><Clock size={11} />{task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(taskDateKey(task))}</span>
             {task.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
             {(task.recurrence || task.repeat) && <span className="time-chip"><Repeat size={11} />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat}</span>}
             {!task.goal && <span className="time-chip" style={{ opacity: 0.7 }}>· no goal</span>}
@@ -529,7 +529,7 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
       </div>
       {expanded && (
         <div className="task-detail">
-          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Due</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.due}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Due</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{formatDateLabel(taskDateKey(task))}{task.dueTime ? ` · ${formatTimeLabel(task.dueTime)}` : ""}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Priority</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.priority === "high" ? "High" : task.priority === "med" ? "Medium" : "Low"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>

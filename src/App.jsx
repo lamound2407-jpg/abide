@@ -579,9 +579,6 @@ const WEEKDAY_OPTIONS = [
   { label: "Wednesday", code: "WE" }, { label: "Thursday", code: "TH" }, { label: "Friday", code: "FR" }, { label: "Saturday", code: "SA" },
 ];
 const REPEAT_UNITS = ["None", "Daily", "Weekly", "Monthly", "Yearly"];
-const IRON_LOG_URL = "https://lamound2407-jpg.github.io/iron-log/";
-const TROPHE_URL = "https://lamound2407-jpg.github.io/trophe/";
-
 /* ---------------------------------------------------------------
    SHARED PIECES
 ----------------------------------------------------------------*/
@@ -4003,9 +4000,6 @@ function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, are
 
         <div className="section-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} />Pattern Noticed</div>
         <div className="card insight-line" style={{ marginBottom: 14, padding: 14 }}>{tasks.length >= 10 ? "As you build real task history, Abide will use completion timestamps to surface patterns here." : "No pattern generated yet. This section will stay empty until there is enough real task history to support a useful observation."}</div>
-
-        <div className="section-label">Your Tools</div>
-        <div className="card"><LinkCard icon={Dumbbell} tint="#7C93C9" name="Iron Log" desc="Workout tracker" placeholder="Paste your Iron Log URL" initialUrl={IRON_LOG_URL} storageKey="abide-iron-log-url" /><LinkCard icon={Salad} tint="#8FA88A" name="Trophé" desc="Nutrition & meal-planning app" placeholder="Paste your Trophé URL" initialUrl={TROPHE_URL} storageKey="abide-trophe-url" /></div>
 
         <div className="section-label">More</div>
         <div className="card"><div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div><div className="nav-row" onClick={() => setScreen("settings")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#8FA88A22" }}><SettingsIcon size={16} color="#8FA88A" /></div>Settings</div><ChevronRight size={16} color="var(--text3)" /></div></div>

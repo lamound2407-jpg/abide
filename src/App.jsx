@@ -355,6 +355,8 @@ const styles = `
   .card-text-pad { padding: 14px; }
   .card > .insight-line:only-child { padding: 14px; }
   .card > .empty-state:only-child { padding: 14px; }
+  .card > .insight-line:first-child:last-child { padding: 14px; }
+  .insights-card-pad { padding: 14px; }
 
   .task-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--divider); cursor: pointer; }
   .task-row:last-child { border-bottom: none; }
@@ -2237,7 +2239,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCreateArea }) {
   const [name, setName] = useState(initial?.name || "");
   const [area, setArea] = useState(initial?.area && areas[initial.area] ? initial.area : (Object.keys(areas)[0] || ""));
-  const [target, setTarget] = useState(initial?.target || "");
+  const [targetDate, setTargetDate] = useState(initial?.targetDate || "");
   const [notes, setNotes] = useState(initial?.notes || "");
   const [milestones, setMilestones] = useState(initial?.milestones || []);
   const [mDraft, setMDraft] = useState("");
@@ -2249,7 +2251,16 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCr
   const save = () => {
     if (!name.trim()) return;
     const progress = milestones.length ? Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100) : 0;
-    onSave({ id: initial?.id || Date.now(), name: name.trim(), area, target, notes, milestones, progress });
+    onSave({
+      id: initial?.id || Date.now(),
+      name: name.trim(),
+      area,
+      targetDate: targetDate || null,
+      target: initial?.target || "",
+      notes,
+      milestones,
+      progress,
+    });
   };
 
   return (
@@ -2259,7 +2270,18 @@ function GoalComposer({ initial, onSave, onCancel, onDelete, areas = AREAS, onCr
       <div className="fb-label">Area</div>
       <QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} allowNone={false} />
       <div className="fb-label">Target Date</div>
-      <input className="input-line" style={{ marginTop: 0 }} placeholder="e.g. Dec 31" value={target} onChange={(e) => setTarget(e.target.value)} />
+      <input
+        type="date"
+        className="input-line"
+        style={{ marginTop: 0 }}
+        value={targetDate}
+        onChange={(e) => setTargetDate(e.target.value)}
+      />
+      {!targetDate && initial?.target && (
+        <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>
+          Previous target: {initial.target} · choose a calendar date above to replace it.
+        </div>
+      )}
       <div className="fb-label">Notes</div>
       <textarea className="notes-box" rows={2} placeholder="Why this goal matters, context, links…" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <div className="fb-label">Milestones</div>
@@ -2314,7 +2336,11 @@ function GoalsTab({ goals, setGoals, viewport, areas = AREAS, onCreateArea }) {
                   <div><span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span><div className="goal-name" style={{ marginTop: 6 }}>{g.name}</div></div>
                   <Pencil size={15} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => setComposer(g.id)} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12.5, color: "var(--text2)" }}><span>{g.progress}% complete</span><span>Target · {g.target || "—"}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 12.5, color: "var(--text2)" }}><span>{g.progress}% complete</span><span>
+                  Target · {g.targetDate
+                    ? formatDateLabel(g.targetDate)
+                    : (g.target || "—")}
+                </span></div>
                 <div className="progress-track"><div className="progress-fill" style={{ width: `${g.progress}%`, background: area.color }} /></div>
                 {g.milestones.map((m) => (
                   <div className="milestone-row" key={m.id} onClick={() => toggleGoalMilestone(g.id, m.id)}>
@@ -3564,7 +3590,7 @@ function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, are
         </div>
 
         <div className="section-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} />Pattern Noticed</div>
-        <div className="card insight-line" style={{ marginBottom: 14 }}>{tasks.length >= 10 ? "As you build real task history, Abide will use completion timestamps to surface patterns here." : "No pattern generated yet. This section will stay empty until there is enough real task history to support a useful observation."}</div>
+        <div className="card insight-line" style={{ marginBottom: 14, padding: 14 }}>{tasks.length >= 10 ? "As you build real task history, Abide will use completion timestamps to surface patterns here." : "No pattern generated yet. This section will stay empty until there is enough real task history to support a useful observation."}</div>
 
         <div className="section-label">Your Tools</div>
         <div className="card"><LinkCard icon={Dumbbell} tint="#7C93C9" name="Iron Log" desc="Workout tracker" placeholder="Paste your Iron Log URL" initialUrl={IRON_LOG_URL} storageKey="abide-iron-log-url" /><LinkCard icon={Salad} tint="#8FA88A" name="Trophé" desc="Nutrition & meal-planning app" placeholder="Paste your Trophé URL" initialUrl={TROPHE_URL} storageKey="abide-trophe-url" /></div>

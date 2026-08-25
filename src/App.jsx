@@ -1374,6 +1374,10 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [briefCollapsed, setBriefCollapsed] = usePersistentState(
+    `abide-daily-brief-collapsed-${REFERENCE_DATE_KEY}`,
+    false
+  );
 
   useEffect(() => {
     const keys = Object.keys(areas);
@@ -1416,6 +1420,77 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
   };
   const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && taskOffsetDays(t) <= 1);
 
+  const briefOverdueTasks = tasks.filter(
+    (task) => !task.done && taskOffsetDays(task) < 0
+  );
+
+  const briefUrgentTodayTasks = tasks.filter(
+    (task) =>
+      !task.done &&
+      taskOffsetDays(task) === 0 &&
+      task.priority === "high"
+  );
+
+  const briefTodayTasks = tasks.filter(
+    (task) => !task.done && taskOffsetDays(task) === 0
+  );
+
+  const briefTodaySubtasks = scheduledSubtaskEntries(tasks).filter(
+    (entry) =>
+      entry.dueOffsetDays === 0 &&
+      !entry.sub.done &&
+      !entry.parent.done
+  );
+
+  const briefTodayLoad =
+    briefTodayTasks.length + briefTodaySubtasks.length;
+
+  const briefUpcomingImportant = tasks
+    .filter((task) => {
+      const offset = taskOffsetDays(task);
+      return (
+        !task.done &&
+        offset > 0 &&
+        offset <= 7 &&
+        (task.priority === "high" || task.kind === "milestone")
+      );
+    })
+    .sort((a, b) => taskOffsetDays(a) - taskOffsetDays(b));
+
+  const briefFocus = (() => {
+    if (briefOverdueTasks.length && briefUrgentTodayTasks.length) {
+      return "Clear the most important overdue commitment before adding more to today.";
+    }
+
+    if (briefOverdueTasks.length) {
+      return "Resolve or reschedule what is behind before it quietly becomes background stress.";
+    }
+
+    if (briefUrgentTodayTasks.length) {
+      return "Protect attention for the high-priority work already due today.";
+    }
+
+    if (briefTodayLoad >= 7) {
+      return "Today is carrying a lot. Choose the few commitments that truly need your presence.";
+    }
+
+    if (briefTodayLoad === 0) {
+      return "There is no task pressure today. Keep the margin instead of filling it automatically.";
+    }
+
+    return "The day is manageable. Work from what is already clear rather than creating more urgency.";
+  })();
+
+  const briefSummaryParts = [
+    briefOverdueTasks.length
+      ? `${briefOverdueTasks.length} overdue`
+      : null,
+    briefUrgentTodayTasks.length
+      ? `${briefUrgentTodayTasks.length} urgent`
+      : null,
+    `${briefTodayLoad} today`,
+  ].filter(Boolean);
+
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
   const openEditor = (t) => {
@@ -1450,6 +1525,265 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     <>
       <Header eyebrow={todayLabel} title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
       <div className="scroll">
+        <div
+          className="card"
+          style={{ marginBottom: 14, overflow: "hidden" }}
+        >
+          <div
+            onClick={() => setBriefCollapsed(!briefCollapsed)}
+            style={{
+              padding: "13px 14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  fontSize: 13.5,
+                  fontWeight: 750,
+                  color: "var(--text)",
+                }}
+              >
+                <Sun size={15} color="#E8B45C" />
+                Daily Brief
+              </div>
+
+              {briefCollapsed && (
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: "var(--text3)",
+                    marginTop: 4,
+                  }}
+                >
+                  {briefSummaryParts.join(" · ")}
+                </div>
+              )}
+            </div>
+
+            {briefCollapsed
+              ? <ChevronRight size={15} color="var(--text3)" />
+              : <ChevronDown size={15} color="var(--text3)" />}
+          </div>
+
+          {!briefCollapsed && (
+            <div
+              style={{
+                padding: "0 14px 14px",
+                borderTop: "1px solid var(--divider)",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 8,
+                  paddingTop: 12,
+                }}
+              >
+                <div
+                  style={{
+                    background: "var(--subtleBg)",
+                    border: "1px solid var(--pillBorder)",
+                    borderRadius: 12,
+                    padding: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 750, color: briefOverdueTasks.length ? "#E68080" : "var(--text)" }}>
+                    {briefOverdueTasks.length}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--text3)", marginTop: 2 }}>
+                    Overdue
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: "var(--subtleBg)",
+                    border: "1px solid var(--pillBorder)",
+                    borderRadius: 12,
+                    padding: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 750, color: briefUrgentTodayTasks.length ? "#E8B45C" : "var(--text)" }}>
+                    {briefUrgentTodayTasks.length}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--text3)", marginTop: 2 }}>
+                    Urgent today
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: "var(--subtleBg)",
+                    border: "1px solid var(--pillBorder)",
+                    borderRadius: 12,
+                    padding: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 750, color: "var(--text)" }}>
+                    {briefTodayLoad}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--text3)", marginTop: 2 }}>
+                    On today
+                  </div>
+                </div>
+              </div>
+
+              {briefOverdueTasks.length > 0 && (
+                <>
+                  <div className="fb-label" style={{ marginTop: 13 }}>
+                    Behind schedule
+                  </div>
+
+                  {briefOverdueTasks.slice(0, 3).map((task) => (
+                    <div
+                      key={`brief-overdue-${task.id}`}
+                      onClick={() => openEditor(task)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "7px 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Clock size={13} color="#E68080" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 12.5,
+                            color: "var(--body)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {task.title}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 11, color: "#E68080" }}>
+                        {formatDateLabel(taskDateKey(task))}
+                      </span>
+                    </div>
+                  ))}
+
+                  {briefOverdueTasks.length > 3 && (
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>
+                      +{briefOverdueTasks.length - 3} more overdue
+                    </div>
+                  )}
+                </>
+              )}
+
+              {briefUrgentTodayTasks.length > 0 && (
+                <>
+                  <div className="fb-label" style={{ marginTop: 13 }}>
+                    Needs attention today
+                  </div>
+
+                  {briefUrgentTodayTasks.slice(0, 3).map((task) => (
+                    <div
+                      key={`brief-urgent-${task.id}`}
+                      onClick={() => openEditor(task)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "7px 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Flag size={13} color="#E8B45C" />
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 12.5,
+                          color: "var(--body)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {task.title}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {briefUpcomingImportant.length > 0 && (
+                <>
+                  <div className="fb-label" style={{ marginTop: 13 }}>
+                    Ahead
+                  </div>
+
+                  {briefUpcomingImportant.slice(0, 3).map((task) => (
+                    <div
+                      key={`brief-ahead-${task.id}`}
+                      onClick={() => openEditor(task)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "7px 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {task.kind === "milestone"
+                        ? <Target size={13} color="#7C93C9" />
+                        : <ChevronRight size={13} color="var(--text3)" />}
+
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 12.5,
+                          color: "var(--body)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {task.title}
+                      </div>
+
+                      <span style={{ fontSize: 11, color: "var(--text3)" }}>
+                        {formatDateLabel(taskDateKey(task))}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              <div
+                style={{
+                  marginTop: 13,
+                  padding: "10px 11px",
+                  borderRadius: 12,
+                  background: "var(--subtleBg)",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  color: "var(--text2)",
+                }}
+              >
+                <span style={{ fontWeight: 750, color: "#8FA88A" }}>
+                  Focus:
+                </span>{" "}
+                {briefFocus}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => { setEditingTask(null); setAdding(!adding); }}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
         {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} onCreateArea={onCreateArea} />}
 

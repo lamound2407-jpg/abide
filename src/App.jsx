@@ -556,13 +556,7 @@ const styles = `
 /* ---------------------------------------------------------------
    STARTER CONFIGURATION
 ----------------------------------------------------------------*/
-const AREAS = {
-  chialpha: { name: "Chi Alpha", color: "#7C93C9" },
-  margin: { name: "The Margin", color: "#E8B45C" },
-  personal: { name: "Personal", color: "#8FA88A" },
-  wedding: { name: "Wedding", color: "#D98595" },
-  home: { name: "Project Oἰκία", color: "#A896B8" },
-};
+const AREAS = {};
 
 const TAGS = {
   yellow: { label: "Main Point", hex: "#E6C84D" },
@@ -572,86 +566,12 @@ const TAGS = {
   orange: { label: "Command", hex: "#E5934A" },
 };
 
-// Core app starts empty. The user-requested task migration below is merged once into local data.
+// Brand-new accounts start clean. Existing signed-in accounts hydrate their own
+// saved state from Firebase before App renders.
 const seedTasks = [];
 const somedayTasks = [];
 const seedGoals = [];
 const seedJournal = [];
-
-const USER_TASK_MIGRATION_AREAS = {
-  homeArea: { name: "Home", color: "#A896B8" },
-  apartmentCleaning: { name: "Apartment Cleaning", color: "#D98595" },
-};
-
-const USER_TASK_MIGRATION_TASKS = [
-  { id: "user_home_stack_laundry", title: "Stack the washer and dryer", area: "homeArea", dueDate: "2026-09-01", dueTime: null, due: "Sep 1", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_home_tools", title: "Organize the tools", area: "homeArea", dueDate: "2026-09-02", dueTime: null, due: "Sep 2", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_home_books", title: "Get all books on the bookshelf", area: "homeArea", dueDate: "2026-09-03", dueTime: null, due: "Sep 3", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_home_desk", title: "Organize desk", area: "homeArea", dueDate: "2026-09-04", dueTime: null, due: "Sep 4", priority: "low", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_home_closet", title: "Purchase closet equipment", area: "homeArea", dueDate: "2026-09-05", dueTime: null, due: "Sep 5", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [{ id: "user_home_closet_hang", label: "Hang closet equipment to the wall", done: false }] },
-  { id: "user_apartment_clothes", title: "Bring clothes to the house", area: "apartmentCleaning", dueDate: "2026-08-22", dueTime: null, due: "Aug 22", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_apartment_couch", title: "Sell or get rid of the couch", area: "apartmentCleaning", dueDate: "2026-08-23", dueTime: null, due: "Aug 23", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_apartment_wardrobe", title: "Sell or get rid of the exposed wardrobe", area: "apartmentCleaning", dueDate: "2026-08-24", dueTime: null, due: "Aug 24", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_apartment_bathroom", title: "Clean out bathroom", area: "apartmentCleaning", dueDate: "2026-08-26", dueTime: null, due: "Aug 26", priority: "med", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_apartment_kitchen", title: "Pack kitchen or throw away dishes", area: "apartmentCleaning", dueDate: "2026-08-28", dueTime: null, due: "Aug 28", priority: "high", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_apartment_coffee_table", title: "Bring Coffee Table to the house", area: "apartmentCleaning", dueDate: "2026-08-29", dueTime: null, due: "Aug 29", priority: "med", status: "next", done: false, reminder: "None", notes: "Apartment clean-out · finish by August 30", recurrence: null, repeat: null, subtasks: [] },
-].map((task) => ({ ...task, dueOffsetDays: Math.round((dateFromKey(task.dueDate) - dateFromKey(localDateKey())) / 86400000) }));
-
-
-const USER_TASK_MIGRATION_WORK_MARGIN_AREAS = {
-  workArea: { name: "Work", color: "#4C9AFF" },
-};
-
-// Imported from the user's Apple Reminders screenshots. Due dates below were intentionally
-// rescheduled into the future. Work items are next week; The Margin avoids Oct 14–30, 2026.
-const USER_TASK_MIGRATION_WORK_MARGIN_TASKS = [
-  // Work — next week
-  { id: "user_work_rachelle_102", title: "Get Rachelle vision and copy and wording on post for 10:2 Post", area: "workArea", dueDate: "2026-08-24", dueTime: null, due: "Aug 24", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_work_film_102", title: "Confirm filming date and studio location for 10-2 video", area: "workArea", dueDate: "2026-08-25", dueTime: null, due: "Aug 25", priority: "high", status: "next", done: false, reminder: "None", notes: "I sent an email - awaiting confirmation", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_work_our_story", title: "Write Our Story copy", area: "workArea", dueDate: "2026-08-26", dueTime: null, due: "Aug 26", priority: "med", status: "next", done: false, reminder: "None", notes: "Ask John what Alex's vision is for the Our Story page", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_work_q2_comms", title: "Begin planning Q2 Communications plan, including prep for Chi Alpha Leadership Conference (XALC) expected in February", area: "workArea", dueDate: "2026-08-28", dueTime: null, due: "Aug 28", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-
-  // The Margin — sequenced around content, website, giving, launch, and backend work.
-  { id: "user_margin_phase1", title: "PHASE 1 - CONTENT", area: "margin", dueDate: "2026-08-24", dueTime: null, due: "Aug 24", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_tally_articles", title: "Tally articles published YTD vs 13", area: "margin", dueDate: "2026-08-25", dueTime: null, due: "Aug 25", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_publish_targets", title: "Set monthly publish targets to reach 13 by Dec 20", area: "margin", dueDate: "2026-08-26", dueTime: null, due: "Aug 26", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_batch_draft", title: "Batch-draft next month's content", area: "margin", dueDate: "2026-08-27", dueTime: null, due: "Aug 27", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_movement1", title: "Write Movement 1 readings - Read it cold (mornings 1-7)", area: "margin", dueDate: "2026-08-31", dueTime: null, due: "Aug 31", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_movement2", title: "Write Movement 2 readings - The world behind it (mornings 8-14)", area: "margin", dueDate: "2026-09-07", dueTime: null, due: "Sep 7", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_movement3", title: "Write Movement 3 readings - What scholars see (mornings 15-21)", area: "margin", dueDate: "2026-09-14", dueTime: null, due: "Sep 14", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_movement4", title: "Write Movement 4 readings - Make it yours (mornings 22-30)", area: "margin", dueDate: "2026-09-21", dueTime: null, due: "Sep 21", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_brand_templates", title: "Build reusable brand templates (Canva framed + Procreate annotated)", area: "margin", dueDate: "2026-09-23", dueTime: null, due: "Sep 23", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_small_group_guide", title: "Small Group Discussion Guide", area: "margin", dueDate: "2026-09-24", dueTime: null, due: "Sep 24", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_cadence", title: "Define the ongoing cadence after series 1", area: "margin", dueDate: "2026-09-25", dueTime: null, due: "Sep 25", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_phase2", title: "PHASE 2 - WEBSITE", area: "margin", dueDate: "2026-09-28", dueTime: null, due: "Sep 28", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_final_copy", title: "Final copy pass on all website pages", area: "margin", dueDate: "2026-09-29", dueTime: null, due: "Sep 29", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_substack", title: "Step 4 - Wire the Subscribe form to Substack", area: "margin", dueDate: "2026-09-30", dueTime: null, due: "Sep 30", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_module_page", title: "Build the module page (series syllabus view)", area: "margin", dueDate: "2026-10-01", dueTime: null, due: "Oct 1", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_domain", title: "Buy domain + set up DNS & hosting", area: "margin", dueDate: "2026-10-02", dueTime: null, due: "Oct 2", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_device_check", title: "Step 5 - Final device check + fix list", area: "margin", dueDate: "2026-10-05", dueTime: null, due: "Oct 5", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_mobile_qa", title: "Mobile/responsive QA pass on the site", area: "margin", dueDate: "2026-10-06", dueTime: null, due: "Oct 6", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_analytics", title: "Set up basic analytics", area: "margin", dueDate: "2026-10-07", dueTime: null, due: "Oct 7", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_alpha_test", title: "Alpha test - full end-to-end walkthrough", area: "margin", dueDate: "2026-10-08", dueTime: null, due: "Oct 8", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_phase3", title: "PHASE 3 - GIVING", area: "margin", dueDate: "2026-10-09", dueTime: null, due: "Oct 9", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_giving_setup", title: "Set up one-time + recurring giving", area: "margin", dueDate: "2026-10-10", dueTime: null, due: "Oct 10", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_giving_links", title: "Connect giving links across the site (nav, footer, support block)", area: "margin", dueDate: "2026-10-12", dueTime: null, due: "Oct 12", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_welcome_email", title: "Write welcome email + first week's email sequence", area: "margin", dueDate: "2026-10-13", dueTime: null, due: "Oct 13", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-
-  // Honeymoon / wedding blackout: no Margin due dates Oct 14–30.
-  { id: "user_margin_phase4", title: "PHASE 4 - LAUNCH & GROW", area: "margin", dueDate: "2026-10-31", dueTime: null, due: "Oct 31", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_weekly_batch", title: "Set a weekly Sunday batch day (cut next week's posts from the essay)", area: "margin", dueDate: "2026-11-01", dueTime: null, due: "Nov 1", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_soft_launch", title: "Soft launch to a small list; gather feedback", area: "margin", dueDate: "2026-11-03", dueTime: null, due: "Nov 3", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_feedback", title: "Incorporate feedback from soft launch", area: "margin", dueDate: "2026-11-06", dueTime: null, due: "Nov 6", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_public_launch", title: "Public launch announcement", area: "margin", dueDate: "2026-11-09", dueTime: null, due: "Nov 9", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_series2", title: "Plan series #2", area: "margin", dueDate: "2026-11-11", dueTime: null, due: "Nov 11", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_phase5", title: "PHASE 5 - BACKEND & APP (post-validation)", area: "margin", dueDate: "2026-11-16", dueTime: null, due: "Nov 16", priority: "med", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_review_30day", title: "Review 30-day completion + giving data; decide whether to build the backend", area: "margin", dueDate: "2026-12-09", dueTime: null, due: "Dec 9", priority: "high", status: "next", done: false, reminder: "None", notes: "Scheduled 30 days after the public launch announcement.", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_backend_path", title: "Decide backend build path", area: "margin", dueDate: "2026-12-10", dueTime: null, due: "Dec 10", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_backend_tables", title: "Stand up the 4 backend tables", area: "margin", dueDate: "2026-12-14", dueTime: null, due: "Dec 14", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_auth", title: "Build real authentication", area: "margin", dueDate: "2026-12-16", dueTime: null, due: "Dec 16", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_real_server", title: "Point existing login/dashboard screens at the real server", area: "margin", dueDate: "2026-12-18", dueTime: null, due: "Dec 18", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-  { id: "user_margin_sync", title: "Build progress syncing across devices", area: "margin", dueDate: "2026-12-21", dueTime: null, due: "Dec 21", priority: "high", status: "next", done: false, reminder: "None", notes: "", recurrence: null, repeat: null, subtasks: [] },
-].map((task) => ({ ...task, dueOffsetDays: Math.round((dateFromKey(task.dueDate) - dateFromKey(localDateKey())) / 86400000) }));
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAY_OPTIONS = [

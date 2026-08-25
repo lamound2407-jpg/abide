@@ -352,6 +352,9 @@ const styles = `
   .section-label { font-size: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text3); margin: 22px 4px 8px 4px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
 
   .card { background: var(--card); border: 1px solid var(--cardBorder); border-radius: 16px; overflow: hidden; }
+  .card-text-pad { padding: 14px; }
+  .card > .insight-line:only-child { padding: 14px; }
+  .card > .empty-state:only-child { padding: 14px; }
 
   .task-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--divider); cursor: pointer; }
   .task-row:last-child { border-bottom: none; }
@@ -751,6 +754,23 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
           <div className={`task-title ${task.done ? "done" : ""}`}>{task.title}</div>
           <div className="task-meta">
             <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
+            <span
+              className="chip"
+              style={{
+                background: taskProgress(task) === "completed"
+                  ? "#8FA88A26"
+                  : taskProgress(task) === "in_progress"
+                    ? "#E8B45C26"
+                    : "var(--pillBg)",
+                color: taskProgress(task) === "completed"
+                  ? "#8FA88A"
+                  : taskProgress(task) === "in_progress"
+                    ? "#E8B45C"
+                    : "var(--text2)",
+              }}
+            >
+              {taskProgressLabel(task)}
+            </span>
             {taskOffsetDays(task) < 0 && !task.done && <span className="chip" style={{ background: "#E0707026", color: "#E68080" }}>Overdue</span>}
             <span className="time-chip"><Clock size={11} />{task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(taskDateKey(task))}</span>
             {task.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
@@ -839,6 +859,19 @@ function taskDateKey(task) {
 
 function taskOffsetDays(task) {
   return offsetFromDateKey(taskDateKey(task));
+}
+
+function taskProgress(task) {
+  if (task.done || task.progress === "completed") return "completed";
+  if (task.progress === "in_progress") return "in_progress";
+  return "not_started";
+}
+
+function taskProgressLabel(task) {
+  const progress = taskProgress(task);
+  if (progress === "in_progress") return "In Progress";
+  if (progress === "completed") return "Completed";
+  return "Not Started";
 }
 
 function scheduledSubtaskEntries(tasks = []) {
@@ -1107,6 +1140,7 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   const [dueDate, setDueDate] = useState(taskDateKey(task));
   const [dueTime, setDueTime] = useState(inferTaskTime(task));
   const [priority, setPriority] = useState(task.priority || "med");
+  const [progress, setProgress] = useState(taskProgress(task));
   const [area, setArea] = useState(task.area && areas[task.area] ? task.area : "");
   const [goal, setGoal] = useState(task.goal || "");
   const [recurrence, setRecurrence] = useState(normalizeRecurrence(task, taskDateKey(task)));
@@ -1161,7 +1195,27 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
     if (!title.trim() || !dueDate) return;
     const dueOffsetDays = offsetFromDateKey(dueDate);
     const due = dueTime ? formatTimeLabel(dueTime) : formatDateLabel(dueDate);
-    onSave({ ...task, title: title.trim(), dueDate, dueTime: dueTime || null, due, dueOffsetDays, priority, area: area || null, goal: goal || null, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, notes: "", activities, subtasks });
+    const done = progress === "completed";
+    onSave({
+      ...task,
+      title: title.trim(),
+      dueDate,
+      dueTime: dueTime || null,
+      due,
+      dueOffsetDays,
+      priority,
+      progress,
+      done,
+      completedAt: done ? (task.completedAt || new Date().toISOString()) : null,
+      area: area || null,
+      goal: goal || null,
+      repeat: recurrence ? recurrenceLabel(recurrence) : null,
+      recurrence,
+      reminder,
+      notes: "",
+      activities,
+      subtasks,
+    });
   };
 
   return createPortal(
@@ -1177,6 +1231,12 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
               <div><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop:0 }} value={dueTime} onChange={(e)=>setDueTime(e.target.value)} /></div>
             </div>
             <div className="fb-label">Priority</div><div className="filter-row" style={{ padding:"0 0 2px 0" }}>{[["high","High"],["med","Medium"],["low","Low"]].map(([k,label])=><div key={k} className={`filter-chip ${priority===k?"active":""}`} onClick={()=>setPriority(k)}>{label}</div>)}</div>
+            <div className="fb-label">Progress</div>
+            <div className="filter-row" style={{ padding:"0 0 2px 0" }}>
+              {[["not_started","Not Started"],["in_progress","In Progress"],["completed","Completed"]].map(([k,label])=>
+                <div key={k} className={`filter-chip ${progress===k?"active":""}`} onClick={()=>setProgress(k)}>{label}</div>
+              )}
+            </div>
             <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
             <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding:"0 0 2px 0" }}><div className={`filter-chip ${goal===""?"active":""}`} onClick={()=>setGoal("")}>No Goal</div>{goals.map((g)=><div key={g.id} className={`filter-chip ${goal===g.id?"active":""}`} onClick={()=>setGoal(g.id)}>{g.name}</div>)}</div>
             <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
@@ -1214,27 +1274,60 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
 /* ---------------------------------------------------------------
    DYNAMIC / CUSTOMIZABLE FILTER SYSTEM
 ----------------------------------------------------------------*/
-function FilterSystem({ areas, selectedAreas, setSelectedAreas, selectedPriorities, setSelectedPriorities, savedFilters, setSavedFilters }) {
+function FilterSystem({
+  areas,
+  selectedAreas,
+  setSelectedAreas,
+  selectedPriorities,
+  setSelectedPriorities,
+  selectedProgress,
+  setSelectedProgress,
+  showCompleted,
+  setShowCompleted,
+  savedFilters,
+  setSavedFilters,
+}) {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
   const areaKeys = Object.keys(areas);
   const allAreasOn = areaKeys.length === 0 || areaKeys.every((k) => selectedAreas.includes(k));
   const allPriOn = selectedPriorities.length === 3;
+  const allProgressOn = selectedProgress.length === 3;
 
   const toggleArea = (k) => setSelectedAreas((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k]);
   const togglePri = (k) => setSelectedPriorities((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k]);
-  const applySaved = (f) => { setSelectedAreas(f.areas.filter((a) => areas[a])); setSelectedPriorities(f.priorities); };
+  const toggleProgress = (k) => setSelectedProgress((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k]);
+  const applySaved = (f) => {
+    setSelectedAreas((f.areas || []).filter((a) => areas[a]));
+    setSelectedPriorities(f.priorities || ["high", "med", "low"]);
+    setSelectedProgress(f.progress || ["not_started", "in_progress", "completed"]);
+    setShowCompleted(Boolean(f.showCompleted));
+  };
   const removeSaved = (id, e) => { e.stopPropagation(); setSavedFilters((p) => p.filter((f) => f.id !== id)); };
   const saveCurrent = () => {
     if (!draftName.trim()) return;
-    setSavedFilters((p) => [...p, { id: Date.now(), name: draftName.trim(), areas: selectedAreas, priorities: selectedPriorities }]);
+    setSavedFilters((p) => [...p, {
+      id: Date.now(),
+      name: draftName.trim(),
+      areas: selectedAreas,
+      priorities: selectedPriorities,
+      progress: selectedProgress,
+      showCompleted,
+    }]);
     setDraftName(""); setBuilderOpen(false);
   };
 
   return (
     <>
       <div className="filter-row">
-        <div className={`filter-chip ${allAreasOn && allPriOn ? "active" : ""}`} onClick={() => { setSelectedAreas(areaKeys); setSelectedPriorities(["high", "med", "low"]); }}><Filter size={12} />All</div>
+        <div className={`filter-chip ${allAreasOn && allPriOn && allProgressOn ? "active" : ""}`} onClick={() => {
+          setSelectedAreas(areaKeys);
+          setSelectedPriorities(["high", "med", "low"]);
+          setSelectedProgress(["not_started", "in_progress", "completed"]);
+        }}><Filter size={12} />All</div>
+        <div className={`filter-chip ${showCompleted ? "active" : ""}`} onClick={() => setShowCompleted(!showCompleted)}>
+          <Check size={12} />{showCompleted ? "Hide completed" : "Show completed"}
+        </div>
         {savedFilters.map((f) => (
           <div key={f.id} className="filter-chip" onClick={() => applySaved(f)}>{f.name}<X size={11} className="x" onClick={(e) => removeSaved(f.id, e)} /></div>
         ))}
@@ -1248,6 +1341,12 @@ function FilterSystem({ areas, selectedAreas, setSelectedAreas, selectedPrioriti
           </div>
           <div className="fb-label">Priority</div>
           <div className="filter-row" style={{ padding: 0 }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${selectedPriorities.includes(k) ? "active" : ""}`} onClick={() => togglePri(k)}>{label}</div>)}</div>
+          <div className="fb-label">Progress</div>
+          <div className="filter-row" style={{ padding: 0 }}>
+            {[["not_started","Not Started"],["in_progress","In Progress"],["completed","Completed"]].map(([k,label]) =>
+              <div key={k} className={`filter-chip ${selectedProgress.includes(k) ? "active" : ""}`} onClick={() => toggleProgress(k)}>{label}</div>
+            )}
+          </div>
           <div className="fb-label">Save This Combination</div>
           <div style={{ display: "flex", gap: 8 }}>
             <input className="input-line" style={{ margin: 0 }} placeholder="e.g. Margin evenings" value={draftName} onChange={(e) => setDraftName(e.target.value)} />
@@ -1265,7 +1364,9 @@ function FilterSystem({ areas, selectedAreas, setSelectedAreas, selectedPrioriti
 function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, onUpdateTask, onDeleteTask, onCreateTask, onCreateArea }) {
   const [selectedAreas, setSelectedAreas] = useState(Object.keys(areas));
   const [selectedPriorities, setSelectedPriorities] = useState(["high", "med", "low"]);
-  const [savedFilters, setSavedFilters] = useState([]);
+  const [selectedProgress, setSelectedProgress] = useState(["not_started", "in_progress", "completed"]);
+  const [showCompleted, setShowCompleted] = usePersistentState("abide-show-completed", false);
+  const [savedFilters, setSavedFilters] = usePersistentState("abide-saved-filters", []);
   const [range, setRange] = useState("week");
   const [somedayOpen, setSomedayOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -1281,7 +1382,13 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     });
   }, [areas]);
 
-  const matches = (t) => (!t.area || selectedAreas.includes(t.area)) && selectedPriorities.includes(t.priority);
+  const matches = (t) => {
+    const progress = taskProgress(t);
+    if (!showCompleted && progress === "completed") return false;
+    return (!t.area || selectedAreas.includes(t.area))
+      && selectedPriorities.includes(t.priority)
+      && selectedProgress.includes(progress);
+  };
   const overdue = tasks.filter((t) => taskOffsetDays(t) < 0 && !t.done && matches(t));
   const today = tasks.filter((t) => taskOffsetDays(t) === 0 && matches(t));
   const maxRange = range === "week" ? 7 : 14;
@@ -1353,7 +1460,19 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
           </div>
         )}
 
-        <FilterSystem areas={areas} selectedAreas={selectedAreas} setSelectedAreas={setSelectedAreas} selectedPriorities={selectedPriorities} setSelectedPriorities={setSelectedPriorities} savedFilters={savedFilters} setSavedFilters={setSavedFilters} />
+        <FilterSystem
+          areas={areas}
+          selectedAreas={selectedAreas}
+          setSelectedAreas={setSelectedAreas}
+          selectedPriorities={selectedPriorities}
+          setSelectedPriorities={setSelectedPriorities}
+          selectedProgress={selectedProgress}
+          setSelectedProgress={setSelectedProgress}
+          showCompleted={showCompleted}
+          setShowCompleted={setShowCompleted}
+          savedFilters={savedFilters}
+          setSavedFilters={setSavedFilters}
+        />
 
         {(overdue.length > 0 || overdueSubtasks.length > 0) && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}{overdueSubtasks.map(renderScheduledSubtask)}</div></>)}
 
@@ -2118,7 +2237,7 @@ function JournalTab({ entries, setEntries }) {
       <Header eyebrow={streak ? `${streak}-day streak` : "Start your first entry"} title="Time with the Lord" />
       <div className="scroll">
 
-        <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card" style={{ marginBottom: 14, padding: 14 }}>
           <div
             onClick={() => setGlossaryOpen(!glossaryOpen)}
             style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", gap:12 }}
@@ -3348,12 +3467,17 @@ export default function App() {
     if (!task) return prev;
     if (!task.done && task.recurrence?.freq) {
       const nextDate = nextRecurrenceDate(taskDateKey(task), task.recurrence);
-      const completed = prev.map((t) => t.id === id ? { ...t, done: true, completedAt: new Date().toISOString() } : t);
+      const completed = prev.map((t) => t.id === id ? { ...t, done: true, progress: "completed", completedAt: new Date().toISOString() } : t);
       if (!nextDate) return completed;
-      const nextTask = { ...task, id: `rec_${Date.now()}`, done: false, completedAt: null, dueDate: nextDate, dueOffsetDays: offsetFromDateKey(nextDate), due: task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(nextDate), parentRecurringId: task.parentRecurringId || task.id };
+      const nextTask = { ...task, id: `rec_${Date.now()}`, done: false, progress: "not_started", completedAt: null, dueDate: nextDate, dueOffsetDays: offsetFromDateKey(nextDate), due: task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(nextDate), parentRecurringId: task.parentRecurringId || task.id };
       return [nextTask, ...completed];
     }
-    return prev.map((t) => t.id === id ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : null } : t);
+    return prev.map((t) => t.id === id ? {
+      ...t,
+      done: !t.done,
+      progress: !t.done ? "completed" : "not_started",
+      completedAt: !t.done ? new Date().toISOString() : null,
+    } : t);
   });
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -3371,6 +3495,7 @@ export default function App() {
       reminder: task.reminder || "None",
       status: task.status || "next",
       done: Boolean(task.done),
+      progress: Boolean(task.done) ? "completed" : (task.progress || "not_started"),
     };
     setTasks((prev) => [{ id, ...normalized }, ...prev]);
     return id;

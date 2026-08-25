@@ -492,6 +492,14 @@ export default function CloudSyncGate({ children }) {
 
   const handleSignOut = async () => {
     clearSyncedLocalState();
+
+    // Calendar OAuth credentials are session-only and must never carry
+    // from one Abide account into another account on the same browser.
+    try {
+      sessionStorage.removeItem("abideGoogleCalendarAccounts");
+      sessionStorage.removeItem("abideGoogleCalendarToken");
+    } catch {}
+
     await signOut(auth);
     window.location.reload();
   };

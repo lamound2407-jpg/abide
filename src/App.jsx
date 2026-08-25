@@ -573,6 +573,66 @@ const somedayTasks = [];
 const seedGoals = [];
 const seedJournal = [];
 
+const ONBOARDING_STEPS = [
+  {
+    eyebrow: "WHY ABIDE EXISTS",
+    title: "Abide before you achieve.",
+    scripture: "John 15:4–5",
+    copy: "Abide is built around a simple conviction: a fruitful life does not begin with doing more. It begins with remaining rooted in what matters.",
+    detail: "The app helps you hold responsibilities faithfully without turning productivity into hurry. Tasks serve your life; your life does not serve the task list.",
+  },
+  {
+    eyebrow: "CAPTURE",
+    title: "Your mind is for noticing, not holding everything.",
+    scripture: "1 Peter 5:7",
+    copy: "When something needs your attention, capture it quickly instead of rehearsing it all day.",
+    detail: "New thoughts can enter Abide before you know exactly where they belong. Clarify and organize them later. The goal is a trusted place where open loops can rest.",
+  },
+  {
+    eyebrow: "TODAY",
+    title: "Give today enough attention.",
+    scripture: "Matthew 6:34",
+    copy: "Today is intentionally bounded. Abide surfaces what needs attention now without constantly presenting every future responsibility at once.",
+    detail: "Your Daily Brief calls out overdue, urgent, and important work while the rest of the system stays available when you choose to look for it.",
+  },
+  {
+    eyebrow: "AREAS",
+    title: "Tend the parts of life entrusted to you.",
+    scripture: "Colossians 3:23",
+    copy: "Areas are ongoing parts of life you care for — Family, Home, Work, Church, Personal, or whatever fits your season.",
+    detail: "Unlike a project, an Area is rarely finished. It gives tasks and goals context so you can see what you are tending and where your attention is going.",
+  },
+  {
+    eyebrow: "CALENDAR",
+    title: "Let time tell the truth.",
+    scripture: "Psalm 90:12",
+    copy: "The Calendar shows the actual space your commitments occupy. Tasks with dates, events, and protected time live together so plans can meet reality.",
+    detail: "Protected time is a guardrail, not a cage. Abide should help you preserve worship, rest, relationships, margin, and focused work rather than fill every available hour.",
+  },
+  {
+    eyebrow: "REVIEW",
+    title: "Reflect before adding more.",
+    scripture: "Lamentations 3:40",
+    copy: "A trusted system needs regular reflection. Weekly Review helps you clear loose ends, bring plans back to reality, and decide what actually belongs in the coming week.",
+    detail: "The point is not perfect organization. It is enough clarity that you can stop mentally managing the system and return to living.",
+  },
+  {
+    eyebrow: "TIME WITH THE LORD",
+    title: "Some things should never become another checkbox.",
+    scripture: "Psalm 46:10",
+    copy: "Time with the Lord has its own space in Abide because prayer, Scripture, silence, and reflection are not productivity tasks.",
+    detail: "Journal what you are learning, notice rhythms over time, and protect space to be present without measuring the moment by output.",
+  },
+  {
+    eyebrow: "BEGIN",
+    title: "Start small.",
+    scripture: "Zechariah 4:10",
+    copy: "You do not need to build your whole system today. Begin with one Area, capture what matters, and let Abide become trustworthy through use.",
+    detail: "You can revisit this guide anytime from Settings → How Abide Works.",
+    areaStep: true,
+  },
+];
+
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAY_OPTIONS = [
   { label: "Sunday", code: "SU" }, { label: "Monday", code: "MO" }, { label: "Tuesday", code: "TU" },
@@ -3305,7 +3365,7 @@ function AreaComposer({ initial, onSave, onCancel }) {
   );
 }
 
-function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync }) {
+function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync, onOpenHowAbideWorks }) {
   const [blockComposer, setBlockComposer] = useState(null);
   const [areaComposer, setAreaComposer] = useState(null); // null | "add" | areaId
   const {
@@ -3399,6 +3459,20 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
 
         <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 4px 0" }}>
           Future Abide releases can be installed here without deleting the Home Screen app.
+        </div>
+
+        <div className="section-label">Learn Abide</div>
+        <div className="card">
+          <div className="nav-row" onClick={onOpenHowAbideWorks}>
+            <div className="nav-row-left">
+              <BookOpen size={16} color="#E8B45C" />
+              <div>
+                <div style={{ fontWeight: 650, color: "var(--text)", fontSize: 13.5 }}>How Abide Works</div>
+                <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>Purpose, rhythm, and a guided tour</div>
+              </div>
+            </div>
+            <ChevronRight size={16} color="var(--text3)" />
+          </div>
         </div>
 
         <div className="section-label">Account & Sync</div>
@@ -3887,9 +3961,9 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
   );
 }
 
-function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync }) {
+function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync, onOpenHowAbideWorks }) {
   const [screen, setScreen] = useState("more");
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("more")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} />;
+  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("more")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} onOpenHowAbideWorks={onOpenHowAbideWorks} />;
 
   const cards = [
     { id: "goals", label: "Goals", copy: "Projects, outcomes, and higher horizons", icon: Target, tint: "#7C93C9" },
@@ -3934,13 +4008,13 @@ function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks,
 }
 
 
-function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, tasks, goals, journalEntries, setJournalEntries, onOpenJournal, onOpenCalendar, accountSync }) {
+function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, tasks, goals, journalEntries, setJournalEntries, onOpenJournal, onOpenCalendar, accountSync, onOpenHowAbideWorks }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [screen, setScreen] = useState("dashboard");
   const [selectedHeatDate, setSelectedHeatDate] = useState(REFERENCE_DATE_KEY);
 
   if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} tasks={tasks} />;
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} />;
+  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} onOpenHowAbideWorks={onOpenHowAbideWorks} />;
 
   const doneCount = tasks.filter((t) => t.done).length;
   const completionRate = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
@@ -4028,6 +4102,8 @@ export default function App({ accountSync }) {
   const [protectedBlocks, setProtectedBlocks] = usePersistentState("abide-protected-blocks", []);
   const [onboardingComplete, setOnboardingComplete] = usePersistentState("abide-onboarding-complete", false);
   const [onboardingAreaName, setOnboardingAreaName] = useState("");
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
   const [quickAddSignal, setQuickAddSignal] = useState(0);
   const [viewport, setViewport] = useState(() => (typeof window !== "undefined" ? getViewport(window.innerWidth) : "phone"));
   const tk = THEME[theme] || THEME.dark;
@@ -4112,6 +4188,15 @@ export default function App({ accountSync }) {
     }
 
     setOnboardingComplete(true);
+    setOnboardingOpen(false);
+    setOnboardingStep(0);
+    setOnboardingAreaName("");
+  };
+
+  const openHowAbideWorks = () => {
+    setOnboardingStep(0);
+    setOnboardingAreaName("");
+    setOnboardingOpen(true);
   };
 
   const deleteArea = (id) => {
@@ -4179,7 +4264,11 @@ export default function App({ accountSync }) {
 
   const openGlobalAdd = () => { setTab("calendar"); setQuickAddSignal((n) => n + 1); };
 
-  if (isFreshAccount) {
+  if (isFreshAccount || onboardingOpen) {
+    const step = ONBOARDING_STEPS[Math.min(onboardingStep, ONBOARDING_STEPS.length - 1)];
+    const isFirst = onboardingStep === 0;
+    const isLast = onboardingStep === ONBOARDING_STEPS.length - 1;
+
     return (
       <div
         style={{
@@ -4188,154 +4277,178 @@ export default function App({ accountSync }) {
           background: tk.pageBg,
           display: "grid",
           placeItems: "center",
-          padding: 20,
+          padding: 16,
+          boxSizing: "border-box",
           fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif',
         }}
       >
         <div
           style={{
-            width: "min(92vw, 430px)",
+            width: "min(100%, 440px)",
+            maxHeight: "calc(100dvh - 32px)",
+            overflowY: "auto",
+            boxSizing: "border-box",
             background: tk.card,
             border: `1px solid ${tk.cardBorder}`,
             borderRadius: 26,
-            padding: 24,
+            padding: 22,
             boxShadow: tk.shadow,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 22,
-            }}
-          >
-            <img
-              src="/abide-logo.png"
-              alt="Abide"
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: 15,
-              }}
-            />
-
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing: 1.3,
-                  color: "#E8B45C",
-                }}
-              >
-                WELCOME TO ABIDE
-              </div>
-
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 750,
-                  color: tk.text,
-                  marginTop: 3,
-                }}
-              >
-                Begin with what matters.
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+              <img src="/abide-logo.png" alt="Abide" style={{ width: 46, height: 46, borderRadius: 14, flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1.15, color: "#E8B45C" }}>
+                  {step.eyebrow}
+                </div>
+                <div style={{ fontSize: 11.5, color: tk.text3, marginTop: 3 }}>
+                  {onboardingStep + 1} of {ONBOARDING_STEPS.length}
+                </div>
               </div>
             </div>
+
+            {onboardingOpen && !isFreshAccount && (
+              <button
+                type="button"
+                onClick={() => { setOnboardingOpen(false); setOnboardingStep(0); }}
+                style={{ border: 0, background: "transparent", color: tk.text3, font: "inherit", fontSize: 12, cursor: "pointer" }}
+              >
+                Close
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 5, margin: "18px 0 20px" }}>
+            {ONBOARDING_STEPS.map((_, index) => (
+              <div
+                key={index}
+                style={{
+                  height: 3,
+                  flex: 1,
+                  borderRadius: 999,
+                  background: index <= onboardingStep ? "#E8B45C" : tk.divider,
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ fontSize: 26, lineHeight: 1.12, fontWeight: 760, color: tk.text }}>
+            {step.title}
           </div>
 
           <div
             style={{
-              fontSize: 14,
-              lineHeight: 1.55,
-              color: tk.body,
-              marginBottom: 20,
-            }}
-          >
-            Abide is a quiet place for your tasks, calendar, goals, reviews,
-            and journal. You do not need to set everything up today.
-          </div>
-
-          <div
-            style={{
+              display: "inline-flex",
+              marginTop: 12,
+              padding: "6px 9px",
+              borderRadius: 999,
+              background: "rgba(143,168,138,.14)",
+              color: "#8FA88A",
               fontSize: 11.5,
               fontWeight: 750,
-              letterSpacing: .5,
-              textTransform: "uppercase",
-              color: tk.text3,
-              marginBottom: 7,
             }}
           >
-            Your first Area
+            {step.scripture}
+          </div>
+
+          <div style={{ fontSize: 14, lineHeight: 1.6, color: tk.body, marginTop: 17 }}>
+            {step.copy}
           </div>
 
           <div
             style={{
-              fontSize: 12,
-              lineHeight: 1.45,
+              fontSize: 12.5,
+              lineHeight: 1.58,
               color: tk.text2,
-              marginBottom: 10,
+              marginTop: 13,
+              padding: 14,
+              borderRadius: 14,
+              background: tk.subtleBg,
+              border: `1px solid ${tk.divider}`,
             }}
           >
-            An Area is a part of life you want to care for over time — for
-            example Home, Work, Family, Church, or Personal.
+            {step.detail}
           </div>
 
-          <input
-            type="text"
-            value={onboardingAreaName}
-            onChange={(event) => setOnboardingAreaName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") finishOnboarding();
-            }}
-            placeholder="Example: Personal"
-            autoFocus
-            style={{
-              width: "100%",
-              border: `1px solid ${tk.inputBorder}`,
-              background: tk.inputBg,
-              color: tk.text,
-              borderRadius: 12,
-              padding: "12px 13px",
-              font: "inherit",
-              fontSize: 14,
-              outline: "none",
-            }}
-          />
+          {step.areaStep && (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: .6, textTransform: "uppercase", color: tk.text3, marginBottom: 7 }}>
+                Your first Area
+              </div>
 
-          <button
-            type="button"
-            onClick={finishOnboarding}
-            style={{
-              width: "100%",
-              marginTop: 16,
-              border: 0,
-              borderRadius: 12,
-              padding: "12px 14px",
-              background: "#E8B45C",
-              color: "#14100A",
-              font: "inherit",
-              fontSize: 14,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            {onboardingAreaName.trim()
-              ? "Create Area & Start"
-              : "Start Abide"}
-          </button>
+              <input
+                type="text"
+                value={onboardingAreaName}
+                onChange={(event) => setOnboardingAreaName(event.target.value)}
+                placeholder="Example: Personal"
+                style={{
+                  width: "100%",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  boxSizing: "border-box",
+                  border: `1px solid ${tk.inputBorder}`,
+                  background: tk.inputBg,
+                  color: tk.text,
+                  borderRadius: 12,
+                  padding: "12px 13px",
+                  font: "inherit",
+                  fontSize: 14,
+                  outline: "none",
+                }}
+              />
 
-          <div
-            style={{
-              textAlign: "center",
-              fontSize: 11.5,
-              color: tk.text3,
-              lineHeight: 1.45,
-              marginTop: 13,
-            }}
-          >
-            You can add or change Areas anytime in Settings.
+              <div style={{ fontSize: 11.5, color: tk.text3, lineHeight: 1.45, marginTop: 7 }}>
+                Optional. You can create or change Areas anytime in Settings.
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 9, marginTop: 22 }}>
+            {!isFirst && (
+              <button
+                type="button"
+                onClick={() => setOnboardingStep((value) => Math.max(0, value - 1))}
+                style={{
+                  flex: 1,
+                  border: `1px solid ${tk.inputBorder}`,
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  background: tk.subtleBg,
+                  color: tk.text,
+                  font: "inherit",
+                  fontSize: 13.5,
+                  fontWeight: 750,
+                  cursor: "pointer",
+                }}
+              >
+                Back
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isLast) finishOnboarding();
+                else setOnboardingStep((value) => Math.min(ONBOARDING_STEPS.length - 1, value + 1));
+              }}
+              style={{
+                flex: 1.35,
+                border: 0,
+                borderRadius: 12,
+                padding: "12px 14px",
+                background: "#E8B45C",
+                color: "#14100A",
+                font: "inherit",
+                fontSize: 13.5,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              {isLast
+                ? (onboardingAreaName.trim() ? "Create Area & Begin" : "Begin Abide")
+                : "Continue"}
+            </button>
           </div>
         </div>
       </div>
@@ -4367,8 +4480,8 @@ export default function App({ accountSync }) {
       {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}
       {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
-      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} />}
-      {tab === "more" && <MoreTab onOpen={setTab} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} />}
+      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} onOpenHowAbideWorks={openHowAbideWorks} />}
+      {tab === "more" && <MoreTab onOpen={setTab} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} onOpenHowAbideWorks={openHowAbideWorks} />}
     </>
   );
 

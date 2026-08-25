@@ -67,6 +67,7 @@ areas/{areaId}
 
 tasks/{taskId}
   title, notes, areaId, goalId (nullable),
+  kind: task|milestone,
   dueDate, dueTime (nullable), priority: low|med|high,
   status: inbox|next|scheduled|done|someday,
   progress: not_started|in_progress|completed,
@@ -79,8 +80,11 @@ goals/{goalId}
   name, areaId, targetDate, progressMode: manual|computedFromMilestones,
   progressPct, archived
 
-milestones/{milestoneId}
-  goalId, label, dueDate, done, order
+Milestones are stored in `tasks/{taskId}` with `kind: milestone` and a non-null
+`goalId`. A milestone is therefore a real actionable task rather than a separate
+checklist record. It uses the same dueDate, progress, completion metadata,
+Area, reminders, Calendar placement, Today placement, and global search behavior
+as any other task.
 
 journalEntries/{entryId}          // "Time with the Lord"
   date, scriptureRef, note, richTextHtml, tag: yellow|green|pink|blue|orange,
@@ -140,7 +144,7 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 **Global search:** Abide provides a unified search surface across tasks, scheduled subtasks, native events, and currently loaded Google Calendar events. Search matches user-facing text such as title, subtask label, Area, goal, notes/activity text, and calendar/event labels. Completed tasks remain searchable even when hidden from normal working views. Search is presentation/query behavior and does not duplicate task or event records.
 
-**Goals, fully editable:** `goals/{goalId}` now includes `notes` and owns its `milestones` as a subcollection (or embedded array at this scale) — both editable in place. Adding a goal is a single form: name, area, target date, notes, and an inline milestone builder (add/remove before saving). Editing reopens that exact form pre-filled, with a delete option. Milestones are tap-to-toggle from the goal card itself, not buried in an edit screen — same "flexible and editable" principle as tasks.
+**Goals, fully editable:** `goals/{goalId}` includes `notes` and a real ISO `targetDate` selected with a date control rather than free-form text. Milestones follow an Asana-style task model: each milestone is a real task with `kind: milestone`, a non-null `goalId`, and its own due date and editable task properties. Milestones appear inside their Goal as major checkpoints, but they also appear in Today, Calendar, filters, and global search like any other actionable task. Completing a milestone from any surface updates that same task. Goal progress may be computed from the completion state of its milestone tasks. Existing embedded milestone data should be migrated into milestone tasks rather than duplicated.
 
 **Journal and Scratchbook CRUD:** both are now full create/read/update/delete, not just append-only logs. Journal entries get inline edit (reference, note, tag) and delete. Scratch pages get edit and delete too — typed notes reopen in the text composer; drawings reload onto the canvas (`ctx.drawImage()` from the saved PNG) so you can keep adding strokes to an old page instead of only ever starting fresh.
 

@@ -17,6 +17,7 @@ import { auth, db } from "./firebase.js";
 
 const DEVICE_ID_KEY = "abide-sync-device-id";
 const SYNC_COLLECTION = "syncState";
+const FRESH_ACCOUNT_KEY = "abide-fresh-account-creation";
 
 function getDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
@@ -95,8 +96,18 @@ function AuthScreen() {
     setBusy(true);
     setError("");
     try {
-      if (mode === "create") await createUserWithEmailAndPassword(auth, email.trim(), password);
-      else await signInWithEmailAndPassword(auth, email.trim(), password);
+      if (mode === "create") {
+        sessionStorage.setItem(FRESH_ACCOUNT_KEY, "1");
+
+        try {
+          await createUserWithEmailAndPassword(auth, email.trim(), password);
+        } catch (err) {
+          sessionStorage.removeItem(FRESH_ACCOUNT_KEY);
+          throw err;
+        }
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      }
     } catch (err) {
       setError(friendlyAuthError(err));
     } finally {
@@ -183,7 +194,9 @@ function AuthScreen() {
         </form>
 
         <div style={{ marginTop: 14, fontSize: 11.5, lineHeight: 1.5, color: "#6E7686" }}>
-          Important: sign in on the device with your most complete Abide data first. If the cloud account is empty, that device becomes the initial source of truth.
+          {mode === "create"
+            ? "A new Abide account starts clean and private. Your data syncs only with devices signed into this account."
+            : "Sign in to restore this account’s Abide data and keep it synced across your devices."}
         </div>
       </div>
     </div>
@@ -242,6 +255,14 @@ export default function CloudSyncGate({ children }) {
             remote.set(data.key, data.value);
           }
         });
+
+        const freshAccountCreation =
+          sessionStorage.getItem(FRESH_ACCOUNT_KEY) === "1";
+
+        if (freshAccountCreation) {
+          clearSyncedLocalState();
+          sessionStorage.removeItem(FRESH_ACCOUNT_KEY);
+        }
 
         const local = localSyncSnapshot();
         const writes = [];

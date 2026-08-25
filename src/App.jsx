@@ -3308,7 +3308,7 @@ function AreaComposer({ initial, onSave, onCancel }) {
   );
 }
 
-function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar }) {
+function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync }) {
   const [blockComposer, setBlockComposer] = useState(null);
   const [areaComposer, setAreaComposer] = useState(null); // null | "add" | areaId
   const {
@@ -3404,8 +3404,42 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
           Future Abide releases can be installed here without deleting the Home Screen app.
         </div>
 
-        <div className="section-label">Account</div>
-        <div className="card"><div className="settings-row"><span className="settings-row-name">lamound2407@gmail.com</span></div><div className="settings-row"><span className="settings-row-name" style={{ color: "var(--text3)" }}>Sign out will be enabled when Firebase Auth is wired to this screen.</span></div></div>
+        <div className="section-label">Account & Sync</div>
+        <div className="card">
+          <div className="settings-row">
+            <div style={{ minWidth: 0 }}>
+              <div className="settings-row-name">Signed in</div>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, overflowWrap: "anywhere" }}>
+                {accountSync?.email || "Abide account"}
+              </div>
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: accountSync?.syncError ? "#E68080" : "#8FA88A", flexShrink: 0 }}>
+              {accountSync?.syncError ? "Needs attention" : "Cloud synced"}
+            </span>
+          </div>
+
+          {accountSync?.syncError && (
+            <div style={{ padding: "10px 14px", borderTop: "1px solid var(--divider)", fontSize: 11.5, lineHeight: 1.45, color: "#E68080" }}>
+              {accountSync.syncError}
+            </div>
+          )}
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-row-name">Sign out of Abide</div>
+              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3 }}>
+                Your cloud data stays with this account.
+              </div>
+            </div>
+            <div
+              className="filter-chip"
+              style={{ color: "#E68080", flexShrink: 0 }}
+              onClick={() => accountSync?.signOut?.()}
+            >
+              Sign Out
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );
@@ -3856,9 +3890,9 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
   );
 }
 
-function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar }) {
+function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync }) {
   const [screen, setScreen] = useState("more");
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("more")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} />;
+  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("more")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} />;
 
   const cards = [
     { id: "goals", label: "Goals", copy: "Projects, outcomes, and higher horizons", icon: Target, tint: "#7C93C9" },
@@ -3903,13 +3937,13 @@ function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks,
 }
 
 
-function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, tasks, goals, journalEntries, setJournalEntries, onOpenJournal, onOpenCalendar }) {
+function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, tasks, goals, journalEntries, setJournalEntries, onOpenJournal, onOpenCalendar, accountSync }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [screen, setScreen] = useState("dashboard");
   const [selectedHeatDate, setSelectedHeatDate] = useState(REFERENCE_DATE_KEY);
 
   if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} tasks={tasks} />;
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} />;
+  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} />;
 
   const doneCount = tasks.filter((t) => t.done).length;
   const completionRate = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
@@ -3989,7 +4023,7 @@ function getViewport(w) {
   return "desktop";
 }
 
-export default function App() {
+export default function App({ accountSync }) {
   const [tab, setTab] = useState("today");
   const [tasks, setTasks] = usePersistentState("abide-tasks", seedTasks);
   const [goals, setGoals] = usePersistentState("abide-goals", seedGoals);
@@ -4339,8 +4373,8 @@ export default function App() {
       {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}
       {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
-      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} />}
-      {tab === "more" && <MoreTab onOpen={setTab} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} onOpenCalendar={() => setTab("calendar")} />}
+      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} />}
+      {tab === "more" && <MoreTab onOpen={setTab} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} />}
     </>
   );
 

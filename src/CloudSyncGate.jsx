@@ -115,7 +115,10 @@ function AuthScreen() {
       fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif',
     }}>
       <div style={{
-        width: "min(92vw, 420px)",
+        width: "min(100%, 420px)",
+        maxWidth: "420px",
+        boxSizing: "border-box",
+        overflow: "hidden",
         background: "#141A28",
         border: "1px solid rgba(255,255,255,.08)",
         borderRadius: 24,
@@ -130,17 +133,18 @@ function AuthScreen() {
           </div>
         </div>
 
-        <div style={{ display: "flex", background: "rgba(255,255,255,.055)", borderRadius: 11, padding: 3, marginBottom: 16 }}>
+        <div style={{ display: "flex", width: "100%", minWidth: 0, overflow: "hidden", background: "rgba(255,255,255,.055)", borderRadius: 11, padding: 3, marginBottom: 16 }}>
           {[["signin", "Sign In"], ["create", "Create Account"]].map(([id, label]) => (
             <button
               key={id}
               type="button"
               onClick={() => { setMode(id); setError(""); }}
               style={{
-                flex: 1, border: 0, borderRadius: 9, padding: "9px 10px", cursor: "pointer",
+                flex: "1 1 0", minWidth: 0, border: 0, borderRadius: 9, padding: "9px 7px", cursor: "pointer",
                 background: mode === id ? "#2A3245" : "transparent",
                 color: mode === id ? "#F7F6F1" : "#8E97A8",
-                font: "inherit", fontSize: 13, fontWeight: 700,
+                font: "inherit", fontSize: 12.5, fontWeight: 700,
+                lineHeight: 1.2, whiteSpace: "normal", overflowWrap: "anywhere",
               }}
             >
               {label}
@@ -155,7 +159,7 @@ function AuthScreen() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={{ width: "100%", border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.055)", color: "#F7F6F1", borderRadius: 11, padding: "12px 13px", font: "inherit", fontSize: 14, outline: "none" }}
+            style={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.055)", color: "#F7F6F1", borderRadius: 11, padding: "12px 13px", font: "inherit", fontSize: 14, outline: "none" }}
           />
 
           <label style={{ display: "block", fontSize: 11, fontWeight: 800, letterSpacing: .6, textTransform: "uppercase", color: "#6E7686", margin: "14px 0 6px" }}>Password</label>
@@ -164,7 +168,7 @@ function AuthScreen() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ width: "100%", border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.055)", color: "#F7F6F1", borderRadius: 11, padding: "12px 13px", font: "inherit", fontSize: 14, outline: "none" }}
+            style={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.055)", color: "#F7F6F1", borderRadius: 11, padding: "12px 13px", font: "inherit", fontSize: 14, outline: "none" }}
           />
 
           {error && <div style={{ color: "#E68080", fontSize: 12.5, lineHeight: 1.45, marginTop: 12 }}>{error}</div>}
@@ -208,7 +212,6 @@ export default function CloudSyncGate({ children }) {
   const [user, setUser] = useState(undefined);
   const [ready, setReady] = useState(false);
   const [syncError, setSyncError] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const lastValuesRef = useRef(new Map());
   const reloadTimerRef = useRef(null);
   const deviceId = useMemo(() => (typeof window !== "undefined" ? getDeviceId() : "server"), []);
@@ -329,66 +332,13 @@ export default function CloudSyncGate({ children }) {
   if (!user) return <AuthScreen />;
   if (!ready) return <LoadingScreen />;
 
-  return (
-    <>
-      {children}
-      <div style={{
-        position: "fixed",
-        zIndex: 99998,
-        right: 10,
-        top: "max(10px, env(safe-area-inset-top, 0px))",
-        fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',
-      }}>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Cloud sync status"
-          title="Cloud sync"
-          style={{
-            border: "1px solid rgba(255,255,255,.08)",
-            background: syncError ? "rgba(224,112,112,.16)" : "rgba(20,26,40,.78)",
-            color: syncError ? "#E68080" : "#8FA88A",
-            backdropFilter: "blur(18px)",
-            WebkitBackdropFilter: "blur(18px)",
-            borderRadius: 999,
-            padding: "6px 9px",
-            font: "inherit",
-            fontSize: 11,
-            fontWeight: 800,
-            cursor: "pointer",
-            boxShadow: "0 4px 14px rgba(0,0,0,.18)",
-          }}
-        >
-          {syncError ? "Cloud !" : "Cloud ✓"}
-        </button>
+  if (!React.isValidElement(children)) return children;
 
-        {menuOpen && (
-          <div style={{
-            position: "absolute",
-            right: 0,
-            top: 34,
-            width: 220,
-            background: "#141A28",
-            color: "#F7F6F1",
-            border: "1px solid rgba(255,255,255,.09)",
-            borderRadius: 14,
-            padding: 12,
-            boxShadow: "0 18px 50px rgba(0,0,0,.42)",
-          }}>
-            <div style={{ fontSize: 12.5, fontWeight: 800 }}>{syncError ? "Sync needs attention" : "Abide is syncing"}</div>
-            <div style={{ fontSize: 11, lineHeight: 1.45, color: syncError ? "#E68080" : "#8E97A8", marginTop: 4 }}>
-              {syncError || "Changes are stored in Firestore and shared with your other signed-in devices."}
-            </div>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              style={{ width: "100%", marginTop: 10, border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.05)", color: "#C5CAD3", borderRadius: 9, padding: "8px 10px", font: "inherit", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
-            >
-              Sign Out
-            </button>
-          </div>
-        )}
-      </div>
-    </>
-  );
+  return React.cloneElement(children, {
+    accountSync: {
+      email: user.email || "",
+      syncError,
+      signOut: handleSignOut,
+    },
+  });
 }

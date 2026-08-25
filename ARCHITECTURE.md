@@ -154,6 +154,16 @@ Prototype-era personal migration routines are legacy compatibility code for exis
 
 The intended sharing model is: one Abide URL, one maintained GitHub codebase, one deployed app, separate user accounts, separate private data, and common application updates for everyone.
 
+
+**Guided onboarding and philosophy:** A brand-new Abide account receives a short, calm onboarding sequence before entering the normal application. Onboarding explains both how Abide works and why it is designed this way. It should introduce the central idea of abiding rather than hustling; trusted capture; a deliberately bounded Today view; Areas as ongoing responsibilities to tend faithfully; Weekly Review as reflection that restores trust; protected unhurried time; and the major application surfaces. Biblical context may be included through Scripture references and brief Abide-authored reflections rather than silently choosing a specific Bible translation. Appropriate anchors include John 15:4–5 for abiding, Matthew 6:34 for today's bounded attention, and other references that genuinely explain a design decision rather than decorating the interface. The final onboarding step may invite the user to create their first Area. The same material remains available later from Settings as "How Abide Works" so first-run onboarding is never the user's only opportunity to learn the system.
+
+**Account and sync UX:** Authentication is a normal first-class Abide capability. Signed-out users see a responsive Sign In / Create Account experience. Signed-in users manage their account from Settings, where Abide shows the current account identity, cloud-sync status or error state, and a clear Sign Out action. Cloud status must not be rendered as a floating control over the application chrome. In particular, the phone appearance control and other header actions must remain unobstructed at all supported viewport widths.
+
+**Authentication layout:** The Sign In / Create Account card must remain fully contained within its outer card at narrow mobile widths. Inputs, segmented controls, labels, errors, and action buttons must use responsive sizing and may wrap or shrink as necessary; overlapping pills, controls, or text are considered layout defects.
+
+**Personal companion tools:** Iron Log and Trophé are not part of the shared Abide product. The shared application must not expose personal companion-app links or a "Your Tools" section. Personal external tools may be reintroduced later only through an explicitly user-configurable feature.
+
+
 The Daily Brief is collapsible. It opens expanded the first time Today is viewed on a new calendar day, then the user may collapse it into a compact one-line summary such as "Daily Brief · 2 overdue · 1 urgent." The collapsed state is remembered only for that date so the brief opens fresh again the next day. This keeps the briefing useful at the start of the day without permanently consuming Today-screen space.
 
 

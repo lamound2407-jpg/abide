@@ -544,6 +544,38 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
   );
 }
 
+function ScheduledSubtaskRow({ entry, areas, onToggle }) {
+  const { parent, sub } = entry;
+  const area = parent.area && areas[parent.area] ? areas[parent.area] : { name: "No Area", color: "#9AA2B1" };
+
+  return (
+    <div className="task-row">
+      <div
+        className={`checkbox ${sub.done ? "done" : ""}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(parent.id, sub.id);
+        }}
+      >
+        {sub.done && <Check size={13} color="#14100A" strokeWidth={3} />}
+      </div>
+
+      <div style={{ flex: 1 }}>
+        <div className={`task-title ${sub.done ? "done" : ""}`}>{sub.label}</div>
+        <div className="task-meta">
+          <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
+          <span className="time-chip">Subtask of {parent.title}</span>
+          <span className="time-chip">
+            <Clock size={11} />
+            {sub.dueTime ? formatTimeLabel(sub.dueTime) : formatDateLabel(sub.dueDate)}
+          </span>
+          {parent.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -567,6 +599,20 @@ function dateKeyFromOffset(offset = 0) {
 
 function taskDateKey(task) {
   return task.dueDate || dateKeyFromOffset(task.dueOffsetDays || 0);
+}
+
+function scheduledSubtaskEntries(tasks = []) {
+  return tasks.flatMap((parent) =>
+    (parent.subtasks || [])
+      .filter((sub) => Boolean(sub.dueDate))
+      .map((sub) => ({
+        parent,
+        sub,
+        dueDate: sub.dueDate,
+        dueTime: sub.dueTime || null,
+        dueOffsetDays: offsetFromDateKey(sub.dueDate),
+      }))
+  );
 }
 
 function offsetFromDateKey(key) {
@@ -810,6 +856,8 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   const [activityDraft, setActivityDraft] = useState("");
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const [subtaskDraft, setSubtaskDraft] = useState("");
+  const [subtaskDueDate, setSubtaskDueDate] = useState("");
+  const [subtaskDueTime, setSubtaskDueTime] = useState("");
   useEffect(() => {
     const bodyOverflow = document.body.style.overflow;
     const htmlOverflow = document.documentElement.style.overflow;
@@ -832,7 +880,19 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   }, []);
 
 
-  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
+  const addSubtask = () => {
+    if (!subtaskDraft.trim()) return;
+    setSubtasks((p) => [...p, {
+      id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      label: subtaskDraft.trim(),
+      done: false,
+      dueDate: subtaskDueDate || null,
+      dueTime: subtaskDueTime || null,
+    }]);
+    setSubtaskDraft("");
+    setSubtaskDueDate("");
+    setSubtaskDueTime("");
+  };
   const addActivity = () => {
     if (!activityDraft.trim()) return;
     setActivities((p) => [...p, { id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }]);
@@ -863,7 +923,21 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
             <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
             <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
             <div className="fb-label">Subtasks</div>
-            {subtasks.map((sub)=><div className="subtask-row" key={sub.id}><input type="checkbox" checked={Boolean(sub.done)} onChange={()=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,done:!x.done}:x))}/><span style={{ flex:1, textDecoration:sub.done?"line-through":"none", opacity:sub.done?0.65:1 }}>{sub.label}</span><X size={13} style={{ cursor:"pointer" }} onClick={()=>setSubtasks((p)=>p.filter((x)=>x.id!==sub.id))}/></div>)}
+            {subtasks.map((sub)=><div key={sub.id} style={{ padding:"8px 0", borderBottom:"1px solid var(--divider)" }}>
+              <div className="subtask-row">
+                <input type="checkbox" checked={Boolean(sub.done)} onChange={()=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,done:!x.done}:x))}/>
+                <span style={{ flex:1, textDecoration:sub.done?"line-through":"none", opacity:sub.done?0.65:1 }}>{sub.label}</span>
+                <X size={13} style={{ cursor:"pointer" }} onClick={()=>setSubtasks((p)=>p.filter((x)=>x.id!==sub.id))}/>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:6 }}>
+                <input type="date" className="input-line" style={{ margin:0 }} value={sub.dueDate || ""} onChange={(e)=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,dueDate:e.target.value || null}:x))}/>
+                <input type="time" className="input-line" style={{ margin:0 }} value={sub.dueTime || ""} onChange={(e)=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,dueTime:e.target.value || null}:x))}/>
+              </div>
+            </div>)}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+              <input type="date" className="input-line" style={{ margin:0 }} value={subtaskDueDate} onChange={(e)=>setSubtaskDueDate(e.target.value)} />
+              <input type="time" className="input-line" style={{ margin:0 }} value={subtaskDueTime} onChange={(e)=>setSubtaskDueTime(e.target.value)} />
+            </div>
             <div style={{ display:"flex", gap:8 }}><input className="input-line" style={{ margin:0 }} value={subtaskDraft} onChange={(e)=>setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e)=>{ if(e.key==="Enter"){ e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
             <div className="fb-label">Activity</div>
             <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
@@ -953,6 +1027,22 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
   const today = tasks.filter((t) => t.dueOffsetDays === 0 && matches(t));
   const maxRange = range === "week" ? 7 : 14;
   const upcoming = tasks.filter((t) => t.dueOffsetDays > 0 && t.dueOffsetDays <= maxRange && matches(t));
+
+  const scheduledSubtasks = scheduledSubtaskEntries(tasks).filter(({ parent }) => matches(parent));
+  const overdueSubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays < 0 && !entry.sub.done);
+  const todaySubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays === 0);
+  const upcomingSubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays > 0 && entry.dueOffsetDays <= maxRange);
+
+  const toggleScheduledSubtask = (parentId, subtaskId) => {
+    const parent = tasks.find((task) => task.id === parentId);
+    if (!parent) return;
+    onUpdateTask({
+      ...parent,
+      subtasks: (parent.subtasks || []).map((sub) =>
+        sub.id === subtaskId ? { ...sub, done: !sub.done } : sub
+      ),
+    });
+  };
   const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && t.dueOffsetDays <= 1);
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
@@ -972,6 +1062,15 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
       onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
       onToggleDone={toggleDone}
       onEdit={openEditor}
+    />
+  );
+
+  const renderScheduledSubtask = (entry) => (
+    <ScheduledSubtaskRow
+      key={`${entry.parent.id}:${entry.sub.id}`}
+      entry={entry}
+      areas={areas}
+      onToggle={toggleScheduledSubtask}
     />
   );
   const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -994,17 +1093,17 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
         <FilterSystem areas={areas} selectedAreas={selectedAreas} setSelectedAreas={setSelectedAreas} selectedPriorities={selectedPriorities} setSelectedPriorities={setSelectedPriorities} savedFilters={savedFilters} setSavedFilters={setSavedFilters} />
 
-        {overdue.length > 0 && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}</div></>)}
+        {(overdue.length > 0 || overdueSubtasks.length > 0) && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}{overdueSubtasks.map(renderScheduledSubtask)}</div></>)}
 
         <div className="section-label">Today</div>
-        <div className="card">{today.length ? today.map(renderTask) : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}</div>
+        <div className="card">{today.length || todaySubtasks.length ? <>{today.map(renderTask)}{todaySubtasks.map(renderScheduledSubtask)}</> : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}</div>
 
         <div className="section-label"><span>Coming Up</span></div>
         <div className="segmented" style={{ margin: "0 0 10px 0" }}>
           <div className={`seg-btn ${range === "week" ? "active" : ""}`} onClick={() => setRange("week")}>This Week</div>
           <div className={`seg-btn ${range === "twoweeks" ? "active" : ""}`} onClick={() => setRange("twoweeks")}>Next 2 Weeks</div>
         </div>
-        <div className="card">{upcoming.length ? upcoming.map(renderTask) : <div className="insight-line">Nothing scheduled in this window.</div>}</div>
+        <div className="card">{upcoming.length || upcomingSubtasks.length ? <>{upcoming.map(renderTask)}{upcomingSubtasks.map(renderScheduledSubtask)}</> : <div className="insight-line">Nothing scheduled in this window.</div>}</div>
 
         <div className="section-label" onClick={() => setSomedayOpen(!somedayOpen)} style={{ cursor: "pointer" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Archive size={12} />Someday / Maybe ({somedayTasks.length})</span>
@@ -1063,10 +1162,24 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [activityDraft, setActivityDraft] = useState("");
   const [subtasks, setSubtasks] = useState([]);
   const [subtaskDraft, setSubtaskDraft] = useState("");
+  const [subtaskDueDate, setSubtaskDueDate] = useState("");
+  const [subtaskDueTime, setSubtaskDueTime] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const [targetGoogleAccountId, setTargetGoogleAccountId] = useState(() => googleAccounts[0]?.id || "");
-  const addSubtask = () => { if (!subtaskDraft.trim()) return; setSubtasks((p) => [...p, { id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, label: subtaskDraft.trim(), done: false }]); setSubtaskDraft(""); };
+  const addSubtask = () => {
+    if (!subtaskDraft.trim()) return;
+    setSubtasks((p) => [...p, {
+      id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      label: subtaskDraft.trim(),
+      done: false,
+      dueDate: subtaskDueDate || null,
+      dueTime: subtaskDueTime || null,
+    }]);
+    setSubtaskDraft("");
+    setSubtaskDueDate("");
+    setSubtaskDueTime("");
+  };
 
   const save = async () => {
     if (!title.trim() || !date || saving) return;
@@ -1287,7 +1400,19 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const activeCount = flatCalendars.filter((c) => c.on).length;
   const visibleCalendarKeys = new Set(flatCalendars.filter((c) => c.on).map((c) => `${c.accountId}::${c.id}`));
   const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
+  const daySubtasks = scheduledSubtaskEntries(tasks).filter((entry) => entry.dueDate === selectedDateKey);
   const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarKeys.has(e.calendarKey || `${e.accountId || "legacy"}::${e.calendarId}`)));
+
+  const toggleCalendarSubtask = (parentId, subtaskId) => {
+    const parent = tasks.find((task) => task.id === parentId);
+    if (!parent) return;
+    onUpdateTask({
+      ...parent,
+      subtasks: (parent.subtasks || []).map((sub) =>
+        sub.id === subtaskId ? { ...sub, done: !sub.done } : sub
+      ),
+    });
+  };
 
   useEffect(() => { if (openAddSignal) setAdding(true); }, [openAddSignal]);
 
@@ -1472,7 +1597,10 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         </div>
       )}
       <div className="section-label">Tasks</div>
-      <div className="card">{dayTasks.length ? dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => { setAdding(false); setEditingTask(t); }} onToggleDone={toggleDone} onEdit={(task) => { setAdding(false); setEditingTask(task); }} />) : <div className="insight-line">No tasks due this day.</div>}</div>
+      <div className="card">{dayTasks.length || daySubtasks.length ? <>
+        {dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => { setAdding(false); setEditingTask(t); }} onToggleDone={toggleDone} onEdit={(task) => { setAdding(false); setEditingTask(task); }} />)}
+        {daySubtasks.map((entry) => <ScheduledSubtaskRow key={`${entry.parent.id}:${entry.sub.id}`} entry={entry} areas={areas} onToggle={toggleCalendarSubtask} />)}
+      </> : <div className="insight-line">No tasks due this day.</div>}</div>
       <div className="section-label">Events</div>
       <div className="card">{dayEvents.length ? dayEvents.map((e) => {
         const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
@@ -1500,7 +1628,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
         {mode === "week" ? (
           <>
-            <div className="weekstrip">{weekKeys.map((key) => { const d = dateFromKey(key); const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key); return <div key={key} className={`daypill ${selectedDateKey === key ? "selected" : ""}`} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span><span className="num">{d.getDate()}</span>{hasItems && <span className="dot" />}</div>; })}</div>
+            <div className="weekstrip">{weekKeys.map((key) => { const d = dateFromKey(key); const hasItems = tasks.some((t) => taskDateKey(t) === key) || scheduledSubtaskEntries(tasks).some((entry) => entry.dueDate === key) || events.some((e) => e.date === key); return <div key={key} className={`daypill ${selectedDateKey === key ? "selected" : ""}`} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span><span className="num">{d.getDate()}</span>{hasItems && <span className="dot" />}</div>; })}</div>
             {renderAgenda()}
           </>
         ) : (
@@ -1514,7 +1642,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
                 {monthCells.map((day, i) => {
                   if (!day) return <div key={`blank-${i}`} />;
                   const key = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                  const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key);
+                  const hasItems = tasks.some((t) => taskDateKey(t) === key) || scheduledSubtaskEntries(tasks).some((entry) => entry.dueDate === key) || events.some((e) => e.date === key);
                   return <div key={key} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }} style={{ textAlign: "center", padding: "8px 0", borderRadius: 8, cursor: "pointer", background: key === selectedDateKey ? "rgba(232,180,92,0.18)" : "transparent", border: key === selectedDateKey ? "1px solid rgba(232,180,92,0.4)" : "1px solid transparent" }}><div style={{ fontSize: 12, color: "var(--body)" }}>{day}</div>{hasItems && <div style={{ width: 4, height: 4, borderRadius: 2, background: "#E8B45C", margin: "3px auto 0" }} />}</div>;
                 })}
               </div>

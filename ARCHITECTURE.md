@@ -110,6 +110,37 @@ journalEntries/{entryId}          // "Time with the Lord"
   date, scriptureRef, note, richTextHtml, tag: yellow|green|pink|blue|orange,
   linkedTaskId (nullable — e.g. link a Margin devotional task to the entry that inspired it)
 
+**User-customizable highlight meanings:** The five highlight colors remain stable
+visual tools, but their meanings are personal preferences rather than universal
+definitions imposed by Abide.
+
+Each signed-in user may customize, independently for every highlight color:
+- a short label/title
+- an optional free-form explanation or notes
+- the explanation may be as long as the user wants or completely blank
+
+Existing accounts retain the current Abide highlight meanings unless the user
+chooses to edit them. This preserves established workflows and must not silently
+rewrite an existing user's system.
+
+New accounts may use the same current meanings as sensible defaults, but those
+defaults are suggestions rather than fixed semantics. A user can rename, rewrite,
+or clear any meaning without changing the highlight color itself or damaging
+existing journal entries.
+
+Highlight meaning preferences are private per-user Abide preferences and should
+sync across the user's signed-in devices. Changing a meaning changes only the
+user-facing legend/explanation; it does not rewrite historical journal entry
+content or change the stored color tag on existing highlights.
+
+Time with the Lord keeps its collapsible highlight/glossary card. A small gear
+control beside that card opens **Highlight Settings**, which is also available
+from the main Settings screen. Both entry points edit the same preference data.
+
+The glossary should gracefully support sparse personalization. A color with only
+a title may show only that title. A color whose explanation is blank should not
+display empty instructional copy. The user is never required to fill every field.
+
 habits/{habitId}                  // reading, Bible, writing, gym streaks
   name, cadence, targetPerWeek, areaId
 habitLogs/{logId}

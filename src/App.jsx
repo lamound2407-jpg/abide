@@ -5114,15 +5114,107 @@ function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreat
   const [prefs, setPrefs] = usePersistentState("abide-notification-prefs", { tasks: true, calendar: true, review: true, streak: true, milestones: true });
   const [editingTask, setEditingTask] = useState(null);
   const [permission, setPermission] = useState(() => typeof Notification !== "undefined" ? Notification.permission : "unsupported");
+  const [backgroundPushStatus, setBackgroundPushStatus] = useState({
+    supported: false,
+    permission: "default",
+    registered: false,
+  });
+  const [backgroundPushBusy, setBackgroundPushBusy] = useState(false);
+  const [backgroundPushError, setBackgroundPushError] = useState("");
   const toggle = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
   const rows = [{ k: "tasks", label: "Task reminders" }, { k: "calendar", label: "Calendar event alerts" }, { k: "review", label: "Weekly review nudge" }, { k: "streak", label: "Journal streak reminder" }, { k: "milestones", label: "Goal milestone alerts" }];
   const reminders = tasks.filter((t) => !t.done && t.reminder && t.reminder !== "None").sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshBackgroundPushStatus = async () => {
+      try {
+        const status = await getBackgroundPushStatus();
+
+        if (!cancelled) {
+          setBackgroundPushStatus(status);
+        }
+      } catch {
+        // Keep the default status if this browser cannot inspect FCM.
+      }
+    };
+
+    refreshBackgroundPushStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const enableNotifications = async () => {
-    if (typeof Notification === "undefined") { setPermission("unsupported"); return; }
+    if (typeof Notification === "undefined") {
+      setPermission("unsupported");
+      return;
+    }
+
     const result = await Notification.requestPermission();
     setPermission(result);
-    if (result === "granted") new Notification("Abide notifications enabled", { body: "Task reminders can now appear on this device while Abide is running." });
+
+    if (result === "granted") {
+      new Notification("Abide notifications enabled", {
+        body: "Notification permission is enabled on this device.",
+      });
+    }
+  };
+
+  const registerBackgroundNotifications = async () => {
+    if (backgroundPushBusy) return;
+
+    setBackgroundPushBusy(true);
+    setBackgroundPushError("");
+
+    try {
+      await enableBackgroundPush();
+
+      const status = await getBackgroundPushStatus();
+
+      setBackgroundPushStatus(status);
+
+      if (typeof Notification !== "undefined") {
+        setPermission(Notification.permission);
+      }
+    } catch (error) {
+      console.error("Background notification registration failed:", error);
+
+      setBackgroundPushError(
+        error?.message ||
+          "Abide could not register this device for background notifications."
+      );
+
+      try {
+        const status = await getBackgroundPushStatus();
+        setBackgroundPushStatus(status);
+      } catch {}
+    } finally {
+      setBackgroundPushBusy(false);
+    }
+  };
+
+  const unregisterBackgroundNotifications = async () => {
+    if (backgroundPushBusy) return;
+
+    setBackgroundPushBusy(true);
+    setBackgroundPushError("");
+
+    try {
+      await disableBackgroundPush();
+
+      const status = await getBackgroundPushStatus();
+      setBackgroundPushStatus(status);
+    } catch (error) {
+      setBackgroundPushError(
+        error?.message ||
+          "Abide could not disable background notifications."
+      );
+    } finally {
+      setBackgroundPushBusy(false);
+    }
   };
 
   const testNotification = () => {
@@ -5174,7 +5266,100 @@ function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreat
             {permission !== "granted" ? <div className="filter-chip active" onClick={enableNotifications}>Enable</div> : <div className="filter-chip" onClick={testNotification}>Test</div>}
           </div>
         </div>
-        <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 4px 0" }}>These notifications work while Abide is running. True background push when Abide is fully closed requires the next backend step: Firestore task storage + Firebase Cloud Messaging.</div>
+        <div className="section-label">Background Delivery</div>
+
+        <div className="card">
+          <div
+            className="settings-row"
+            style={{
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                className="settings-row-name"
+                style={{
+                  fontWeight: 700,
+                }}
+              >
+                Background notifications
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--text3)",
+                  marginTop: 3,
+                  lineHeight: 1.4,
+                }}
+              >
+                {backgroundPushStatus.registered
+                  ? "This device is registered for Firebase push delivery."
+                  : backgroundPushStatus.supported
+                    ? "Register this device so reminders can arrive when Abide is closed."
+                    : "Checking whether background push is available on this device…"}
+              </div>
+            </div>
+
+            {backgroundPushStatus.registered ? (
+              <div
+                className="filter-chip active"
+                style={{
+                  flexShrink: 0,
+                  cursor: backgroundPushBusy ? "default" : "pointer",
+                  opacity: backgroundPushBusy ? 0.6 : 1,
+                }}
+                onClick={unregisterBackgroundNotifications}
+              >
+                <Check size={11} />
+                Registered
+              </div>
+            ) : (
+              <div
+                className="filter-chip active"
+                style={{
+                  flexShrink: 0,
+                  cursor: backgroundPushBusy ? "default" : "pointer",
+                  opacity: backgroundPushBusy ? 0.6 : 1,
+                }}
+                onClick={registerBackgroundNotifications}
+              >
+                <Bell size={11} />
+                {backgroundPushBusy ? "Registering…" : "Enable"}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {backgroundPushError && (
+          <div
+            style={{
+              margin: "7px 4px 0",
+              padding: "9px 10px",
+              borderRadius: 10,
+              background: "rgba(230,128,128,0.08)",
+              border: "1px solid rgba(230,128,128,0.18)",
+              color: "#E68080",
+              fontSize: 11.5,
+              lineHeight: 1.45,
+            }}
+          >
+            {backgroundPushError}
+          </div>
+        )}
+
+        <div
+          style={{
+            fontSize: 11.5,
+            color: "var(--text3)",
+            margin: "7px 4px 0",
+            lineHeight: 1.45,
+          }}
+        >
+          When registered, Firebase can deliver task reminders to this device
+          even when the Abide interface is closed.
+        </div>
 
         <div className="section-label">Upcoming Notifications</div>
         <div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item" style={{ cursor: "pointer" }} onClick={() => setEditingTask(t)}><span><strong>{t.title}</strong><span style={{ display: "block", fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>{formatDateLabel(taskDateKey(t))}{t.dueTime ? ` · ${formatTimeLabel(t.dueTime)}` : ""}</span></span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No task reminders scheduled yet.</div>}</div>

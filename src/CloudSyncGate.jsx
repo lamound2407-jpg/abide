@@ -17,6 +17,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
+import { disableBackgroundPush } from "./pushNotifications.js";
 
 const DEVICE_ID_KEY = "abide-sync-device-id";
 const SYNC_COLLECTION = "syncState";
@@ -562,6 +563,10 @@ export default function CloudSyncGate({ children }) {
   }, [user, deviceId]);
 
   const handleSignOut = async () => {
+    // Detach this physical/browser device from the current account before
+    // Firebase Auth signs out, so push reminders cannot cross accounts.
+    await disableBackgroundPush().catch(() => {});
+
     clearSyncedLocalState();
 
     // Calendar OAuth credentials are session-only and must never carry

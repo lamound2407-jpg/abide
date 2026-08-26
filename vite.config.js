@@ -14,6 +14,9 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       injectRegister: null,
+      workbox: {
+        importScripts: ["push-handler.js"],
+      },
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Abide",

@@ -5133,6 +5133,11 @@ function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreat
   useEffect(() => {
     if (permission !== "granted" || !prefs.tasks) return;
     const check = () => {
+      // When this device is registered for Firebase background push,
+      // the server scheduler is authoritative. Avoid showing a second
+      // local notification for the same task.
+      if (localStorage.getItem("abide-fcm-device-token-local")) return;
+
       const now = Date.now();
       tasks.forEach((task) => {
         if (task.done || !task.reminder || task.reminder === "None") return;

@@ -125,6 +125,9 @@ export async function enableBackgroundPush() {
       enabled: true,
       platform: navigator.platform || "",
       userAgent: navigator.userAgent || "",
+      timezone:
+        Intl.DateTimeFormat().resolvedOptions().timeZone ||
+        "America/Chicago",
       updatedAt: serverTimestamp(),
     },
     { merge: true }

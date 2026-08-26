@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  OAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -109,6 +110,33 @@ function AuthScreen() {
 
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      sessionStorage.removeItem(FRESH_ACCOUNT_KEY);
+      setError(friendlyAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const continueWithMicrosoft = async () => {
+    if (!firebaseConfigured || busy) {
+      if (!firebaseConfigured) {
+        setError("Firebase environment values are missing from this build.");
+      }
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+
+    // Provider sign-in always starts from a clean local state so data from
+    // one Abide account can never leak into another account on this device.
+    sessionStorage.setItem(FRESH_ACCOUNT_KEY, "1");
+
+    try {
+      const provider = new OAuthProvider("microsoft.com");
       provider.setCustomParameters({ prompt: "select_account" });
       await signInWithPopup(auth, provider);
     } catch (err) {
@@ -233,6 +261,49 @@ function AuthScreen() {
             />
           </svg>
           Continue with Google
+        </button>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={continueWithMicrosoft}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 9,
+            marginTop: 10,
+            border: "1px solid rgba(255,255,255,.12)",
+            background: "#F7F6F1",
+            color: "#20242D",
+            borderRadius: 12,
+            padding: "11px 13px",
+            font: "inherit",
+            fontSize: 13.5,
+            fontWeight: 750,
+            lineHeight: 1.25,
+            textAlign: "center",
+            whiteSpace: "normal",
+            cursor: busy ? "default" : "pointer",
+            opacity: busy ? .6 : 1,
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            style={{ display: "block", flexShrink: 0 }}
+          >
+            <rect x="0" y="0" width="8" height="8" fill="#F25022" />
+            <rect x="10" y="0" width="8" height="8" fill="#7FBA00" />
+            <rect x="0" y="10" width="8" height="8" fill="#00A4EF" />
+            <rect x="10" y="10" width="8" height="8" fill="#FFB900" />
+          </svg>
+          Continue with Microsoft
         </button>
 
         <div

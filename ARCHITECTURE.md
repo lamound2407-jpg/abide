@@ -144,6 +144,22 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 **Global search:** Abide provides a unified search surface across tasks, scheduled subtasks, native events, and currently loaded Google Calendar events. Search matches user-facing text such as title, subtask label, Area, goal, notes/activity text, and calendar/event labels. Completed tasks remain searchable even when hidden from normal working views. Search is presentation/query behavior and does not duplicate task or event records.
 
+**Customizable primary navigation:** Abide's primary navigation is personalized per user rather than permanently forcing every feature into the same five-tab layout. The phone navigation keeps **Today** fixed as the first tab and **More** fixed as the last tab. The three middle positions are user-selectable from eligible first-class surfaces such as Calendar, Review, Journal, Goals & Horizons, Scratchbook, Reminders, and Insights.
+
+The default navigation for a new account remains:
+`Today · Calendar · Review · Journal · More`
+
+A user may replace any of the three middle slots from Settings. For example:
+`Today · Calendar · Scratchbook · Insights · More`
+
+Navigation customization changes only which destinations are directly visible in the primary tab bar. It does not disable, delete, archive, or change the data belonging to features that are removed from the tab bar. Every eligible destination remains accessible from More.
+
+Navigation preferences are private per-user Abide state and should sync with the rest of the user's preferences so the chosen layout follows the user across signed-in devices. Invalid, duplicated, deprecated, or unavailable destination IDs should be normalized safely back to valid defaults rather than breaking navigation.
+
+The same ordered navigation preference should inform larger-screen sidebar navigation where practical, while preserving platform-appropriate layout. More remains the stable place for discovering destinations that are not currently pinned.
+
+Settings should provide a simple **Customize Navigation** control that shows the three configurable positions and lets the user choose one unique destination for each. The UI should prevent duplicate pinned destinations and make restoring the default layout easy.
+
 **Fast, decision-focused Reviews:** Weekly and monthly Review are designed to restore trust in the system without becoming lengthy rituals. Review should prioritize exceptions, decisions, and a small number of meaningful commitments rather than asking the user to re-confirm every item that is already fine.
 
 The **Weekly Review** should normally take about 5–7 minutes and center on four movements:

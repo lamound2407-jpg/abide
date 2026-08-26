@@ -444,7 +444,6 @@ export default function CloudSyncGate({ children }) {
   const [ready, setReady] = useState(false);
   const [syncError, setSyncError] = useState("");
   const lastValuesRef = useRef(new Map());
-  const reloadTimerRef = useRef(null);
   const deviceId = useMemo(() => (typeof window !== "undefined" ? getDeviceId() : "server"), []);
 
   useEffect(() => onAuthStateChanged(auth, (nextUser) => {
@@ -524,8 +523,10 @@ export default function CloudSyncGate({ children }) {
             });
 
             if (changed) {
-              window.clearTimeout(reloadTimerRef.current);
-              reloadTimerRef.current = window.setTimeout(() => window.location.reload(), 350);
+              // Remote values are already written into localStorage above.
+              // Do not reload the entire PWA here. Forced reloads can create
+              // a sync loop while migrations or another device are updating
+              // the same Abide state.
             }
           },
           (error) => setSyncError(error?.message || "Realtime sync stopped.")
@@ -557,7 +558,6 @@ export default function CloudSyncGate({ children }) {
       cancelled = true;
       unsubscribe();
       if (pollTimer) window.clearInterval(pollTimer);
-      window.clearTimeout(reloadTimerRef.current);
     };
   }, [user, deviceId]);
 

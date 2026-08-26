@@ -927,7 +927,7 @@ function TaskRow({
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Due</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{formatDateLabel(taskDateKey(task))}{task.dueTime ? ` · ${formatTimeLabel(task.dueTime)}` : ""}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Priority</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.priority === "high" ? "High" : task.priority === "med" ? "Medium" : "Low"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat || "None"}</span></div>
-          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
+          <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{taskReminderLabel(task)}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
           {childTasks.length > 0 && (
             <div style={{ paddingTop: 8 }}>
@@ -1278,51 +1278,128 @@ function journalStreak(entries) {
 }
 
 
-const REMINDER_OPTIONS = ["None", "At time", "5 min before", "15 min before", "30 min before", "1 hour before", "1 day before"];
+const REMINDER_OPTIONS = [
+  "None",
+  "At time",
+  "5 min before",
+  "15 min before",
+  "30 min before",
+  "1 hour before",
+  "1 day before",
+  "2 days before",
+];
 
-function ReminderPicker({ value, onChange }) {
-  const known = REMINDER_OPTIONS.includes(value);
-  return (
-    <>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        {REMINDER_OPTIONS.map((option) => <div key={option} className={`filter-chip ${value === option ? "active" : ""}`} onClick={() => onChange(option)}><Bell size={11} />{option}</div>)}
-      </div>
-      {!known && <input className="input-line" style={{ marginTop: 4 }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="Custom reminder, e.g. 2 hours before" />}
-      <div className="filter-chip" style={{ display: "inline-flex", marginTop: 5 }} onClick={() => { if (known) onChange("Custom"); }}>Custom</div>
-    </>
-  );
+function formatCustomReminderLabel(reminderAt) {
+  if (!reminderAt) return "Custom";
+
+  const moment = new Date(reminderAt);
+
+  if (Number.isNaN(moment.getTime())) return "Custom";
+
+  const dateLabel = moment.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year:
+      moment.getFullYear() !== new Date().getFullYear()
+        ? "numeric"
+        : undefined,
+  });
+
+  const timeLabel = moment.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return `Custom · ${dateLabel} at ${timeLabel}`;
 }
 
-function QuickAreaPicker({ areas, value, onChange, onCreateArea, allowNone = true }) {
-  const [addingArea, setAddingArea] = useState(false);
-  const [areaName, setAreaName] = useState("");
-  const [areaColor, setAreaColor] = useState("#8FA88A");
+function taskReminderLabel(task) {
+  if (!task?.reminder || task.reminder === "None") return "None";
 
-  const create = () => {
-    if (!areaName.trim() || !onCreateArea) return;
-    const id = onCreateArea({ name: areaName.trim(), color: areaColor });
-    if (id) onChange(id);
-    setAreaName("");
-    setAreaColor("#8FA88A");
-    setAddingArea(false);
-  };
+  if (task.reminder === "Custom") {
+    return formatCustomReminderLabel(task.reminderAt);
+  }
+
+  return task.reminder;
+}
+
+function ReminderPicker({
+  value,
+  onChange,
+  reminderAt = "",
+  onReminderAtChange,
+}) {
+  const isCustom = value === "Custom";
 
   return (
     <>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
-        {allowNone && <div className={`filter-chip ${value === "" ? "active" : ""}`} onClick={() => onChange("")}>No Area</div>}
-        {Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${value === k ? "active" : ""}`} style={{ borderColor: v.color + "55" }} onClick={() => onChange(k)}>{v.name}</div>)}
-        {onCreateArea && <div className={`filter-chip ${addingArea ? "active" : ""}`} onClick={() => setAddingArea(!addingArea)}><Plus size={11} />New Area</div>}
-      </div>
-      {addingArea && (
-        <div className="quick-area-create">
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input className="input-line" style={{ margin: 0, flex: 1 }} value={areaName} onChange={(e) => setAreaName(e.target.value)} placeholder="Area name" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); create(); } }} />
-            <input type="color" value={areaColor} onChange={(e) => setAreaColor(e.target.value)} style={{ width: 42, height: 38, border: "none", background: "transparent", cursor: "pointer" }} />
+      <div
+        className="filter-row"
+        style={{
+          padding: "0 0 2px 0",
+          flexWrap: "wrap",
+          overflowX: "visible",
+        }}
+      >
+        {REMINDER_OPTIONS.map((option) => (
+          <div
+            key={option}
+            className={`filter-chip ${value === option ? "active" : ""}`}
+            onClick={() => onChange(option)}
+          >
+            <Bell size={11} />
+            {option}
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <div className="filter-chip active" onClick={create}>Add & Select</div>
-            <div className="filter-chip" onClick={() => setAddingArea(false)}>Cancel</div>
+        ))}
+
+        <div
+          className={`filter-chip ${isCustom ? "active" : ""}`}
+          onClick={() => onChange("Custom")}
+        >
+          <Bell size={11} />
+          Custom
+        </div>
+      </div>
+
+      {isCustom && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: "11px 12px",
+            borderRadius: 12,
+            background: "var(--subtleBg)",
+            border: "1px solid var(--inputBorder)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--text2)",
+              marginBottom: 7,
+              letterSpacing: 0.2,
+            }}
+          >
+            REMIND ME ON
+          </div>
+
+          <input
+            type="datetime-local"
+            className="input-line"
+            value={reminderAt || ""}
+            onChange={(e) => onReminderAtChange?.(e.target.value)}
+          />
+
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text3)",
+              marginTop: 7,
+              lineHeight: 1.4,
+            }}
+          >
+            Custom reminders use this exact date and time instead of being
+            calculated from the task due time.
           </div>
         </div>
       )}
@@ -1344,12 +1421,26 @@ function reminderOffsetMinutes(value) {
 }
 
 function taskReminderMoment(task) {
-  const offset = reminderOffsetMinutes(task.reminder);
+  if (task?.reminder === "Custom") {
+    if (!task.reminderAt) return null;
+
+    const customMoment = new Date(task.reminderAt);
+
+    if (Number.isNaN(customMoment.getTime())) return null;
+
+    return customMoment;
+  }
+
+  const offset = reminderOffsetMinutes(task?.reminder);
+
   if (offset == null) return null;
+
   const dateKey = taskDateKey(task);
   const time = task.dueTime || "09:00";
   const base = new Date(`${dateKey}T${time}:00`);
+
   if (Number.isNaN(base.getTime())) return null;
+
   return new Date(base.getTime() - offset * 60000);
 }
 
@@ -1391,6 +1482,7 @@ function TaskEditor({
   const [goal, setGoal] = useState(task.goal || "");
   const [recurrence, setRecurrence] = useState(normalizeRecurrence(task, taskDateKey(task)));
   const [reminder, setReminder] = useState(task.reminder || "None");
+  const [reminderAt, setReminderAt] = useState(task.reminderAt || "");
   const [activities, setActivities] = useState(() => normalizeActivity(task));
   const [activityDraft, setActivityDraft] = useState("");
   const [childTitleDraft, setChildTitleDraft] = useState("");
@@ -1455,6 +1547,7 @@ function TaskEditor({
       repeat: recurrence ? recurrenceLabel(recurrence) : null,
       recurrence,
       reminder,
+      reminderAt: reminder === "Custom" ? reminderAt || null : null,
       notes: "",
       activities,
     });
@@ -1489,7 +1582,12 @@ function TaskEditor({
             <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
             <div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding:"0 0 2px 0" }}><div className={`filter-chip ${goal===""?"active":""}`} onClick={()=>setGoal("")}>No Goal</div>{goals.map((g)=><div key={g.id} className={`filter-chip ${goal===g.id?"active":""}`} onClick={()=>setGoal(g.id)}>{g.name}</div>)}</div>
             <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
-            <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
+            <div className="fb-label">Reminder</div><ReminderPicker
+  value={reminder}
+  onChange={setReminder}
+  reminderAt={reminderAt}
+  onReminderAtChange={setReminderAt}
+/>
             <div className="fb-label">Subtasks</div>
 
             {childTasks.length > 0 ? (
@@ -2366,6 +2464,7 @@ function AddSheet({
   const [priority, setPriority] = useState("med");
   const [recurrence, setRecurrence] = useState(null);
   const [reminder, setReminder] = useState("None");
+  const [reminderAt, setReminderAt] = useState("");
   const [activityDraft, setActivityDraft] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -2418,7 +2517,7 @@ function AddSheet({
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, done: false, status: "next", bypassProtected: bypass });
+        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, reminderAt: reminder === "Custom" ? reminderAt || null : null, done: false, status: "next", bypassProtected: bypass });
       } else {
         await onCreateEvent({
           title: title.trim(),
@@ -2456,7 +2555,12 @@ function AddSheet({
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
-      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div
+      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker
+  value={reminder}
+  onChange={setReminder}
+  reminderAt={reminderAt}
+  onReminderAtChange={setReminderAt}
+/><div
   style={{
     marginTop: 10,
     padding: "10px 11px",

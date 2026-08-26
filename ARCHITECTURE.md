@@ -68,13 +68,14 @@ areas/{areaId}
 tasks/{taskId}
   title, notes, areaId, goalId (nullable),
   kind: task|milestone,
+  parentTaskId (nullable — when set, this task is a child/subtask of another task),
   dueDate, dueTime (nullable), priority: low|med|high,
   status: inbox|next|scheduled|done|someday,
   progress: not_started|in_progress|completed,
-  subtasks: [{ id, label, done, dueDate (nullable), dueTime (nullable) }],
   recurrence: { freq: daily|weekly|monthly|yearly, interval: number, days: [], endDate },
   parentRecurringId (nullable — links generated instances back to their rule),
-  createdAt, completedAt, reminders: [{ offsetMinutes }]
+  createdAt, completedAt, reminders: [{ offsetMinutes }],
+  activities: [{ id, text, createdAt }]
 
 goals/{goalId}
   name, areaId, targetDate, progressMode: manual|computedFromMilestones,
@@ -85,6 +86,25 @@ Milestones are stored in `tasks/{taskId}` with `kind: milestone` and a non-null
 checklist record. It uses the same dueDate, progress, completion metadata,
 Area, reminders, Calendar placement, Today placement, and global search behavior
 as any other task.
+
+**Subtasks are first-class child tasks:** Abide does not maintain a second, reduced
+task model for subtasks. A subtask is a normal `tasks/{taskId}` record whose
+`parentTaskId` points to another task. Child tasks support the same editable
+properties and behaviors as top-level tasks, including title, notes/comments,
+activity history, Area, goal, priority, status, progress, due date/time,
+reminders, recurrence, completion metadata, search, and Calendar/Today behavior.
+
+The parent-child relationship affects presentation, not capability. Child tasks
+may be shown nested beneath their parent in task detail, while still remaining
+real actionable records. Completing a parent does not silently erase or rewrite
+its children. Abide should make parent/child completion relationships explicit
+rather than assuming all children are complete.
+
+Legacy embedded `subtasks` arrays may be migrated into child task records. Such a
+migration must preserve existing subtask IDs where practical, labels/titles,
+completion state, due dates, and due times, and must not duplicate already-migrated
+children. After migration is proven safe, new subtasks should be created only as
+first-class child tasks rather than embedded checklist objects.
 
 journalEntries/{entryId}          // "Time with the Lord"
   date, scriptureRef, note, richTextHtml, tag: yellow|green|pink|blue|orange,

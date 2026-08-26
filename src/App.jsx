@@ -5396,7 +5396,37 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
   const nextMonthDate = new Date(dateFromKey(REFERENCE_DATE_KEY));
   nextMonthDate.setMonth(nextMonthDate.getMonth() + 1, 1);
   const monthLabel = nextMonthDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const periodLabel = cadence === "weekly" ? `${formatDateLabel(weekKeys[0])} – ${formatDateLabel(weekEnd)}` : monthLabel;
+  const reviewReferenceDate = dateFromKey(REFERENCE_DATE_KEY);
+
+  const weeklyStart = new Date(reviewReferenceDate);
+  const mondayOffset = (weeklyStart.getDay() + 6) % 7;
+  weeklyStart.setDate(weeklyStart.getDate() - mondayOffset);
+
+  const weeklyEnd = new Date(weeklyStart);
+  weeklyEnd.setDate(weeklyEnd.getDate() + 6);
+
+  const weeklyStartLabel = weeklyStart.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  const weeklyEndLabel =
+    weeklyStart.getMonth() === weeklyEnd.getMonth()
+      ? weeklyEnd.toLocaleDateString("en-US", {
+          day: "numeric",
+        })
+      : weeklyEnd.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+
+  const periodLabel =
+    cadence === "weekly"
+      ? `This Week · ${weeklyStartLabel}–${weeklyEndLabel}`
+      : reviewReferenceDate.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
 
   const updateState = (patch) => setWorkspace((prev) => ({
     ...prev,

@@ -18,6 +18,7 @@ const db = getFirestore();
 const messaging = getMessaging();
 
 const TASK_STATE_KEY = "abide-tasks";
+const EVENT_STATE_KEY = "abide-calendar-events";
 const PREF_STATE_KEY = "abide-notification-prefs";
 
 const DEFAULT_TIMEZONE = "America/Chicago";
@@ -64,6 +65,100 @@ function reminderOffsetMinutes(value) {
   return null;
 }
 
+function taskDueMoment(task, timezone) {
+  if (!task?.dueDate || !task?.dueTime) return null;
+
+  const moment = DateTime.fromISO(
+    `${task.dueDate}T${task.dueTime}`,
+    { zone: timezone }
+  );
+
+  return moment.isValid ? moment : null;
+}
+
+function parseDisplayEventTime(dateKey, timeLabel, timezone) {
+  if (
+    !dateKey ||
+    !timeLabel ||
+    /all\s*day/i.test(String(timeLabel))
+  ) {
+    return null;
+  }
+
+  const formats = [
+    "yyyy-MM-dd h:mm a",
+    "yyyy-MM-dd h a",
+    "yyyy-MM-dd H:mm",
+  ];
+
+  for (const format of formats) {
+    const parsed = DateTime.fromFormat(
+      `${dateKey} ${timeLabel}`,
+      format,
+      {
+        zone: timezone,
+        locale: "en-US",
+      }
+    );
+
+    if (parsed.isValid) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function eventStartMoment(event, timezone) {
+  if (!event) return null;
+
+  const start = event.start || {};
+
+  // Google all-day events use start.date rather than dateTime.
+  if (start.date && !start.dateTime) {
+    return null;
+  }
+
+  if (start.dateTime) {
+    const raw = String(start.dateTime);
+
+    const hasOffset =
+      /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+
+    let parsed;
+
+    if (hasOffset) {
+      parsed = DateTime.fromISO(raw, {
+        setZone: true,
+      });
+
+      if (parsed.isValid && validTimezone(timezone)) {
+        parsed = parsed.setZone(timezone);
+      }
+    } else {
+      const zone =
+        validTimezone(start.timeZone)
+          ? start.timeZone
+          : timezone;
+
+      parsed = DateTime.fromISO(raw, {
+        zone,
+      });
+    }
+
+    if (parsed?.isValid) {
+      return parsed;
+    }
+  }
+
+  // Native Abide events use the synced date + display-time label.
+  return parseDisplayEventTime(
+    event.date,
+    event.time,
+    timezone
+  );
+}
+
 function reminderMoment(task, timezone) {
   if (!task || !task.reminder || task.reminder === "None") {
     return null;
@@ -99,10 +194,10 @@ function reminderMoment(task, timezone) {
   return due.minus({ minutes: offsetMinutes });
 }
 
-function deliveryId(taskId, moment) {
+function deliveryId(taskId, moment, kind = "reminder") {
   return crypto
     .createHash("sha256")
-    .update(`${String(taskId)}|${moment.toUTC().toISO()}`)
+    .update(`${String(taskId)}|${kind}|${moment.toUTC().toISO()}`)
     .digest("hex");
 }
 
@@ -198,8 +293,8 @@ function validTimezone(value) {
   }
 }
 
-async function claimDelivery(uid, task, moment) {
-  const id = deliveryId(task.id, moment);
+async function claimDelivery(uid, task, moment, kind = "reminder") {
+  const id = deliveryId(task.id, moment, kind);
 
   const ref = db
     .collection("users")
@@ -323,13 +418,20 @@ exports.sendTaskReminders = onSchedule(
      * Query every synced task-state document.
      * Each matching document belongs to one user.
      */
-    const taskStates = await db
-      .collectionGroup("syncState")
-      .where("key", "==", TASK_STATE_KEY)
-      .get();
+    const [taskStates, eventStates] = await Promise.all([
+      db
+        .collectionGroup("syncState")
+        .where("key", "==", TASK_STATE_KEY)
+        .get(),
+
+      db
+        .collectionGroup("syncState")
+        .where("key", "==", EVENT_STATE_KEY)
+        .get(),
+    ]);
 
     logger.info(
-      `Reminder scheduler checking ${taskStates.size} task state document(s).`
+      `Reminder scheduler checking ${taskStates.size} task state document(s) and ${eventStates.size} event state document(s).`
     );
 
     let remindersSent = 0;
@@ -411,11 +513,112 @@ exports.sendTaskReminders = onSchedule(
 
       for (const task of tasks) {
         if (!task || task.done) continue;
+
+        const dueMoment = taskDueMoment(task, timezone);
+
+        // A task with an explicit due time always gets a due-now
+        // notification, even if its reminder is None or earlier.
+        if (dueMoment && dueMoment.isValid) {
+          const dueMs = dueMoment.toMillis();
+          const dueNowMs = Date.now();
+
+          if (
+            dueMs <= dueNowMs + 30 * 1000 &&
+            dueMs >= dueNowMs - 10 * 60 * 1000
+          ) {
+            const dueClaim = await claimDelivery(
+              uid,
+              task,
+              dueMoment,
+              "due"
+            );
+
+            if (dueClaim.claimed) {
+              const taskTitle =
+                String(task.title || "").trim() ||
+                "Task";
+
+              try {
+                const dueResult =
+                  await messaging.sendEachForMulticast({
+                    tokens,
+
+                    data: {
+                      title: `Due now: ${taskTitle}`,
+                      body: `Scheduled for ${dueMoment.toFormat("h:mm a")}.`,
+                      url: `/?tab=reminders&taskId=${encodeURIComponent(String(task.id))}`,
+                      tag: `abide-task-due-${String(task.id)}`,
+                      taskId: String(task.id),
+                    },
+
+                    webpush: {
+                      headers: {
+                        Urgency: "high",
+                      },
+                    },
+                  });
+
+                await cleanInvalidTokens(
+                  deviceDocs,
+                  dueResult.responses
+                );
+
+                if (dueResult.successCount > 0) {
+                  await markDeliverySent(
+                    dueClaim.ref,
+                    dueResult
+                  );
+
+                  remindersSent += 1;
+
+                  logger.info(
+                    `Sent due-time notification for task ${task.id} to ${dueResult.successCount} device(s).`
+                  );
+                } else {
+                  const dueError =
+                    dueResult.responses.find(
+                      (response) => !response.success
+                    )?.error?.message ||
+                    "FCM returned no successful deliveries.";
+
+                  await markDeliveryFailed(
+                    dueClaim.ref,
+                    dueError
+                  );
+
+                  logger.warn(
+                    `Due-time notification for task ${task.id} was not delivered: ${dueError}`
+                  );
+                }
+              } catch (error) {
+                await markDeliveryFailed(
+                  dueClaim.ref,
+                  error?.message
+                );
+
+                logger.error(
+                  `Due-time delivery failed for ${task.id}.`,
+                  error
+                );
+              }
+            }
+          }
+        }
+
         if (!task.reminder || task.reminder === "None") continue;
 
         const moment = reminderMoment(task, timezone);
 
         if (!moment || !moment.isValid) continue;
+
+        // If the selected reminder lands in the exact same minute as
+        // the due time, the due-now notification above is enough.
+        if (
+          dueMoment &&
+          Math.abs(moment.toMillis() - dueMoment.toMillis()) < 60000
+        ) {
+          continue;
+        }
 
         const reminderMs = moment.toMillis();
         const nowMs = Date.now();
@@ -525,6 +728,192 @@ exports.sendTaskReminders = onSchedule(
 
           logger.error(
             `Reminder delivery failed for ${task.id}.`,
+            error
+          );
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // CALENDAR EVENT START NOTIFICATIONS
+    // ---------------------------------------------------------
+
+    for (const eventStateDoc of eventStates.docs) {
+      const userRef = eventStateDoc.ref.parent.parent;
+
+      if (!userRef) continue;
+
+      const uid = userRef.id;
+
+      const events = parseJson(
+        eventStateDoc.data().value,
+        []
+      );
+
+      if (!Array.isArray(events) || !events.length) {
+        continue;
+      }
+
+      // Respect the Calendar event alerts preference.
+      const prefsRef = eventStateDoc.ref.parent.doc(
+        encodeURIComponent(PREF_STATE_KEY)
+      );
+
+      const prefsSnapshot = await prefsRef.get();
+
+      if (prefsSnapshot.exists) {
+        const prefs = parseJson(
+          prefsSnapshot.data().value,
+          {}
+        );
+
+        if (prefs.calendar === false) {
+          continue;
+        }
+      }
+
+      const devicesSnapshot = await userRef
+        .collection("pushDevices")
+        .where("enabled", "==", true)
+        .get();
+
+      if (devicesSnapshot.empty) {
+        continue;
+      }
+
+      const enabledDevices = devicesSnapshot.docs.filter(
+        (document) => Boolean(document.data().token)
+      );
+
+      if (!enabledDevices.length) {
+        continue;
+      }
+
+      const timezone =
+        enabledDevices
+          .map((document) => document.data().timezone)
+          .find(validTimezone) ||
+        DEFAULT_TIMEZONE;
+
+      const deviceDocs = enabledDevices.slice(0, 500);
+
+      const tokens = deviceDocs.map(
+        (document) => document.data().token
+      );
+
+      for (const event of events) {
+        if (!event || !event.id) continue;
+
+        const startMoment = eventStartMoment(
+          event,
+          timezone
+        );
+
+        // All-day events return null and stay quiet.
+        if (!startMoment || !startMoment.isValid) {
+          continue;
+        }
+
+        const startMs = startMoment.toMillis();
+        const nowMs = Date.now();
+
+        if (startMs > nowMs + 30 * 1000) {
+          continue;
+        }
+
+        if (startMs < nowMs - 10 * 60 * 1000) {
+          continue;
+        }
+
+        const claim = await claimDelivery(
+          uid,
+          event,
+          startMoment,
+          "event-start"
+        );
+
+        if (!claim.claimed) {
+          continue;
+        }
+
+        const eventTitle =
+          String(event.title || "").trim() ||
+          "Event";
+
+        const calendarLabel =
+          event.calendarLabel ||
+          (
+            event.source === "google"
+              ? "Google Calendar"
+              : event.source === "microsoft"
+                ? "Outlook Calendar"
+                : "Abide"
+          );
+
+        try {
+          const result =
+            await messaging.sendEachForMulticast({
+              tokens,
+
+              data: {
+                title: `Starting now: ${eventTitle}`,
+                body: `${calendarLabel} event is starting now.`,
+                url: `/?tab=calendar&eventId=${encodeURIComponent(
+                  String(event.id)
+                )}&date=${encodeURIComponent(
+                  String(event.date || "")
+                )}`,
+                tag: `abide-event-start-${String(event.id)}`,
+                eventId: String(event.id),
+              },
+
+              webpush: {
+                headers: {
+                  Urgency: "high",
+                },
+              },
+            });
+
+          await cleanInvalidTokens(
+            deviceDocs,
+            result.responses
+          );
+
+          if (result.successCount > 0) {
+            await markDeliverySent(
+              claim.ref,
+              result
+            );
+
+            remindersSent += 1;
+
+            logger.info(
+              `Sent start-time notification for event ${event.id} to ${result.successCount} device(s).`
+            );
+          } else {
+            const firstError =
+              result.responses.find(
+                (response) => !response.success
+              )?.error?.message ||
+              "FCM returned no successful deliveries.";
+
+            await markDeliveryFailed(
+              claim.ref,
+              firstError
+            );
+
+            logger.warn(
+              `Start-time notification for event ${event.id} was not delivered: ${firstError}`
+            );
+          }
+        } catch (error) {
+          await markDeliveryFailed(
+            claim.ref,
+            error?.message
+          );
+
+          logger.error(
+            `Event start-time delivery failed for ${event.id}.`,
             error
           );
         }

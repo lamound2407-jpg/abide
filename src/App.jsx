@@ -3014,6 +3014,54 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let eventId = "";
+    let dateKey = "";
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      eventId = params.get("eventId") || "";
+      dateKey = params.get("date") || "";
+    } catch {
+      return;
+    }
+
+    if (!eventId) return;
+
+    const targetEvent = events.find(
+      (event) => String(event.id) === String(eventId)
+    );
+
+    if (!targetEvent) return;
+
+    setAdding(false);
+    setEditingTask(null);
+
+    setSelectedDateKey(
+      targetEvent.date ||
+      dateKey ||
+      REFERENCE_DATE_KEY
+    );
+
+    setEditingEvent(targetEvent);
+
+    try {
+      const url = new URL(window.location.href);
+
+      url.searchParams.delete("eventId");
+      url.searchParams.delete("date");
+      url.searchParams.delete("tab");
+
+      window.history.replaceState(
+        {},
+        "",
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    } catch {}
+  }, [events]);
+
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const googleConfigured = Boolean(googleClientId);
   const googleConnected = googleAccounts.some((a) => Boolean(a.token));

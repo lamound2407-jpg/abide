@@ -47,6 +47,51 @@ const APP_NAME = "Abide";
 const APP_VERSION = packageInfo.version;
 const APP_BUILD_DATE = __APP_BUILD_DATE__;
 
+const PRIMARY_NAV_DESTINATIONS = [
+  { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "review", label: "Review", icon: RefreshCw },
+  { id: "journal", label: "Journal", icon: BookOpen },
+  { id: "goals", label: "Goals", icon: Target },
+  { id: "scratch", label: "Scratchbook", icon: PenTool },
+  { id: "reminders", label: "Reminders", icon: Bell },
+  { id: "insights", label: "Insights", icon: BarChart3 },
+];
+
+const DEFAULT_PRIMARY_NAV = ["calendar", "review", "journal"];
+
+function normalizePrimaryNav(value) {
+  const validIds = new Set(
+    PRIMARY_NAV_DESTINATIONS.map((destination) => destination.id)
+  );
+
+  const next = [];
+
+  if (Array.isArray(value)) {
+    value.forEach((id) => {
+      if (
+        typeof id === "string" &&
+        validIds.has(id) &&
+        !next.includes(id) &&
+        next.length < 3
+      ) {
+        next.push(id);
+      }
+    });
+  }
+
+  for (const id of DEFAULT_PRIMARY_NAV) {
+    if (next.length >= 3) break;
+    if (!next.includes(id)) next.push(id);
+  }
+
+  for (const destination of PRIMARY_NAV_DESTINATIONS) {
+    if (next.length >= 3) break;
+    if (!next.includes(destination.id)) next.push(destination.id);
+  }
+
+  return next.slice(0, 3);
+}
+
 const MICROSOFT_CLIENT_ID =
   import.meta.env.VITE_MICROSOFT_CLIENT_ID ||
   "db533aef-a678-412d-bb74-b1774bc24c7f";
@@ -4240,7 +4285,21 @@ function AreaComposer({ initial, onSave, onCancel }) {
   );
 }
 
-function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync, onOpenHowAbideWorks }) {
+function SettingsScreen({
+  onBack,
+  theme,
+  setTheme,
+  protectedBlocks,
+  setProtectedBlocks,
+  areas,
+  setAreas,
+  onDeleteArea,
+  onOpenCalendar,
+  accountSync,
+  onOpenHowAbideWorks,
+  primaryNavigation = DEFAULT_PRIMARY_NAV,
+  setPrimaryNavigation,
+}) {
   const [blockComposer, setBlockComposer] = useState(null);
   const [areaComposer, setAreaComposer] = useState(null); // null | "add" | areaId
   const {
@@ -4254,12 +4313,200 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
   const deleteBlock = (id) => setProtectedBlocks((prev) => prev.filter((b) => b.id !== id));
   const saveArea = ({ id, name, color }) => { setAreas((prev) => ({ ...prev, [id]: { name, color } })); setAreaComposer(null); };
 
+  const safePrimaryNavigation = normalizePrimaryNav(primaryNavigation);
+
+  const updatePrimaryNavigationSlot = (index, destinationId) => {
+    if (!setPrimaryNavigation) return;
+
+    const next = [...safePrimaryNavigation];
+
+    if (
+      next.some(
+        (id, existingIndex) =>
+          existingIndex !== index && id === destinationId
+      )
+    ) {
+      return;
+    }
+
+    next[index] = destinationId;
+    setPrimaryNavigation(normalizePrimaryNav(next));
+  };
+
+  const restoreDefaultNavigation = () => {
+    setPrimaryNavigation?.([...DEFAULT_PRIMARY_NAV]);
+  };
+
   return (
     <>
       <Header eyebrow="Insights" title="Settings" onBack={onBack} />
       <div className="scroll">
         <div className="section-label">Appearance</div>
         <div className="segmented"><div className={`seg-btn ${theme === "light" ? "active" : ""}`} onClick={() => setTheme("light")}>Light</div><div className={`seg-btn ${theme === "dark" ? "active" : ""}`} onClick={() => setTheme("dark")}>Dark</div></div>
+
+        <div
+          className="section-label"
+          style={{ alignItems: "center" }}
+        >
+          <span>Customize Navigation</span>
+          <div
+            onClick={restoreDefaultNavigation}
+            style={{
+              color: "#E8B45C",
+              fontSize: 10.5,
+              fontWeight: 700,
+              cursor: "pointer",
+              textTransform: "none",
+              letterSpacing: 0,
+            }}
+          >
+            Restore Default
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "4px 14px" }}>
+          <div
+            style={{
+              padding: "11px 2px 10px",
+              fontSize: 11.5,
+              lineHeight: 1.45,
+              color: "var(--text3)",
+              borderBottom: "1px solid var(--divider)",
+            }}
+          >
+            Today and More stay fixed. Choose what belongs in the three
+            middle positions.
+          </div>
+
+          {safePrimaryNavigation.map((selectedId, index) => {
+            const selectedDestination =
+              PRIMARY_NAV_DESTINATIONS.find(
+                (destination) => destination.id === selectedId
+              ) || PRIMARY_NAV_DESTINATIONS[0];
+
+            const SelectedIcon = selectedDestination.icon;
+
+            return (
+              <div
+                key={index}
+                style={{
+                  minHeight: 58,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "9px 2px",
+                  borderBottom:
+                    index === 2
+                      ? "none"
+                      : "1px solid var(--divider)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    minWidth: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 9,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "var(--pillBg)",
+                      border: "1px solid var(--pillBorder)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <SelectedIcon size={14} color="#E8B45C" />
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 10.5,
+                        color: "var(--text3)",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: .45,
+                      }}
+                    >
+                      Position {index + 2}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "var(--text)",
+                        fontWeight: 650,
+                        marginTop: 2,
+                      }}
+                    >
+                      {selectedDestination.label}
+                    </div>
+                  </div>
+                </div>
+
+                <select
+                  value={selectedId}
+                  onChange={(event) =>
+                    updatePrimaryNavigationSlot(
+                      index,
+                      event.target.value
+                    )
+                  }
+                  style={{
+                    maxWidth: 145,
+                    minWidth: 120,
+                    border: "1px solid var(--inputBorder)",
+                    background: "var(--inputBg)",
+                    color: "var(--text)",
+                    borderRadius: 10,
+                    padding: "8px 9px",
+                    font: "inherit",
+                    fontSize: 12,
+                    outline: "none",
+                  }}
+                >
+                  {PRIMARY_NAV_DESTINATIONS.map((destination) => {
+                    const usedElsewhere =
+                      safePrimaryNavigation.some(
+                        (id, existingIndex) =>
+                          existingIndex !== index &&
+                          id === destination.id
+                      );
+
+                    return (
+                      <option
+                        key={destination.id}
+                        value={destination.id}
+                        disabled={usedElsewhere}
+                      >
+                        {destination.label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            fontSize: 11.5,
+            lineHeight: 1.45,
+            color: "var(--text3)",
+            margin: "7px 4px 0",
+          }}
+        >
+          Anything you remove from the tab bar remains available from More.
+        </div>
 
         <div className="section-label"><span>Areas</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setAreaComposer(areaComposer === "add" ? null : "add")} /></div>
         {areaComposer === "add" && <AreaComposer onSave={saveArea} onCancel={() => setAreaComposer(null)} />}
@@ -5236,11 +5483,47 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
   );
 }
 
-function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, onOpenCalendar, accountSync, onOpenHowAbideWorks }) {
+function MoreTab({
+  onOpen,
+  theme,
+  setTheme,
+  protectedBlocks,
+  setProtectedBlocks,
+  areas,
+  setAreas,
+  onDeleteArea,
+  onOpenCalendar,
+  accountSync,
+  onOpenHowAbideWorks,
+  primaryNavigation,
+  setPrimaryNavigation,
+}) {
   const [screen, setScreen] = useState("more");
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("more")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} onOpenHowAbideWorks={onOpenHowAbideWorks} />;
+
+  if (screen === "settings") {
+    return (
+      <SettingsScreen
+        onBack={() => setScreen("more")}
+        theme={theme}
+        setTheme={setTheme}
+        protectedBlocks={protectedBlocks}
+        setProtectedBlocks={setProtectedBlocks}
+        areas={areas}
+        setAreas={setAreas}
+        onDeleteArea={onDeleteArea}
+        onOpenCalendar={onOpenCalendar}
+        accountSync={accountSync}
+        onOpenHowAbideWorks={onOpenHowAbideWorks}
+        primaryNavigation={primaryNavigation}
+        setPrimaryNavigation={setPrimaryNavigation}
+      />
+    );
+  }
 
   const cards = [
+    { id: "calendar", label: "Calendar", copy: "Events, protected time, and connected calendars", icon: CalendarDays, tint: "#8FA88A" },
+    { id: "review", label: "Review", copy: "A short weekly reset and monthly preparation", icon: RefreshCw, tint: "#E8B45C" },
+    { id: "journal", label: "Journal", copy: "Time with the Lord and reflection history", icon: BookOpen, tint: "#A98BE0" },
     { id: "goals", label: "Goals", copy: "Projects, outcomes, and higher horizons", icon: Target, tint: "#7C93C9" },
     { id: "scratch", label: "Scratchbook", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
     { id: "reminders", label: "Reminders", copy: "Upcoming alerts and notification controls", icon: Bell, tint: "#E8B45C" },
@@ -5283,13 +5566,49 @@ function MoreTab({ onOpen, theme, setTheme, protectedBlocks, setProtectedBlocks,
 }
 
 
-function InsightsTab({ theme, setTheme, protectedBlocks, setProtectedBlocks, areas, setAreas, onDeleteArea, tasks, goals, journalEntries, setJournalEntries, onOpenJournal, onOpenCalendar, accountSync, onOpenHowAbideWorks }) {
+function InsightsTab({
+  theme,
+  setTheme,
+  protectedBlocks,
+  setProtectedBlocks,
+  areas,
+  setAreas,
+  onDeleteArea,
+  tasks,
+  goals,
+  journalEntries,
+  setJournalEntries,
+  onOpenJournal,
+  onOpenCalendar,
+  accountSync,
+  onOpenHowAbideWorks,
+  primaryNavigation,
+  setPrimaryNavigation,
+}) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [screen, setScreen] = useState("dashboard");
   const [selectedHeatDate, setSelectedHeatDate] = useState(REFERENCE_DATE_KEY);
 
   if (screen === "notifications") return <NotificationCenter onBack={() => setScreen("dashboard")} tasks={tasks} />;
-  if (screen === "settings") return <SettingsScreen onBack={() => setScreen("dashboard")} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={onDeleteArea} onOpenCalendar={onOpenCalendar} accountSync={accountSync} onOpenHowAbideWorks={onOpenHowAbideWorks} />;
+  if (screen === "settings") {
+    return (
+      <SettingsScreen
+        onBack={() => setScreen("dashboard")}
+        theme={theme}
+        setTheme={setTheme}
+        protectedBlocks={protectedBlocks}
+        setProtectedBlocks={setProtectedBlocks}
+        areas={areas}
+        setAreas={setAreas}
+        onDeleteArea={onDeleteArea}
+        onOpenCalendar={onOpenCalendar}
+        accountSync={accountSync}
+        onOpenHowAbideWorks={onOpenHowAbideWorks}
+        primaryNavigation={primaryNavigation}
+        setPrimaryNavigation={setPrimaryNavigation}
+      />
+    );
+  }
 
   const doneCount = tasks.filter((t) => t.done).length;
   const completionRate = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
@@ -5374,6 +5693,11 @@ export default function App({ accountSync }) {
   const [journalEntries, setJournalEntries] = usePersistentState("abide-journal", seedJournal);
   const [expandedId, setExpandedId] = useState(null);
   const [theme, setTheme] = usePersistentState("abide-theme", "dark");
+  const [primaryNavigation, setPrimaryNavigation] = usePersistentState(
+    "abide-primary-navigation",
+    DEFAULT_PRIMARY_NAV
+  );
+  const safePrimaryNavigation = normalizePrimaryNav(primaryNavigation);
   const [protectedBlocks, setProtectedBlocks] = usePersistentState("abide-protected-blocks", []);
   const [onboardingComplete, setOnboardingComplete] = usePersistentState("abide-onboarding-complete", false);
   const [onboardingAreaName, setOnboardingAreaName] = useState("");
@@ -5401,6 +5725,15 @@ export default function App({ accountSync }) {
     onResize(); window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    if (
+      JSON.stringify(primaryNavigation) !==
+      JSON.stringify(safePrimaryNavigation)
+    ) {
+      setPrimaryNavigation(safePrimaryNavigation);
+    }
+  }, [primaryNavigation]);
 
 
   const toggleDone = (id) => setTasks((prev) => {
@@ -5732,9 +6065,13 @@ export default function App({ accountSync }) {
 
   const tabs = [
     { id: "today", label: "Today", icon: ListTodo },
-    { id: "calendar", label: "Calendar", icon: CalendarDays },
-    { id: "review", label: "Review", icon: RefreshCw },
-    { id: "journal", label: "Journal", icon: BookOpen },
+    ...safePrimaryNavigation
+      .map((id) =>
+        PRIMARY_NAV_DESTINATIONS.find(
+          (destination) => destination.id === id
+        )
+      )
+      .filter(Boolean),
     { id: "more", label: "More", icon: SettingsIcon },
   ];
 
@@ -5766,8 +6103,45 @@ export default function App({ accountSync }) {
       {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
       {tab === "scratch" && <ScratchTab />}
       {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
-      {tab === "insights" && <InsightsTab theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} tasks={tasks} goals={goals} journalEntries={journalEntries} setJournalEntries={setJournalEntries} onOpenJournal={() => setTab("journal")} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} onOpenHowAbideWorks={openHowAbideWorks} />}
-      {tab === "more" && <MoreTab onOpen={setTab} theme={theme} setTheme={setTheme} protectedBlocks={protectedBlocks} setProtectedBlocks={setProtectedBlocks} areas={areas} setAreas={setAreas} onDeleteArea={deleteArea} onOpenCalendar={() => setTab("calendar")} accountSync={accountSync} onOpenHowAbideWorks={openHowAbideWorks} />}
+      {tab === "insights" && (
+        <InsightsTab
+          theme={theme}
+          setTheme={setTheme}
+          protectedBlocks={protectedBlocks}
+          setProtectedBlocks={setProtectedBlocks}
+          areas={areas}
+          setAreas={setAreas}
+          onDeleteArea={deleteArea}
+          tasks={tasks}
+          goals={goals}
+          journalEntries={journalEntries}
+          setJournalEntries={setJournalEntries}
+          onOpenJournal={() => setTab("journal")}
+          onOpenCalendar={() => setTab("calendar")}
+          accountSync={accountSync}
+          onOpenHowAbideWorks={openHowAbideWorks}
+          primaryNavigation={safePrimaryNavigation}
+          setPrimaryNavigation={setPrimaryNavigation}
+        />
+      )}
+
+      {tab === "more" && (
+        <MoreTab
+          onOpen={setTab}
+          theme={theme}
+          setTheme={setTheme}
+          protectedBlocks={protectedBlocks}
+          setProtectedBlocks={setProtectedBlocks}
+          areas={areas}
+          setAreas={setAreas}
+          onDeleteArea={deleteArea}
+          onOpenCalendar={() => setTab("calendar")}
+          accountSync={accountSync}
+          onOpenHowAbideWorks={openHowAbideWorks}
+          primaryNavigation={safePrimaryNavigation}
+          setPrimaryNavigation={setPrimaryNavigation}
+        />
+      )}
     </>
   );
 

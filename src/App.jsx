@@ -634,6 +634,67 @@ const TAGS = {
   orange: { label: "Command", hex: "#E5934A" },
 };
 
+const DEFAULT_HIGHLIGHT_MEANINGS = {
+  yellow: {
+    colorName: "Yellow",
+    label: "Main Point",
+    heading: "The point",
+    displayHex: "#F4DE3D",
+    description:
+      "The single most important line — the one thing to remember. If you could keep only one sentence from the page, this is it.",
+    examples:
+      "Examples: the main idea of a chapter; the decision made in a meeting. Use sparingly — one or two peaks, not everything important.",
+  },
+  green: {
+    colorName: "Green",
+    label: "People / Places",
+    heading: "Who & where",
+    displayHex: "#5FD79A",
+    description:
+      "People, groups, and places. Use it when a name shows up or when you need to remember who owns something.",
+    examples:
+      "Examples: Peter, the Pharisees, Capernaum; Derek owns this.",
+  },
+  pink: {
+    colorName: "Pink",
+    label: "Cost / Tradeoff",
+    heading: "The cost",
+    displayHex: "#F76FA6",
+    description:
+      "The price tag — what gets given up, lost, risked, or sacrificed. Ask: “What’s the price here?”",
+    examples:
+      "Examples: Jesus dying on the cross; pulling Rachelle off the newsletter for a month. Pink is what it costs; orange/purple is what to do.",
+  },
+  blue: {
+    colorName: "Blue / Aqua",
+    label: "Future-Facing",
+    heading: "What’s ahead",
+    displayHex: "#5FC2D8",
+    description:
+      "Future promises, plans, deadlines, and what will happen. Ask: “Is this about later?”",
+    examples:
+      "Examples: God’s promise to Abraham; a project deadline. Blue is what will happen or is promised; orange/purple is what you need to do.",
+  },
+  orange: {
+    colorName: "Orange / Purple",
+    label: "Command",
+    heading: "What to do",
+    displayHex: "#F6A23C",
+    secondaryHex: "#A98BE0",
+    description:
+      "An action, command, task, or to-do. Ask: “So what do I do?”",
+    examples:
+      "Examples: Love one another; I draft comms by Friday. Kindle uses orange and Apple uses purple for the same job.",
+  },
+};
+
+function highlightMeaningFor(meanings, key) {
+  return {
+    ...(DEFAULT_HIGHLIGHT_MEANINGS[key] || {}),
+    ...((meanings && meanings[key]) || {}),
+  };
+}
+
 // Brand-new accounts start clean. Existing signed-in accounts hydrate their own
 // saved state from Firebase before App renders.
 const seedTasks = [];
@@ -4043,6 +4104,214 @@ function GoalsTab({
   );
 }
 
+function HighlightSettingsEditor({
+  meanings,
+  setMeanings,
+  onClose,
+}) {
+  const updateMeaning = (key, field, value) => {
+    setMeanings((prev) => ({
+      ...DEFAULT_HIGHLIGHT_MEANINGS,
+      ...(prev || {}),
+      [key]: {
+        ...highlightMeaningFor(prev, key),
+        [field]: value,
+      },
+    }));
+  };
+
+  const restoreDefaults = () => {
+    if (
+      window.confirm(
+        "Restore Abide’s original highlight meanings? Your journal entries and highlight colors will not change."
+      )
+    ) {
+      setMeanings(
+        JSON.parse(JSON.stringify(DEFAULT_HIGHLIGHT_MEANINGS))
+      );
+    }
+  };
+
+  return createPortal(
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="card composer-card task-editor-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="editor-shell">
+          <div className="editor-header">
+            <div>
+              <div className="editor-title">Highlight Meanings</div>
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--text3)",
+                  marginTop: 3,
+                }}
+              >
+                Make the colors mean what is useful to you.
+              </div>
+            </div>
+
+            <div className="editor-close" onClick={onClose}>
+              <X size={17} />
+            </div>
+          </div>
+
+          <div className="editor-scroll">
+            <div
+              style={{
+                fontSize: 12,
+                lineHeight: 1.5,
+                color: "var(--text3)",
+                marginBottom: 14,
+              }}
+            >
+              The colors themselves stay the same. Only your personal
+              explanation of what each color means changes. Every field is
+              optional.
+            </div>
+
+            {Object.keys(TAGS).map((key) => {
+              const meaning = highlightMeaningFor(meanings, key);
+
+              return (
+                <div
+                  key={key}
+                  style={{
+                    padding: 13,
+                    borderRadius: 13,
+                    border: "1px solid var(--divider)",
+                    background: "var(--subtleBg)",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 9,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 13,
+                        height: 13,
+                        borderRadius: 999,
+                        background:
+                          meaning.displayHex || TAGS[key].hex,
+                        flexShrink: 0,
+                      }}
+                    />
+
+                    {meaning.secondaryHex && (
+                      <span
+                        style={{
+                          width: 13,
+                          height: 13,
+                          borderRadius: 999,
+                          background: meaning.secondaryHex,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+
+                    <strong style={{ color: "var(--text)" }}>
+                      {meaning.colorName ||
+                        key.charAt(0).toUpperCase() + key.slice(1)}
+                    </strong>
+                  </div>
+
+                  <div className="fb-label" style={{ marginTop: 0 }}>
+                    Short label
+                  </div>
+                  <input
+                    className="input-line"
+                    style={{ marginTop: 0 }}
+                    value={meaning.label || ""}
+                    onChange={(event) =>
+                      updateMeaning(key, "label", event.target.value)
+                    }
+                    placeholder="Optional"
+                  />
+
+                  <div className="fb-label">Glossary heading</div>
+                  <input
+                    className="input-line"
+                    style={{ marginTop: 0 }}
+                    value={meaning.heading || ""}
+                    onChange={(event) =>
+                      updateMeaning(key, "heading", event.target.value)
+                    }
+                    placeholder="Optional"
+                  />
+
+                  <div className="fb-label">What it means to you</div>
+                  <textarea
+                    className="notes-box"
+                    rows={4}
+                    value={meaning.description || ""}
+                    onChange={(event) =>
+                      updateMeaning(
+                        key,
+                        "description",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Write as much as you want, or leave this blank."
+                  />
+
+                  <div className="fb-label">Examples or notes</div>
+                  <textarea
+                    className="notes-box"
+                    rows={3}
+                    value={meaning.examples || ""}
+                    onChange={(event) =>
+                      updateMeaning(
+                        key,
+                        "examples",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Optional"
+                  />
+                </div>
+              );
+            })}
+
+            <div
+              className="filter-chip"
+              style={{
+                justifyContent: "center",
+                marginTop: 4,
+              }}
+              onClick={restoreDefaults}
+            >
+              <RefreshCw size={12} />
+              Restore Abide Defaults
+            </div>
+          </div>
+
+          <div className="editor-footer">
+            <div
+              className="filter-chip active"
+              style={{
+                flex: 1,
+                justifyContent: "center",
+              }}
+              onClick={onClose}
+            >
+              Done
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function plainTextToHtml(text = "") {
   const div = document.createElement("div");
   div.textContent = text || "";
@@ -4054,7 +4323,13 @@ function htmlToPlainText(html = "") {
   const div = document.createElement("div"); div.innerHTML = html; return (div.textContent || "").trim();
 }
 
-function RichTextEditor({ value, onChange, placeholder = "Write…", minHeight = 120 }) {
+function RichTextEditor({
+  value,
+  onChange,
+  placeholder = "Write…",
+  minHeight = 120,
+  highlightMeanings = DEFAULT_HIGHLIGHT_MEANINGS,
+}) {
   const ref = useRef(null);
   const savedRange = useRef(null);
   useEffect(() => {
@@ -4087,7 +4362,29 @@ function RichTextEditor({ value, onChange, placeholder = "Write…", minHeight =
         <select className="rich-select" defaultValue="-apple-system" onMouseDown={rememberSelection} onChange={(e) => command("fontName", e.target.value)} title="Font">
           <option value="-apple-system">System</option><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Courier New">Courier</option><option value="Times New Roman">Times</option>
         </select>
-        {Object.values(TAGS).map((t) => <button key={t.hex} type="button" className="rich-btn" style={{ minWidth: 24, width: 24, padding: 0, background: t.hex, borderColor: t.hex }} title={`Highlight ${t.label}`} onMouseDown={(e) => { e.preventDefault(); command("hiliteColor", t.hex); }} />)}
+        {Object.entries(TAGS).map(([key, t]) => (
+          <button
+            key={t.hex}
+            type="button"
+            className="rich-btn"
+            style={{
+              minWidth: 24,
+              width: 24,
+              padding: 0,
+              background: t.hex,
+              borderColor: t.hex,
+            }}
+            title={`Highlight ${
+              highlightMeaningFor(highlightMeanings, key).label ||
+              t.label ||
+              key
+            }`}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              command("hiliteColor", t.hex);
+            }}
+          />
+        ))}
         <button type="button" className="rich-btn" onMouseDown={(e) => { e.preventDefault(); command("removeFormat"); }} title="Clear formatting">Clear</button>
       </div>
       <div ref={ref} className="rich-editor" style={{ minHeight }} contentEditable suppressContentEditableWarning data-placeholder={placeholder} onInput={() => { rememberSelection(); commit(); }} onMouseUp={rememberSelection} onKeyUp={rememberSelection} onBlur={() => { rememberSelection(); commit(); }} />
@@ -4098,7 +4395,12 @@ function RichTextEditor({ value, onChange, placeholder = "Write…", minHeight =
 /* ---------------------------------------------------------------
    JOURNAL TAB — add / edit / delete
 ----------------------------------------------------------------*/
-function JournalTab({ entries, setEntries }) {
+function JournalTab({
+  entries,
+  setEntries,
+  highlightMeanings,
+  setHighlightMeanings,
+}) {
   const [entryDate, setEntryDate] = useState(REFERENCE_DATE_KEY);
   const [ref, setRef] = useState("");
   const [noteHtml, setNoteHtml] = useState("");
@@ -4109,6 +4411,7 @@ function JournalTab({ entries, setEntries }) {
   const [editHtml, setEditHtml] = useState("");
   const [editTag, setEditTag] = useState("yellow");
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [highlightSettingsOpen, setHighlightSettingsOpen] = useState(false);
   const streak = journalStreak(entries);
 
   const save = () => {
@@ -4134,77 +4437,135 @@ function JournalTab({ entries, setEntries }) {
               <div style={{ fontSize:15, fontWeight:700, color:"var(--text)" }}>The whole system · explained</div>
               <div style={{ fontSize:12, color:"var(--text3)", marginTop:3 }}>Every color, in plain words.</div>
             </div>
-            {glossaryOpen ? <ChevronDown size={17} color="var(--text3)" /> : <ChevronRight size={17} color="var(--text3)" />}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setHighlightSettingsOpen(true);
+                }}
+                aria-label="Customize highlight meanings"
+                title="Customize highlight meanings"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 9,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "var(--pillBg)",
+                  border: "1px solid var(--pillBorder)",
+                  cursor: "pointer",
+                }}
+              >
+                <SettingsIcon size={14} color="#E8B45C" />
+              </div>
+
+              {glossaryOpen ? (
+                <ChevronDown size={17} color="var(--text3)" />
+              ) : (
+                <ChevronRight size={17} color="var(--text3)" />
+              )}
+            </div>
           </div>
 
           {glossaryOpen && (
             <div style={{ marginTop:14, display:"grid", gap:10 }}>
 
-              <div style={{ padding:12, borderRadius:12, background:"#F4DE3D20", border:"1px solid #F4DE3D55" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:12, height:12, borderRadius:99, background:"#F4DE3D", flex:"0 0 auto" }} />
-                  <strong>Yellow — The point</strong>
-                </div>
-                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
-                  The single most important line — the one thing to remember. If you could keep only one sentence from the page, this is it.
-                </div>
-                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
-                  Examples: the main idea of a chapter; the decision made in a meeting. Use sparingly — one or two peaks, not everything important.
-                </div>
-              </div>
+              {Object.keys(TAGS).map((key) => {
+                const meaning = highlightMeaningFor(
+                  highlightMeanings,
+                  key
+                );
 
-              <div style={{ padding:12, borderRadius:12, background:"#5FD79A20", border:"1px solid #5FD79A55" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:12, height:12, borderRadius:99, background:"#5FD79A", flex:"0 0 auto" }} />
-                  <strong>Green — Who & where</strong>
-                </div>
-                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
-                  People, groups, and places. Use it when a name shows up or when you need to remember who owns something.
-                </div>
-                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
-                  Examples: Peter, the Pharisees, Capernaum; Derek owns this.
-                </div>
-              </div>
+                const displayHex =
+                  meaning.displayHex || TAGS[key].hex;
 
-              <div style={{ padding:12, borderRadius:12, background:"#F76FA620", border:"1px solid #F76FA655" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:12, height:12, borderRadius:99, background:"#F76FA6", flex:"0 0 auto" }} />
-                  <strong>Pink — The cost</strong>
-                </div>
-                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
-                  The price tag — what gets given up, lost, risked, or sacrificed. Ask: “What’s the price here?”
-                </div>
-                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
-                  Examples: Jesus dying on the cross; pulling Rachelle off the newsletter for a month. Pink is what it costs; orange/purple is what to do.
-                </div>
-              </div>
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: `${displayHex}20`,
+                      border: `1px solid ${displayHex}55`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 99,
+                          background: displayHex,
+                          flex: "0 0 auto",
+                        }}
+                      />
 
-              <div style={{ padding:12, borderRadius:12, background:"#5FC2D820", border:"1px solid #5FC2D855" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:12, height:12, borderRadius:99, background:"#5FC2D8", flex:"0 0 auto" }} />
-                  <strong>Blue / Aqua — What’s ahead</strong>
-                </div>
-                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
-                  Future promises, plans, deadlines, and what will happen. Ask: “Is this about later?”
-                </div>
-                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
-                  Examples: God’s promise to Abraham; a project deadline. Blue is what will happen or is promised; orange/purple is what you need to do.
-                </div>
-              </div>
+                      {meaning.secondaryHex && (
+                        <span
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 99,
+                            background: meaning.secondaryHex,
+                            flex: "0 0 auto",
+                          }}
+                        />
+                      )}
 
-              <div style={{ padding:12, borderRadius:12, background:"#F6A23C20", border:"1px solid #F6A23C55" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:12, height:12, borderRadius:99, background:"#F6A23C", flex:"0 0 auto" }} />
-                  <span style={{ width:12, height:12, borderRadius:99, background:"#A98BE0", flex:"0 0 auto" }} />
-                  <strong>Orange / Purple — What to do</strong>
-                </div>
-                <div style={{ fontSize:12.5, color:"var(--body)", marginTop:7, lineHeight:1.5 }}>
-                  An action, command, task, or to-do. Ask: “So what do I do?”
-                </div>
-                <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:6 }}>
-                  Examples: Love one another; I draft comms by Friday. Kindle uses orange and Apple uses purple for the same job.
-                </div>
-              </div>
+                      <strong>
+                        {meaning.colorName ||
+                          key.charAt(0).toUpperCase() +
+                            key.slice(1)}
+                        {meaning.heading
+                          ? ` — ${meaning.heading}`
+                          : ""}
+                      </strong>
+                    </div>
+
+                    {meaning.description && (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "var(--body)",
+                          marginTop: 7,
+                          lineHeight: 1.5,
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {meaning.description}
+                      </div>
+                    )}
+
+                    {meaning.examples && (
+                      <div
+                        style={{
+                          fontSize: 11.5,
+                          color: "var(--text3)",
+                          marginTop: 6,
+                          lineHeight: 1.5,
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {meaning.examples}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               <div style={{ padding:12, borderRadius:12, background:"var(--surface2)", border:"1px solid var(--divider)" }}>
                 <strong>M: Notes — What you think</strong>
@@ -4224,12 +4585,38 @@ function JournalTab({ entries, setEntries }) {
           )}
         </div>
 
+        {highlightSettingsOpen && (
+          <HighlightSettingsEditor
+            meanings={highlightMeanings}
+            setMeanings={setHighlightMeanings}
+            onClose={() => setHighlightSettingsOpen(false)}
+          />
+        )}
+
         <div className="card journal-compose">
           <input type="date" className="input-line" style={{ marginTop: 0 }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
           <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none", marginTop: 10 }} value={ref} onChange={(e) => setRef(e.target.value)} />
-          <div style={{ marginTop: 10 }}><RichTextEditor value={noteHtml} onChange={setNoteHtml} placeholder="What is He saying to you right now?" minHeight={150} /></div>
+          <div style={{ marginTop: 10 }}><RichTextEditor
+  value={noteHtml}
+  onChange={setNoteHtml}
+  placeholder="What is He saying to you right now?"
+  minHeight={150}
+  highlightMeanings={highlightMeanings}
+/></div>
           <div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${tag === k ? "selected" : ""}`} style={{ background: v.hex }} title={v.label} onClick={() => setTag(k)} />)}</div>
-          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{TAGS[tag].label} · Select text to bold, italicize, underline, change font, or highlight it.</div>
+          <div
+  style={{
+    fontSize: 11.5,
+    color: "var(--text3)",
+    marginTop: 6,
+  }}
+>
+  {highlightMeaningFor(highlightMeanings, tag).label ||
+    TAGS[tag].label}
+  {" · "}
+  Select text to bold, italicize, underline, change font, or
+  highlight it.
+</div>
           <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 10 }} onClick={save}>Save Entry</div>
         </div>
         <div className="section-label">Entries</div>
@@ -4628,9 +5015,12 @@ function SettingsScreen({
   onOpenHowAbideWorks,
   primaryNavigation = DEFAULT_PRIMARY_NAV,
   setPrimaryNavigation,
+  highlightMeanings = DEFAULT_HIGHLIGHT_MEANINGS,
+  setHighlightMeanings,
 }) {
   const [blockComposer, setBlockComposer] = useState(null);
   const [areaComposer, setAreaComposer] = useState(null); // null | "add" | areaId
+  const [highlightSettingsOpen, setHighlightSettingsOpen] = useState(false);
   const {
     available: updateAvailable,
     checking: updateChecking,
@@ -4672,6 +5062,57 @@ function SettingsScreen({
       <div className="scroll">
         <div className="section-label">Appearance</div>
         <div className="segmented"><div className={`seg-btn ${theme === "light" ? "active" : ""}`} onClick={() => setTheme("light")}>Light</div><div className={`seg-btn ${theme === "dark" ? "active" : ""}`} onClick={() => setTheme("dark")}>Dark</div></div>
+
+        <div className="section-label">Journal & Highlights</div>
+
+        <div className="card">
+          <div
+            className="nav-row"
+            onClick={() => setHighlightSettingsOpen(true)}
+          >
+            <div className="nav-row-left">
+              <div
+                className="nav-icon"
+                style={{ background: "#E8B45C22" }}
+              >
+                <SettingsIcon size={16} color="#E8B45C" />
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontWeight: 650,
+                    color: "var(--text)",
+                    fontSize: 13.5,
+                  }}
+                >
+                  Highlight Meanings
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: "var(--text3)",
+                    marginTop: 2,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Decide what each journal highlight color means to you.
+                </div>
+              </div>
+            </div>
+
+            <ChevronRight size={16} color="var(--text3)" />
+          </div>
+        </div>
+
+        {highlightSettingsOpen && setHighlightMeanings && (
+          <HighlightSettingsEditor
+            meanings={highlightMeanings}
+            setMeanings={setHighlightMeanings}
+            onClose={() => setHighlightSettingsOpen(false)}
+          />
+        )}
 
         <div
           className="section-label"
@@ -5974,6 +6415,8 @@ function MoreTab({
   onOpenHowAbideWorks,
   primaryNavigation,
   setPrimaryNavigation,
+  highlightMeanings,
+  setHighlightMeanings,
 }) {
   const [screen, setScreen] = useState("more");
 
@@ -5993,6 +6436,8 @@ function MoreTab({
         onOpenHowAbideWorks={onOpenHowAbideWorks}
         primaryNavigation={primaryNavigation}
         setPrimaryNavigation={setPrimaryNavigation}
+        highlightMeanings={highlightMeanings}
+        setHighlightMeanings={setHighlightMeanings}
       />
     );
   }
@@ -6061,6 +6506,8 @@ function InsightsTab({
   onOpenHowAbideWorks,
   primaryNavigation,
   setPrimaryNavigation,
+  highlightMeanings,
+  setHighlightMeanings,
 }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [screen, setScreen] = useState("dashboard");
@@ -6083,6 +6530,8 @@ function InsightsTab({
         onOpenHowAbideWorks={onOpenHowAbideWorks}
         primaryNavigation={primaryNavigation}
         setPrimaryNavigation={setPrimaryNavigation}
+        highlightMeanings={highlightMeanings}
+        setHighlightMeanings={setHighlightMeanings}
       />
     );
   }
@@ -6168,6 +6617,10 @@ export default function App({ accountSync }) {
   const [goals, setGoals] = usePersistentState("abide-goals", seedGoals);
   const [areas, setAreas] = usePersistentState("abide-areas", AREAS);
   const [journalEntries, setJournalEntries] = usePersistentState("abide-journal", seedJournal);
+  const [highlightMeanings, setHighlightMeanings] = usePersistentState(
+    "abide-highlight-meanings",
+    DEFAULT_HIGHLIGHT_MEANINGS
+  );
   const [expandedId, setExpandedId] = useState(null);
   const [theme, setTheme] = usePersistentState("abide-theme", "dark");
   const [primaryNavigation, setPrimaryNavigation] = usePersistentState(
@@ -6695,7 +7148,14 @@ export default function App({ accountSync }) {
           onCreateArea={createArea}
         />
       )}
-      {tab === "journal" && <JournalTab entries={journalEntries} setEntries={setJournalEntries} />}
+      {tab === "journal" && (
+        <JournalTab
+          entries={journalEntries}
+          setEntries={setJournalEntries}
+          highlightMeanings={highlightMeanings}
+          setHighlightMeanings={setHighlightMeanings}
+        />
+      )}
       {tab === "scratch" && <ScratchTab />}
       {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
       {tab === "insights" && (
@@ -6717,6 +7177,8 @@ export default function App({ accountSync }) {
           onOpenHowAbideWorks={openHowAbideWorks}
           primaryNavigation={safePrimaryNavigation}
           setPrimaryNavigation={setPrimaryNavigation}
+          highlightMeanings={highlightMeanings}
+          setHighlightMeanings={setHighlightMeanings}
         />
       )}
 
@@ -6735,6 +7197,8 @@ export default function App({ accountSync }) {
           onOpenHowAbideWorks={openHowAbideWorks}
           primaryNavigation={safePrimaryNavigation}
           setPrimaryNavigation={setPrimaryNavigation}
+          highlightMeanings={highlightMeanings}
+          setHighlightMeanings={setHighlightMeanings}
         />
       )}
     </>

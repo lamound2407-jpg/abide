@@ -2098,7 +2098,7 @@ function CalendarsPanel({ accounts, setAccounts, configured, onConnect, onRefres
   );
 }
 
-function MicrosoftCalendarsPanel({ accounts, onConnect, onDisconnect, error }) {
+function MicrosoftCalendarsPanel({ accounts, onConnect, onDisconnect, onToggleCalendar, error }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <div className="card cal-account" style={{ marginBottom: 10 }}>
@@ -2153,6 +2153,11 @@ function MicrosoftCalendarsPanel({ accounts, onConnect, onDisconnect, error }) {
                 />
                 {calendar.label}
               </div>
+
+              <Toggle
+                on={calendar.on !== false}
+                onClick={() => onToggleCalendar(account.id, calendar.id)}
+              />
             </div>
           ))}
         </div>
@@ -2521,6 +2526,23 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       hour: "numeric",
       minute: "2-digit",
     });
+  };
+
+  const toggleMicrosoftCalendar = (accountId, calendarId) => {
+    setMicrosoftAccounts((prev) =>
+      prev.map((account) =>
+        account.id !== accountId
+          ? account
+          : {
+              ...account,
+              calendars: (account.calendars || []).map((calendar) =>
+                calendar.id === calendarId
+                  ? { ...calendar, on: calendar.on === false }
+                  : calendar
+              ),
+            }
+      )
+    );
   };
 
   const disconnectMicrosoftAccount = (accountId) => {
@@ -2953,6 +2975,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
               accounts={microsoftAccounts}
               onConnect={connectMicrosoft}
               onDisconnect={disconnectMicrosoftAccount}
+              onToggleCalendar={toggleMicrosoftCalendar}
               error={microsoftError}
             />
           </>

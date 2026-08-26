@@ -3804,7 +3804,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${await getMicrosoftAccessToken(targetAccount)}`,
+            Authorization: `Bearer ${targetAccount.token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
@@ -3812,11 +3812,11 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       );
 
       if (response.status === 401) {
-        disconnectGoogleAccount(targetAccount.id);
+        // Preserve the saved account and calendar configuration.
         setGoogleError(
-          `${targetAccount.displayName || "Google account"} authorization expired. Reconnect it and try again.`
+          `${targetAccount.displayName || "Google account"} access needs to be refreshed. Your calendar connection has been preserved.`
         );
-        throw new Error("Google authorization expired");
+        throw new Error("Google authorization needs refresh");
       }
 
       if (!response.ok) {
@@ -3915,13 +3915,13 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       );
 
       if (response.status === 401) {
-        disconnectMicrosoftAccount(targetAccount.id);
+        // Preserve the saved account and calendar configuration.
         setMicrosoftError(
           `${
             targetAccount.displayName || "Microsoft account"
-          } authorization expired. Reconnect it and try again.`
+          } access needs to be refreshed. Your calendar connection has been preserved.`
         );
-        throw new Error("Microsoft authorization expired");
+        throw new Error("Microsoft authorization needs refresh");
       }
 
       if (!response.ok) {

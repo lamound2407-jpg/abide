@@ -992,6 +992,67 @@ function googleRecurrenceRule(recurrence, dateKey) {
   return parts.join(";");
 }
 
+function microsoftRecurrenceRule(recurrence, dateKey) {
+  if (!recurrence?.freq) return null;
+
+  const interval = Math.max(1, Number(recurrence.interval) || 1);
+  const date = dateFromKey(dateKey);
+
+  const microsoftWeekdays = {
+    SU: "sunday",
+    MO: "monday",
+    TU: "tuesday",
+    WE: "wednesday",
+    TH: "thursday",
+    FR: "friday",
+    SA: "saturday",
+  };
+
+  let pattern;
+
+  if (recurrence.freq === "daily") {
+    pattern = {
+      type: "daily",
+      interval,
+    };
+  } else if (recurrence.freq === "weekly") {
+    pattern = {
+      type: "weekly",
+      interval,
+      daysOfWeek: [
+        microsoftWeekdays[
+          recurrence.days?.[0] || weekdayCodeFromDate(dateKey)
+        ],
+      ],
+      firstDayOfWeek: "sunday",
+    };
+  } else if (recurrence.freq === "monthly") {
+    pattern = {
+      type: "absoluteMonthly",
+      interval,
+      dayOfMonth: date.getDate(),
+    };
+  } else if (recurrence.freq === "yearly") {
+    pattern = {
+      type: "absoluteYearly",
+      interval,
+      dayOfMonth: date.getDate(),
+      month: date.getMonth() + 1,
+    };
+  } else {
+    return null;
+  }
+
+  return {
+    pattern,
+    range: {
+      type: recurrence.endDate ? "endDate" : "noEnd",
+      startDate: dateKey,
+      ...(recurrence.endDate ? { endDate: recurrence.endDate } : {}),
+    },
+  };
+}
+
 function nextRecurrenceDate(dateKey, recurrence) {
   if (!recurrence?.freq) return null;
   const interval = Math.max(1, Number(recurrence.interval) || 1);
@@ -1866,7 +1927,19 @@ function googleEventTimeLabel(event) {
   return new Date(event.start.dateTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEvent, googleConnected, googleAccounts = [], allowEvents = true, onCreateArea }) {
+function AddSheet({
+  goals,
+  areas,
+  initialDate,
+  onClose,
+  onCreateTask,
+  onCreateEvent,
+  googleConnected,
+  googleAccounts = [],
+  microsoftAccounts = [],
+  allowEvents = true,
+  onCreateArea,
+}) {
   const [kind, setKind] = useState("task");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
@@ -1883,7 +1956,50 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
   const [subtaskDueTime, setSubtaskDueTime] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [targetGoogleAccountId, setTargetGoogleAccountId] = useState(() => googleAccounts[0]?.id || "");
+  const [eventDestination, setEventDestination] = useState(() => {
+    if (googleAccounts[0]?.id) {
+      return `google::${googleAccounts[0].id}`;
+    }
+
+    const firstMicrosoft = microsoftAccounts
+      .flatMap((account) =>
+        (account.calendars || [])
+          .filter((calendar) => calendar.canEdit !== false)
+          .map((calendar) => ({
+            accountId: account.id,
+            calendarId: calendar.id,
+          }))
+      )[0];
+
+    if (firstMicrosoft) {
+      return `microsoft::${firstMicrosoft.accountId}::${firstMicrosoft.calendarId}`;
+    }
+
+    return "abide";
+  });
+
+  const eventDestinations = [
+    {
+      id: "abide",
+      label: "Abide only",
+    },
+    ...googleAccounts.map((account) => ({
+      id: `google::${account.id}`,
+      label: `${account.displayName || "Google Account"} · Google`,
+    })),
+    ...microsoftAccounts.flatMap((account) =>
+      (account.calendars || [])
+        .filter((calendar) => calendar.canEdit !== false)
+        .map((calendar) => ({
+          id: `microsoft::${account.id}::${calendar.id}`,
+          label: `${calendar.label} · ${account.displayName || "Microsoft"}`,
+        }))
+    ),
+  ];
+
+  const selectedDestination =
+    eventDestinations.find((destination) => destination.id === eventDestination) ||
+    eventDestinations[0];
   const addSubtask = () => {
     if (!subtaskDraft.trim()) return;
     setSubtasks((p) => [...p, {
@@ -1905,7 +2021,23 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
       if (kind === "task") {
         onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
       } else {
-        await onCreateEvent({ title: title.trim(), date, time, area: area || null, recurrence, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], bypassProtected: bypass, targetGoogleAccountId });
+        await onCreateEvent({
+          title: title.trim(),
+          date,
+          time,
+          area: area || null,
+          recurrence,
+          notes: "",
+          activities: activityDraft.trim()
+            ? [{
+                id: `act_${Date.now()}`,
+                text: activityDraft.trim(),
+                createdAt: new Date().toISOString(),
+              }]
+            : [],
+          bypassProtected: bypass,
+          eventDestination,
+        });
       }
       onClose();
     } finally { setSaving(false); }
@@ -1945,8 +2077,40 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
 </div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />
-      {kind === "event" && googleAccounts.length > 0 && <><div className="fb-label">Google account</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{googleAccounts.map((account) => <div key={account.id} className={`filter-chip ${targetGoogleAccountId === account.id ? "active" : ""}`} onClick={() => setTargetGoogleAccountId(account.id)}>{account.displayName || "Google Account"}</div>)}</div></>}
-      {kind === "event" && <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={11} />{googleConnected ? `Will be added to ${googleAccounts.find((a) => a.id === targetGoogleAccountId)?.displayName || "the selected Google account"}.` : "Will stay in Abide until Google Calendar is connected."}</div>}
+      {kind === "event" && (
+        <>
+          <div className="fb-label">Save event to</div>
+          <div className="filter-row" style={{ padding: "0 0 2px 0" }}>
+            {eventDestinations.map((destination) => (
+              <div
+                key={destination.id}
+                className={`filter-chip ${
+                  eventDestination === destination.id ? "active" : ""
+                }`}
+                onClick={() => setEventDestination(destination.id)}
+              >
+                {destination.label}
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              fontSize: 11.5,
+              color: "var(--text3)",
+              marginTop: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <RefreshCw size={11} />
+            {eventDestination === "abide"
+              ? "This event will stay inside Abide."
+              : `This event will be added to ${selectedDestination?.label || "the selected calendar"}.`}
+          </div>
+        </>
+      )}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
     </div>
@@ -1956,7 +2120,8 @@ function AddSheet({ goals, areas, initialDate, onClose, onCreateTask, onCreateEv
 
 function EventEditor({ event, areas, onSave, onCancel }) {
   const modalRef = useRef(null);
-  const isGoogle = event.source === "google";
+  const isExternalCalendar =
+    event.source === "google" || event.source === "microsoft";
   const [title, setTitle] = useState(event.title || "");
   const [date, setDate] = useState(event.date || REFERENCE_DATE_KEY);
   const [area, setArea] = useState(event.area && areas[event.area] ? event.area : "");
@@ -1989,13 +2154,13 @@ function EventEditor({ event, areas, onSave, onCancel }) {
   };
 
   const save = () => {
-    const nextTitle = isGoogle ? event.title : title.trim();
+    const nextTitle = isExternalCalendar ? event.title : title.trim();
     if (!nextTitle) return;
     onSave({
       ...event,
       title: nextTitle,
-      date: isGoogle ? event.date : date,
-      area: isGoogle ? event.area : (area || null),
+      date: isExternalCalendar ? event.date : date,
+      area: isExternalCalendar ? event.area : (area || null),
       notes: "",
       activities,
     });
@@ -2008,20 +2173,36 @@ function EventEditor({ event, areas, onSave, onCancel }) {
           <div className="editor-header">
             <div>
               <div className="editor-title">Edit Event</div>
-              {isGoogle && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>Google details are read-only. Abide activity stays editable.</div>}
+              {isExternalCalendar && (
+                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>
+                  External calendar details are read-only here. Abide activity stays editable.
+                </div>
+              )}
             </div>
             <div className="editor-close" onClick={onCancel}><X size={17} /></div>
           </div>
 
           <div className="editor-scroll">
             <div className="fb-label">Event</div>
-            <input className="input-line" style={{ marginTop: 0 }} value={title} disabled={isGoogle} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" />
+            <input
+              className="input-line"
+              style={{ marginTop: 0 }}
+              value={title}
+              disabled={isExternalCalendar}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Event title"
+            />
 
-            {isGoogle ? (
+            {isExternalCalendar ? (
               <div className="card" style={{ padding: 12, marginTop: 10 }}>
                 <div className="field-row"><span className="field-label">Date</span><span className="field-value">{event.date ? formatDateLabel(event.date) : "No date"}</span></div>
                 <div className="field-row"><span className="field-label">Time</span><span className="field-value">{event.time || "All day"}</span></div>
-                <div className="field-row"><span className="field-label">Calendar</span><span className="field-value">{event.calendarLabel || "Google Calendar"}</span></div>
+                <div className="field-row"><span className="field-label">Calendar</span><span className="field-value">
+                  {event.calendarLabel ||
+                    (event.source === "microsoft"
+                      ? "Outlook Calendar"
+                      : "Google Calendar")}
+                </span></div>
               </div>
             ) : (
               <>
@@ -2754,29 +2935,235 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     }
   };
 
-  const createEvent = async ({ title, date, time, area, recurrence, notes, bypassProtected, targetGoogleAccountId }) => {
-    const recurrenceRule = googleRecurrenceRule(recurrence, date);
-    const targetAccount = connectedGoogleAccounts.find((a) => a.id === targetGoogleAccountId) || connectedGoogleAccounts[0];
-    if (!targetAccount?.token) {
-      setEvents((prev) => [...prev, { id: `native:${Date.now()}`, source: "native", title, date, time: time ? formatTimeLabel(time) : "All day", area, repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, notes, bypassProtected }]);
+  const createEvent = async ({
+    title,
+    date,
+    time,
+    area,
+    recurrence,
+    notes,
+    bypassProtected,
+    eventDestination = "abide",
+  }) => {
+    const saveNativeEvent = () => {
+      setEvents((prev) => [
+        ...prev,
+        {
+          id: `native:${Date.now()}`,
+          source: "native",
+          title,
+          date,
+          time: time ? formatTimeLabel(time) : "All day",
+          area,
+          repeat: recurrence ? recurrenceLabel(recurrence) : null,
+          recurrence,
+          notes,
+          bypassProtected,
+        },
+      ]);
+    };
+
+    if (eventDestination === "abide") {
+      saveNativeEvent();
       return;
     }
-    const body = { summary: title, description: notes || undefined };
-    if (recurrenceRule) body.recurrence = [recurrenceRule];
-    if (time) {
-      const [h, m] = time.split(":").map(Number);
-      const start = new Date(`${date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
-      const end = new Date(start.getTime() + 60 * 60 * 1000);
-      body.start = { dateTime: start.toISOString(), timeZone: "America/Chicago" };
-      body.end = { dateTime: end.toISOString(), timeZone: "America/Chicago" };
-    } else {
-      const end = dateFromKey(date); end.setDate(end.getDate() + 1);
-      body.start = { date }; body.end = { date: localDateKey(end) };
+
+    if (eventDestination.startsWith("google::")) {
+      const accountId = eventDestination.slice("google::".length);
+
+      const targetAccount =
+        connectedGoogleAccounts.find((account) => account.id === accountId);
+
+      if (!targetAccount?.token) {
+        setGoogleError("That Google account is no longer connected.");
+        throw new Error("Google account is not connected");
+      }
+
+      const recurrenceRule = googleRecurrenceRule(recurrence, date);
+
+      const body = {
+        summary: title,
+        description: notes || undefined,
+      };
+
+      if (recurrenceRule) {
+        body.recurrence = [recurrenceRule];
+      }
+
+      if (time) {
+        const [h, m] = time.split(":").map(Number);
+
+        const startDate = new Date(
+          `${date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`
+        );
+
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        body.start = {
+          dateTime: startDate.toISOString(),
+          timeZone: "America/Chicago",
+        };
+
+        body.end = {
+          dateTime: endDate.toISOString(),
+          timeZone: "America/Chicago",
+        };
+      } else {
+        const endDate = dateFromKey(date);
+        endDate.setDate(endDate.getDate() + 1);
+
+        body.start = { date };
+        body.end = { date: localDateKey(endDate) };
+      }
+
+      const response = await fetch(
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${targetAccount.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (response.status === 401) {
+        disconnectGoogleAccount(targetAccount.id);
+        setGoogleError(
+          `${targetAccount.displayName || "Google account"} authorization expired. Reconnect it and try again.`
+        );
+        throw new Error("Google authorization expired");
+      }
+
+      if (!response.ok) {
+        setGoogleError(
+          `The event could not be added to ${
+            targetAccount.displayName || "the selected Google account"
+          }.`
+        );
+        throw new Error("Google event creation failed");
+      }
+
+      await fetchGoogleAccountData(targetAccount.token, targetAccount.id);
+      return;
     }
-    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", headers: { Authorization: `Bearer ${targetAccount.token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.status === 401) { disconnectGoogleAccount(targetAccount.id); setGoogleError(`${targetAccount.displayName || "Google account"} authorization expired. Reconnect it and try again.`); throw new Error("Google authorization expired"); }
-    if (!res.ok) { setGoogleError(`The event could not be added to ${targetAccount.displayName || "the selected Google account"}.`); throw new Error("Google event creation failed"); }
-    await fetchGoogleAccountData(targetAccount.token, targetAccount.id);
+
+    if (eventDestination.startsWith("microsoft::")) {
+      const parts = eventDestination.split("::");
+      const accountId = parts[1];
+      const calendarId = parts.slice(2).join("::");
+
+      const targetAccount =
+        connectedMicrosoftAccounts.find((account) => account.id === accountId);
+
+      const targetCalendar = targetAccount?.calendars?.find(
+        (calendar) => calendar.id === calendarId
+      );
+
+      if (!targetAccount?.token || !targetCalendar) {
+        setMicrosoftError("That Microsoft calendar is no longer connected.");
+        throw new Error("Microsoft calendar is not connected");
+      }
+
+      const body = {
+        subject: title,
+        body: notes
+          ? {
+              contentType: "text",
+              content: notes,
+            }
+          : undefined,
+      };
+
+      if (time) {
+        const [hour, minute] = time.split(":").map(Number);
+
+        const localStart = new Date(
+          `${date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`
+        );
+
+        const localEnd = new Date(localStart.getTime() + 60 * 60 * 1000);
+
+        body.start = {
+          dateTime: localStart.toISOString().replace(/Z$/, ""),
+          timeZone: "UTC",
+        };
+
+        body.end = {
+          dateTime: localEnd.toISOString().replace(/Z$/, ""),
+          timeZone: "UTC",
+        };
+      } else {
+        const nextDate = dateFromKey(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        body.isAllDay = true;
+
+        body.start = {
+          dateTime: `${date}T00:00:00`,
+          timeZone: "UTC",
+        };
+
+        body.end = {
+          dateTime: `${localDateKey(nextDate)}T00:00:00`,
+          timeZone: "UTC",
+        };
+      }
+
+      const recurrenceRule = microsoftRecurrenceRule(recurrence, date);
+
+      if (recurrenceRule) {
+        body.recurrence = recurrenceRule;
+      }
+
+      const response = await fetch(
+        `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(
+          targetCalendar.id
+        )}/events`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${targetAccount.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (response.status === 401) {
+        disconnectMicrosoftAccount(targetAccount.id);
+        setMicrosoftError(
+          `${
+            targetAccount.displayName || "Microsoft account"
+          } authorization expired. Reconnect it and try again.`
+        );
+        throw new Error("Microsoft authorization expired");
+      }
+
+      if (!response.ok) {
+        let graphMessage = "";
+
+        try {
+          const graphError = await response.json();
+          graphMessage = graphError?.error?.message || "";
+        } catch {}
+
+        setMicrosoftError(
+          graphMessage ||
+            `The event could not be added to ${
+              targetCalendar.label || "the selected Microsoft calendar"
+            }.`
+        );
+
+        throw new Error("Microsoft event creation failed");
+      }
+
+      await fetchMicrosoftAccountEvents(targetAccount);
+      return;
+    }
+
+    saveNativeEvent();
   };
 
   const saveEditedTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
@@ -2802,7 +3189,11 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       <div className="section-label">Events</div>
       <div className="card">{dayEvents.length ? dayEvents.map((e) => {
         const areaInfo = e.area && areas[e.area] ? areas[e.area] : null;
-        return <div className="task-row" key={e.id} style={{ cursor: "pointer" }} onClick={() => { setAdding(false); setEditingTask(null); setEditingEvent(e); }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google" ? (e.calendarLabel || "Google Calendar") : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}{normalizeActivity(e).length > 0 && <span className="time-chip">{normalizeActivity(e).length} update{normalizeActivity(e).length === 1 ? "" : "s"}</span>}</div></div><Pencil size={14} color="var(--text3)" /></div>;
+        return <div className="task-row" key={e.id} style={{ cursor: "pointer" }} onClick={() => { setAdding(false); setEditingTask(null); setEditingEvent(e); }}><div style={{ width: 22 }} /><div style={{ flex: 1 }}><div className="task-title">{e.title}</div><div className="task-meta"><span className="chip" style={{ background: (e.color || areaInfo?.color || "#8FA88A") + "26", color: e.color || areaInfo?.color || "#8FA88A" }}>{e.source === "google"
+  ? (e.calendarLabel || "Google Calendar")
+  : e.source === "microsoft"
+    ? (e.calendarLabel || "Outlook Calendar")
+    : "Abide"}</span><span className="time-chip"><Clock size={11} />{e.time || "All day"}</span>{e.repeat && <span className="time-chip"><Repeat size={11} />{e.repeat}</span>}{normalizeActivity(e).length > 0 && <span className="time-chip">{normalizeActivity(e).length} update{normalizeActivity(e).length === 1 ? "" : "s"}</span>}</div></div><Pencil size={14} color="var(--text3)" /></div>;
       }) : <div className="insight-line">{googleConnected ? "No calendar events this day." : "No Abide events this day. Connect Google Calendar to pull in your real events."}</div>}</div>
     </>
   );
@@ -2980,7 +3371,20 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
             />
           </>
         )}
-        {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} googleAccounts={connectedGoogleAccounts} onCreateArea={onCreateArea} />}
+        {adding && (
+          <AddSheet
+            goals={goals}
+            areas={areas}
+            initialDate={selectedDateKey}
+            onClose={() => setAdding(false)}
+            onCreateTask={onCreateTask}
+            onCreateEvent={createEvent}
+            googleConnected={googleConnected}
+            googleAccounts={connectedGoogleAccounts}
+            microsoftAccounts={connectedMicrosoftAccounts}
+            onCreateArea={onCreateArea}
+          />
+        )}
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} onCreateArea={onCreateArea} />}
         {editingEvent && <EventEditor event={editingEvent} areas={areas} onSave={saveEditedEvent} onCancel={() => setEditingEvent(null)} />}
 

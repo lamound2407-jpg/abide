@@ -2236,7 +2236,12 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const microsoftActiveCount = flatMicrosoftCalendars.filter((c) => c.on !== false).length;
 
   const visibleCalendarKeys = new Set(
-    flatCalendars.filter((c) => c.on).map((c) => `google::${c.accountId}::${c.id}`)
+    flatCalendars
+      .filter((c) => c.on)
+      .flatMap((c) => [
+        `google::${c.accountId}::${c.id}`,
+        `${c.accountId}::${c.id}`,
+      ])
   );
 
   const visibleMicrosoftCalendarKeys = new Set(
@@ -2424,7 +2429,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
           accountId,
           accountLabel,
           calendarId: cal.id,
-          calendarKey: `${accountId}::${cal.id}`,
+          calendarKey: `google::${accountId}::${cal.id}`,
           calendarLabel: cal.label,
           color: cal.color,
           source: "google",

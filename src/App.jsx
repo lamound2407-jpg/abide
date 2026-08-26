@@ -2300,10 +2300,6 @@ function AddSheet({
   const [recurrence, setRecurrence] = useState(null);
   const [reminder, setReminder] = useState("None");
   const [activityDraft, setActivityDraft] = useState("");
-  const [subtasks, setSubtasks] = useState([]);
-  const [subtaskDraft, setSubtaskDraft] = useState("");
-  const [subtaskDueDate, setSubtaskDueDate] = useState("");
-  const [subtaskDueTime, setSubtaskDueTime] = useState("");
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const [eventDestination, setEventDestination] = useState(() => {
@@ -2350,26 +2346,12 @@ function AddSheet({
   const selectedDestination =
     eventDestinations.find((destination) => destination.id === eventDestination) ||
     eventDestinations[0];
-  const addSubtask = () => {
-    if (!subtaskDraft.trim()) return;
-    setSubtasks((p) => [...p, {
-      id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      label: subtaskDraft.trim(),
-      done: false,
-      dueDate: subtaskDueDate || null,
-      dueTime: subtaskDueTime || null,
-    }]);
-    setSubtaskDraft("");
-    setSubtaskDueDate("");
-    setSubtaskDueTime("");
-  };
-
   const save = async () => {
     if (!title.trim() || !date || saving) return;
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, subtasks, done: false, status: "next", bypassProtected: bypass });
+        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, done: false, status: "next", bypassProtected: bypass });
       } else {
         await onCreateEvent({
           title: title.trim(),
@@ -2407,23 +2389,21 @@ function AddSheet({
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
       <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
-      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div className="fb-label">Subtasks</div>
-{subtasks.map((sub) => <div key={sub.id} style={{ padding:"8px 0", borderBottom:"1px solid var(--divider)" }}>
-  <div className="subtask-row">
-    <span style={{ flex:1 }}>{sub.label}</span>
-    <X size={13} style={{ cursor:"pointer" }} onClick={() => setSubtasks((p) => p.filter((x) => x.id !== sub.id))} />
-  </div>
-  {(sub.dueDate || sub.dueTime) && <div style={{ fontSize:11.5, color:"var(--text3)", marginTop:4 }}>
-    {sub.dueDate ? formatDateLabel(sub.dueDate) : "No date"}{sub.dueTime ? ` · ${formatTimeLabel(sub.dueTime)}` : ""}
-  </div>}
-</div>)}
-<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-  <input type="date" className="input-line" style={{ margin:0 }} value={subtaskDueDate} onChange={(e) => setSubtaskDueDate(e.target.value)} />
-  <input type="time" className="input-line" style={{ margin:0 }} value={subtaskDueTime} onChange={(e) => setSubtaskDueTime(e.target.value)} />
-</div>
-<div style={{ display:"flex", gap:8 }}>
-  <input className="input-line" style={{ margin:0 }} value={subtaskDraft} onChange={(e) => setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} />
-  <div className="filter-chip active" onClick={addSubtask}>Add</div>
+      {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} /><div
+  style={{
+    marginTop: 10,
+    padding: "10px 11px",
+    borderRadius: 11,
+    background: "var(--subtleBg)",
+    border: "1px solid var(--divider)",
+    fontSize: 11.25,
+    lineHeight: 1.45,
+    color: "var(--text3)",
+  }}
+>
+  Save this task first, then open it to add subtasks. Each subtask gets the
+  complete task editor — priority, Area, goal, reminder, repeat, activity,
+  comments, and more.
 </div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />

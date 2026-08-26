@@ -4263,16 +4263,141 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
 
         <div className="section-label"><span>Areas</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setAreaComposer(areaComposer === "add" ? null : "add")} /></div>
         {areaComposer === "add" && <AreaComposer onSave={saveArea} onCancel={() => setAreaComposer(null)} />}
-        <div className="card">
-          {Object.entries(areas).map(([id, area]) => areaComposer === id ? <AreaComposer key={id} initial={{ id, ...area }} onSave={saveArea} onCancel={() => setAreaComposer(null)} /> : (
-            <div className="settings-row" key={id}>
-              <div className="settings-row-name"><span className="cal-swatch" style={{ background: area.color }} />{area.name}</div>
-              <div style={{ display: "flex", gap: 12 }}><Pencil size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => setAreaComposer(id)} /><Trash2 size={14} color="var(--text3)" style={{ cursor: "pointer" }} onClick={() => { if (window.confirm(`Delete the "${area.name}" area? Tasks and goals using it will become unassigned.`)) onDeleteArea(id); }} /></div>
+        <div
+          className="card"
+          style={{
+            padding: Object.keys(areas).length ? "4px 14px" : undefined,
+          }}
+        >
+          {Object.entries(areas).map(([id, area]) =>
+            areaComposer === id ? (
+              <AreaComposer
+                key={id}
+                initial={{ id, ...area }}
+                onSave={saveArea}
+                onCancel={() => setAreaComposer(null)}
+              />
+            ) : (
+              <div
+                key={id}
+                style={{
+                  minHeight: 52,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 14,
+                  padding: "10px 2px",
+                  borderBottom: "1px solid var(--divider)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 11,
+                    minWidth: 0,
+                    flex: 1,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 999,
+                      background: area.color,
+                      boxShadow: `0 0 0 4px ${area.color}18`,
+                      flexShrink: 0,
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 650,
+                      color: "var(--text)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {area.name}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flexShrink: 0,
+                  }}
+                >
+                  <div
+                    onClick={() => setAreaComposer(id)}
+                    aria-label={`Edit ${area.name}`}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 9,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "var(--pillBg)",
+                      border: "1px solid var(--pillBorder)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Pencil size={13} color="var(--text2)" />
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Delete the "${area.name}" area? Tasks and goals using it will become unassigned.`
+                        )
+                      ) {
+                        onDeleteArea(id);
+                      }
+                    }}
+                    aria-label={`Delete ${area.name}`}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 9,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(230,128,128,.08)",
+                      border: "1px solid rgba(230,128,128,.15)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={13} color="#E68080" />
+                  </div>
+                </div>
+              </div>
+            )
+          )}
+
+          {Object.keys(areas).length === 0 && (
+            <div className="insight-line">
+              No areas yet. Add one with the + button.
             </div>
-          ))}
-          {Object.keys(areas).length === 0 && <div className="insight-line">No areas yet. Add one with the + button.</div>}
+          )}
         </div>
-        <div className="insight-line" style={{ padding: "8px 4px" }}>Rename or recolor an Area with the pencil. Deleting it keeps existing tasks and goals but makes them “No Area.”</div>
+
+        <div
+          style={{
+            fontSize: 11.5,
+            lineHeight: 1.45,
+            color: "var(--text3)",
+            margin: "7px 4px 0",
+          }}
+        >
+          Areas organize responsibilities without becoming another task list.
+          Editing an Area keeps its existing tasks and goals connected.
+        </div>
 
         <div className="section-label"><span>Protected Time Blocks</span><Plus size={14} color="#E8B45C" style={{ cursor: "pointer" }} onClick={() => setBlockComposer(blockComposer === "add" ? null : "add")} /></div>
         {blockComposer === "add" && <ProtectedBlockComposer onSave={saveBlock} onCancel={() => setBlockComposer(null)} />}
@@ -4352,44 +4477,148 @@ function SettingsScreen({ onBack, theme, setTheme, protectedBlocks, setProtected
         </div>
 
         <div className="section-label">Account & Sync</div>
-        <div className="card">
-          <div className="settings-row" style={{ alignItems: "flex-start", gap: 12 }}>
+
+        <div
+          className="card"
+          style={{
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 14,
+            }}
+          >
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="settings-row-name">Abide account</div>
-              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, overflowWrap: "anywhere", lineHeight: 1.4 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                }}
+              >
+                Abide account
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text3)",
+                  marginTop: 4,
+                  overflowWrap: "anywhere",
+                  lineHeight: 1.45,
+                }}
+              >
                 {accountSync?.email || "Signed in"}
               </div>
             </div>
-            <span
+
+            <div
               style={{
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: accountSync?.syncError ? "#E68080" : "#8FA88A",
-                flexShrink: 0,
+                padding: "5px 9px",
+                borderRadius: 999,
+                background: accountSync?.syncError
+                  ? "rgba(230,128,128,.10)"
+                  : "rgba(143,168,138,.12)",
+                border: accountSync?.syncError
+                  ? "1px solid rgba(230,128,128,.20)"
+                  : "1px solid rgba(143,168,138,.22)",
+                color: accountSync?.syncError ? "#E68080" : "#789873",
+                fontSize: 10.5,
+                fontWeight: 750,
                 whiteSpace: "nowrap",
+                flexShrink: 0,
               }}
             >
               {accountSync?.syncError ? "Sync issue" : "Synced"}
-            </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontSize: 11.5,
+              lineHeight: 1.5,
+              color: "var(--text3)",
+              marginTop: 12,
+            }}
+          >
+            Your Abide data is private to this account and stays synced across
+            your signed-in devices.
           </div>
 
           {accountSync?.syncError && (
-            <div style={{ padding: "10px 14px", borderTop: "1px solid var(--divider)", fontSize: 11.5, lineHeight: 1.45, color: "#E68080" }}>
+            <div
+              style={{
+                marginTop: 12,
+                padding: 11,
+                borderRadius: 10,
+                background: "rgba(230,128,128,.07)",
+                border: "1px solid rgba(230,128,128,.14)",
+                fontSize: 11.5,
+                lineHeight: 1.45,
+                color: "#E68080",
+              }}
+            >
               {accountSync.syncError}
             </div>
           )}
 
-          <div className="settings-row" style={{ alignItems: "flex-start", gap: 12 }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="settings-row-name">Sign out</div>
-              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, lineHeight: 1.4 }}>
-                Your Abide data remains safely stored with this account.
+          <div
+            style={{
+              height: 1,
+              background: "var(--divider)",
+              margin: "15px 0 13px",
+            }}
+          />
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 14,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: 650,
+                  color: "var(--text2)",
+                }}
+              >
+                Finished on this device?
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                  color: "var(--text3)",
+                  marginTop: 2,
+                }}
+              >
+                Signing out does not delete your Abide data.
               </div>
             </div>
+
             <div
-              className="filter-chip"
-              style={{ color: "#E68080", flexShrink: 0, whiteSpace: "nowrap" }}
               onClick={() => accountSync?.signOut?.()}
+              style={{
+                flexShrink: 0,
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(230,128,128,.20)",
+                background: "rgba(230,128,128,.08)",
+                color: "#E68080",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
             >
               Sign Out
             </div>

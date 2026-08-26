@@ -569,6 +569,23 @@ export default function CloudSyncGate({ children }) {
     try {
       sessionStorage.removeItem("abideGoogleCalendarAccounts");
       sessionStorage.removeItem("abideGoogleCalendarToken");
+      sessionStorage.removeItem("abideMicrosoftCalendarAccounts");
+
+      // MSAL stores Microsoft authorization state in sessionStorage.
+      // Remove only MSAL-owned keys so another Abide user cannot inherit
+      // the previous user's Microsoft calendar authorization.
+      const microsoftSessionKeys = [];
+
+      for (let i = 0; i < sessionStorage.length; i += 1) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith("msal.")) {
+          microsoftSessionKeys.push(key);
+        }
+      }
+
+      microsoftSessionKeys.forEach((key) => {
+        sessionStorage.removeItem(key);
+      });
     } catch {}
 
     await signOut(auth);

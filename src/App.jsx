@@ -863,32 +863,6 @@ function TaskRow({
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
-          {(task.subtasks || []).length > 0 && (
-            <div style={{ paddingTop: 8 }}>
-              {task.subtasks.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="subtask-row"
-                  style={{ cursor: onEdit ? "pointer" : "default" }}
-                  onClick={() => onEdit?.(task)}
-                >
-                  <Check
-                    size={12}
-                    color={sub.done ? "#E8B45C" : "var(--text3)"}
-                  />
-                  <span
-                    style={{
-                      textDecoration: sub.done ? "line-through" : "none",
-                      opacity: sub.done ? 0.65 : 1,
-                    }}
-                  >
-                    {sub.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
           {childTasks.length > 0 && (
             <div style={{ paddingTop: 8 }}>
               <div
@@ -948,38 +922,6 @@ function TaskRow({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function ScheduledSubtaskRow({ entry, areas, onToggle }) {
-  const { parent, sub } = entry;
-  const area = parent.area && areas[parent.area] ? areas[parent.area] : { name: "No Area", color: "#9AA2B1" };
-
-  return (
-    <div className="task-row">
-      <div
-        className={`checkbox ${sub.done ? "done" : ""}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle(parent.id, sub.id);
-        }}
-      >
-        {sub.done && <Check size={13} color="#14100A" strokeWidth={3} />}
-      </div>
-
-      <div style={{ flex: 1 }}>
-        <div className={`task-title ${sub.done ? "done" : ""}`}>{sub.label}</div>
-        <div className="task-meta">
-          <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
-          <span className="time-chip">Subtask of {parent.title}</span>
-          <span className="time-chip">
-            <Clock size={11} />
-            {sub.dueTime ? formatTimeLabel(sub.dueTime) : formatDateLabel(sub.dueDate)}
-          </span>
-          {parent.priority === "high" && <Flag size={12} color="#E68080" fill="#E68080" />}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1052,20 +994,6 @@ function makeChildTaskDraft(parent, title) {
     bypassProtected: parent.bypassProtected ?? false,
     createdAt: new Date().toISOString(),
   };
-}
-
-function scheduledSubtaskEntries(tasks = []) {
-  return tasks.flatMap((parent) =>
-    (parent.subtasks || [])
-      .filter((sub) => Boolean(sub.dueDate))
-      .map((sub) => ({
-        parent,
-        sub,
-        dueDate: sub.dueDate,
-        dueTime: sub.dueTime || null,
-        dueOffsetDays: offsetFromDateKey(sub.dueDate),
-      }))
-  );
 }
 
 function offsetFromDateKey(key) {
@@ -1777,21 +1705,7 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     return offset > 0 && offset <= maxRange && matches(t);
   });
 
-  const scheduledSubtasks = scheduledSubtaskEntries(tasks).filter(({ parent }) => matches(parent));
-  const overdueSubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays < 0 && !entry.sub.done);
-  const todaySubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays === 0);
-  const upcomingSubtasks = scheduledSubtasks.filter((entry) => entry.dueOffsetDays > 0 && entry.dueOffsetDays <= maxRange);
 
-  const toggleScheduledSubtask = (parentId, subtaskId) => {
-    const parent = tasks.find((task) => task.id === parentId);
-    if (!parent) return;
-    onUpdateTask({
-      ...parent,
-      subtasks: (parent.subtasks || []).map((sub) =>
-        sub.id === subtaskId ? { ...sub, done: !sub.done } : sub
-      ),
-    });
-  };
   const upcomingReminders = tasks.filter((t) => t.reminder && t.reminder !== "None" && !t.done && taskOffsetDays(t) <= 1);
 
   const briefOverdueTasks = tasks.filter(
@@ -1809,15 +1723,7 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     (task) => !task.done && taskOffsetDays(task) === 0
   );
 
-  const briefTodaySubtasks = scheduledSubtaskEntries(tasks).filter(
-    (entry) =>
-      entry.dueOffsetDays === 0 &&
-      !entry.sub.done &&
-      !entry.parent.done
-  );
-
-  const briefTodayLoad =
-    briefTodayTasks.length + briefTodaySubtasks.length;
+  const briefTodayLoad = briefTodayTasks.length;
 
   const briefUpcomingImportant = tasks
     .filter((task) => {
@@ -1906,14 +1812,6 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     />
   );
 
-  const renderScheduledSubtask = (entry) => (
-    <ScheduledSubtaskRow
-      key={`${entry.parent.id}:${entry.sub.id}`}
-      entry={entry}
-      areas={areas}
-      onToggle={toggleScheduledSubtask}
-    />
-  );
   const todayLabel = dateFromKey(REFERENCE_DATE_KEY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
@@ -2221,17 +2119,30 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
           setSavedFilters={setSavedFilters}
         />
 
-        {(overdue.length > 0 || overdueSubtasks.length > 0) && (<><div className="section-label">Overdue</div><div className="card">{overdue.map(renderTask)}{overdueSubtasks.map(renderScheduledSubtask)}</div></>)}
+        {overdue.length > 0 && (
+          <>
+            <div className="section-label">Overdue</div>
+            <div className="card">{overdue.map(renderTask)}</div>
+          </>
+        )}
 
         <div className="section-label">Today</div>
-        <div className="card">{today.length || todaySubtasks.length ? <>{today.map(renderTask)}{todaySubtasks.map(renderScheduledSubtask)}</> : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}</div>
+        <div className="card">
+          {today.length
+            ? today.map(renderTask)
+            : <div className="insight-line">No tasks due today. Tap “Add a task” above to create one.</div>}
+        </div>
 
         <div className="section-label"><span>Coming Up</span></div>
         <div className="segmented" style={{ margin: "0 0 10px 0" }}>
           <div className={`seg-btn ${range === "week" ? "active" : ""}`} onClick={() => setRange("week")}>This Week</div>
           <div className={`seg-btn ${range === "twoweeks" ? "active" : ""}`} onClick={() => setRange("twoweeks")}>Next 2 Weeks</div>
         </div>
-        <div className="card">{upcoming.length || upcomingSubtasks.length ? <>{upcoming.map(renderTask)}{upcomingSubtasks.map(renderScheduledSubtask)}</> : <div className="insight-line">Nothing scheduled in this window.</div>}</div>
+        <div className="card">
+          {upcoming.length
+            ? upcoming.map(renderTask)
+            : <div className="insight-line">Nothing scheduled in this window.</div>}
+        </div>
 
         <div className="section-label" onClick={() => setSomedayOpen(!somedayOpen)} style={{ cursor: "pointer" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Archive size={12} />Someday / Maybe ({somedayTasks.length})</span>
@@ -2766,7 +2677,6 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       .map((c) => `microsoft::${c.accountId}::${c.id}`)
   );
   const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
-  const daySubtasks = scheduledSubtaskEntries(tasks).filter((entry) => entry.dueDate === selectedDateKey);
   const dayEvents = events.filter((e) => {
     if (e.date !== selectedDateKey) return false;
 
@@ -2794,7 +2704,6 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         const areaName = task.area && areas[task.area] ? areas[task.area].name : "";
         const goalName = goals.find((goal) => String(goal.id) === String(task.goal))?.name || "";
         const activityText = normalizeActivity(task).map((item) => item.text).join(" ");
-        const subtaskText = (task.subtasks || []).map((sub) => sub.label).join(" ");
 
         return [
           task.title,
@@ -2802,7 +2711,6 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
           goalName,
           task.notes,
           activityText,
-          subtaskText,
           taskProgressLabel(task),
           formatDateLabel(taskDateKey(task)),
         ].join(" ").toLowerCase().includes(normalizedSearchQuery);
@@ -2844,17 +2752,6 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     : [];
 
   const searchResultCount = taskSearchResults.length + eventSearchResults.length;
-
-  const toggleCalendarSubtask = (parentId, subtaskId) => {
-    const parent = tasks.find((task) => task.id === parentId);
-    if (!parent) return;
-    onUpdateTask({
-      ...parent,
-      subtasks: (parent.subtasks || []).map((sub) =>
-        sub.id === subtaskId ? { ...sub, done: !sub.done } : sub
-      ),
-    });
-  };
 
   useEffect(() => { if (openAddSignal) setAdding(true); }, [openAddSignal]);
 
@@ -3523,7 +3420,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         </div>
       )}
       <div className="section-label">Tasks</div>
-      <div className="card">{dayTasks.length || daySubtasks.length ? <>
+      <div className="card">{dayTasks.length ? <>
         {dayTasks.map((t) => (
           <TaskRow
             key={t.id}
@@ -3554,7 +3451,6 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
             )}
           />
         ))}
-        {daySubtasks.map((entry) => <ScheduledSubtaskRow key={`${entry.parent.id}:${entry.sub.id}`} entry={entry} areas={areas} onToggle={toggleCalendarSubtask} />)}
       </> : <div className="insight-line">No tasks due this day.</div>}</div>
       <div className="section-label">Events</div>
       <div className="card">{dayEvents.length ? dayEvents.map((e) => {
@@ -3781,7 +3677,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
         {mode === "week" ? (
           <>
-            <div className="weekstrip">{weekKeys.map((key) => { const d = dateFromKey(key); const hasItems = tasks.some((t) => taskDateKey(t) === key) || scheduledSubtaskEntries(tasks).some((entry) => entry.dueDate === key) || events.some((e) => e.date === key); return <div key={key} className={`daypill ${selectedDateKey === key ? "selected" : ""}`} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span><span className="num">{d.getDate()}</span>{hasItems && <span className="dot" />}</div>; })}</div>
+            <div className="weekstrip">{weekKeys.map((key) => { const d = dateFromKey(key); const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key); return <div key={key} className={`daypill ${selectedDateKey === key ? "selected" : ""}`} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span><span className="num">{d.getDate()}</span>{hasItems && <span className="dot" />}</div>; })}</div>
             {renderAgenda()}
           </>
         ) : (
@@ -3795,7 +3691,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
                 {monthCells.map((day, i) => {
                   if (!day) return <div key={`blank-${i}`} />;
                   const key = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                  const hasItems = tasks.some((t) => taskDateKey(t) === key) || scheduledSubtaskEntries(tasks).some((entry) => entry.dueDate === key) || events.some((e) => e.date === key);
+                  const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key);
                   return <div key={key} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }} style={{ textAlign: "center", padding: "8px 0", borderRadius: 8, cursor: "pointer", background: key === selectedDateKey ? "rgba(232,180,92,0.18)" : "transparent", border: key === selectedDateKey ? "1px solid rgba(232,180,92,0.4)" : "1px solid transparent" }}><div style={{ fontSize: 12, color: "var(--body)" }}>{day}</div>{hasItems && <div style={{ width: 4, height: 4, borderRadius: 2, background: "#E8B45C", margin: "3px auto 0" }} />}</div>;
                 })}
               </div>
@@ -3911,7 +3807,6 @@ function GoalsTab({
       reminder: "None",
       notes: "",
       activities: [],
-      subtasks: [],
     });
 
     setMilestoneDrafts((prev) => ({
@@ -6221,7 +6116,6 @@ export default function App({ accountSync }) {
       due: task.due || (task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(dueDate)),
       notes: task.notes || "",
       activities: Array.isArray(task.activities) ? task.activities : [],
-      subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
       reminder: task.reminder || "None",
       status: task.status || "next",
       kind: task.kind || "task",
@@ -6427,8 +6321,7 @@ export default function App({ accountSync }) {
             reminder: "None",
             notes: "",
             activities: [],
-            subtasks: [],
-            recurrence: null,
+                  recurrence: null,
             repeat: null,
           });
         });

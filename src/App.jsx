@@ -1639,9 +1639,99 @@ function FilterSystem({
       </div>
       {builderOpen && (
         <div className="card filter-builder">
-          <div className="fb-label">Areas</div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div className="fb-label" style={{ marginBottom: 0 }}>
+              Areas
+            </div>
+
+            {areaKeys.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                }}
+              >
+                <span
+                  onClick={() => setSelectedAreas(areaKeys)}
+                  style={{
+                    color: allAreasOn ? "var(--text3)" : "#E8B45C",
+                    cursor: allAreasOn ? "default" : "pointer",
+                    opacity: allAreasOn ? .55 : 1,
+                  }}
+                >
+                  Select all
+                </span>
+
+                <span
+                  style={{
+                    width: 1,
+                    height: 12,
+                    background: "var(--divider)",
+                  }}
+                />
+
+                <span
+                  onClick={() => setSelectedAreas([])}
+                  style={{
+                    color:
+                      selectedAreas.length === 0
+                        ? "var(--text3)"
+                        : "#E8B45C",
+                    cursor:
+                      selectedAreas.length === 0
+                        ? "default"
+                        : "pointer",
+                    opacity: selectedAreas.length === 0 ? .55 : 1,
+                  }}
+                >
+                  Deselect all
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              fontSize: 10.75,
+              color: "var(--text3)",
+              margin: "4px 0 7px",
+            }}
+          >
+            {selectedAreas.length === 0
+              ? "No Areas selected"
+              : selectedAreas.length === areaKeys.length
+                ? "All Areas selected"
+                : `${selectedAreas.length} of ${areaKeys.length} Areas selected`}
+          </div>
+
           <div className="filter-row" style={{ padding: 0 }}>
-            {areaKeys.length ? Object.entries(areas).map(([k, v]) => <div key={k} className={`filter-chip ${selectedAreas.includes(k) ? "active" : ""}`} onClick={() => toggleArea(k)}>{v.name}</div>) : <span style={{ fontSize: 12, color: "var(--text3)" }}>No areas yet.</span>}
+            {areaKeys.length ? (
+              Object.entries(areas).map(([k, v]) => (
+                <div
+                  key={k}
+                  className={`filter-chip ${
+                    selectedAreas.includes(k) ? "active" : ""
+                  }`}
+                  onClick={() => toggleArea(k)}
+                >
+                  {v.name}
+                </div>
+              ))
+            ) : (
+              <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                No areas yet.
+              </span>
+            )}
           </div>
           <div className="fb-label">Priority</div>
           <div className="filter-row" style={{ padding: 0 }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${selectedPriorities.includes(k) ? "active" : ""}`} onClick={() => togglePri(k)}>{label}</div>)}</div>
@@ -5393,9 +5483,15 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
 
   const weekKeys = buildWeekKeys(REFERENCE_DATE_KEY);
   const weekEnd = weekKeys[weekKeys.length - 1];
+
   const nextMonthDate = new Date(dateFromKey(REFERENCE_DATE_KEY));
   nextMonthDate.setMonth(nextMonthDate.getMonth() + 1, 1);
-  const monthLabel = nextMonthDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const monthLabel = nextMonthDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
   const reviewReferenceDate = dateFromKey(REFERENCE_DATE_KEY);
 
   const weeklyStart = new Date(reviewReferenceDate);

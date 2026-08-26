@@ -3,6 +3,7 @@ import { registerSW } from "virtual:pwa-register";
 import packageInfo from "../package.json";
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { PublicClientApplication } from "@azure/msal-browser";
 import {
   ListTodo, CalendarDays, Target, BookOpen, BarChart3, Plus, X,
   Flag, Repeat, ChevronRight, ChevronDown, ChevronLeft, Flame, TrendingUp,
@@ -45,6 +46,26 @@ const THEME = {
 const APP_NAME = "Abide";
 const APP_VERSION = packageInfo.version;
 const APP_BUILD_DATE = __APP_BUILD_DATE__;
+
+const MICROSOFT_CLIENT_ID =
+  import.meta.env.VITE_MICROSOFT_CLIENT_ID ||
+  "db533aef-a678-412d-bb74-b1774bc24c7f";
+
+const MICROSOFT_CALENDAR_SCOPES = [
+  "User.Read",
+  "Calendars.ReadWrite",
+];
+
+const microsoftAuth = new PublicClientApplication({
+  auth: {
+    clientId: MICROSOFT_CLIENT_ID,
+    authority: "https://login.microsoftonline.com/common",
+    redirectUri: window.location.origin,
+  },
+  cache: {
+    cacheLocation: "sessionStorage",
+  },
+});
 
 let pwaUpdateAvailable = false;
 let pwaUpdateSW = null;

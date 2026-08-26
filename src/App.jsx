@@ -67,6 +67,8 @@ const microsoftAuth = new PublicClientApplication({
   },
 });
 
+const microsoftAuthReady = microsoftAuth.initialize();
+
 let pwaUpdateAvailable = false;
 let pwaUpdateSW = null;
 let pwaUpdateRegistration = null;
@@ -2096,6 +2098,75 @@ function CalendarsPanel({ accounts, setAccounts, configured, onConnect, onRefres
   );
 }
 
+function MicrosoftCalendarsPanel({ accounts, onConnect, onDisconnect, error }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="card cal-account" style={{ marginBottom: 10 }}>
+        <div className="cal-account-title">Outlook / Microsoft 365</div>
+        <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 0 10px" }}>
+          Connect a personal Outlook account or a Microsoft 365 work or school account.
+        </div>
+        <div
+          className="filter-chip active"
+          style={{ display: "inline-flex" }}
+          onClick={onConnect}
+        >
+          <Plus size={12} />
+          Add Microsoft Account
+        </div>
+      </div>
+
+      {accounts.map((account) => (
+        <div className="card cal-account" key={account.id} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div className="cal-account-title">
+                {account.displayName || "Microsoft Account"}
+              </div>
+              <div
+                style={{
+                  fontSize: 10.5,
+                  color: "var(--text3)",
+                  marginTop: 2,
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {account.email || "Microsoft account"} · {account.calendars?.length || 0} calendar{account.calendars?.length === 1 ? "" : "s"}
+              </div>
+            </div>
+
+            <div
+              className="filter-chip"
+              style={{ flexShrink: 0 }}
+              onClick={() => onDisconnect(account.id)}
+            >
+              Disconnect
+            </div>
+          </div>
+
+          {(account.calendars || []).map((calendar) => (
+            <div key={calendar.id} className="cal-item">
+              <div className="cal-item-name">
+                <span
+                  className="cal-swatch"
+                  style={{ background: calendar.color || "#0078D4" }}
+                />
+                {calendar.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      {error && (
+        <div style={{ fontSize: 11.5, color: "#E68080", marginTop: 8 }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask, openAddSignal, onCreateArea }) {
   const [mode, setMode] = useState("week");
   const [selectedDateKey, setSelectedDateKey] = useState(REFERENCE_DATE_KEY);
@@ -2112,6 +2183,17 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       return legacyToken ? [{ id: "legacy", label: "Previously connected Google", token: legacyToken, calendars: [] }] : [];
     } catch { return []; }
   });
+
+  const [microsoftError, setMicrosoftError] = useState("");
+  const [microsoftAccounts, setMicrosoftAccounts] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("abideMicrosoftCalendarAccounts");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const tokenClientRef = useRef(null);
   const [overridden, setOverridden] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
@@ -2203,6 +2285,15 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       sessionStorage.removeItem("abideGoogleCalendarToken");
     } catch {}
   }, [googleAccounts]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        "abideMicrosoftCalendarAccounts",
+        JSON.stringify(microsoftAccounts)
+      );
+    } catch {}
+  }, [microsoftAccounts]);
 
   const disconnectGoogleAccount = (accountId) => {
     setGoogleAccounts((prev) => prev.filter((a) => a.id !== accountId));
@@ -2335,6 +2426,108 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     if (!googleConfigured) { setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first."); return; }
     if (!tokenClientRef.current) { setGoogleError("Google sign-in is still loading. Try again in a moment."); return; }
     tokenClientRef.current.requestAccessToken({ prompt: "select_account consent" });
+  };
+
+  const disconnectMicrosoftAccount = (accountId) => {
+    setMicrosoftAccounts((prev) => prev.filter((account) => account.id !== accountId));
+    setEvents((prev) =>
+      prev.filter(
+        (event) =>
+          !(event.source === "microsoft" && event.accountId === accountId)
+      )
+    );
+  };
+
+  const connectMicrosoft = async () => {
+    setMicrosoftError("");
+
+    try {
+      await microsoftAuthReady;
+
+      const loginResult = await microsoftAuth.loginPopup({
+        scopes: MICROSOFT_CALENDAR_SCOPES,
+        prompt: "select_account",
+      });
+
+      if (!loginResult.account) {
+        throw new Error("Microsoft did not return an account.");
+      }
+
+      const tokenResult = await microsoftAuth.acquireTokenSilent({
+        scopes: MICROSOFT_CALENDAR_SCOPES,
+        account: loginResult.account,
+      });
+
+      const headers = {
+        Authorization: `Bearer ${tokenResult.accessToken}`,
+      };
+
+      const [profileResponse, calendarsResponse] = await Promise.all([
+        fetch("https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName", {
+          headers,
+        }),
+        fetch("https://graph.microsoft.com/v1.0/me/calendars?$select=id,name,color,canEdit,isDefaultCalendar", {
+          headers,
+        }),
+      ]);
+
+      if (!profileResponse.ok) {
+        throw new Error("Abide could not load this Microsoft account.");
+      }
+
+      if (!calendarsResponse.ok) {
+        throw new Error("Abide could not load calendars from this Microsoft account.");
+      }
+
+      const profile = await profileResponse.json();
+      const calendarsJson = await calendarsResponse.json();
+
+      const accountId = profile.id || loginResult.account.homeAccountId;
+      const email =
+        profile.mail ||
+        profile.userPrincipalName ||
+        loginResult.account.username ||
+        "";
+
+      const calendars = (calendarsJson.value || []).map((calendar) => ({
+        id: calendar.id,
+        label: calendar.name || "Calendar",
+        color: "#0078D4",
+        canEdit: calendar.canEdit !== false,
+        primary: Boolean(calendar.isDefaultCalendar),
+        on: true,
+      }));
+
+      const nextAccount = {
+        id: accountId,
+        provider: "microsoft",
+        displayName:
+          profile.displayName ||
+          loginResult.account.name ||
+          "Microsoft Account",
+        email,
+        homeAccountId: loginResult.account.homeAccountId,
+        token: tokenResult.accessToken,
+        calendars,
+      };
+
+      setMicrosoftAccounts((prev) => {
+        const exists = prev.some((account) => account.id === accountId);
+        return exists
+          ? prev.map((account) =>
+              account.id === accountId ? nextAccount : account
+            )
+          : [...prev, nextAccount];
+      });
+    } catch (err) {
+      const message =
+        err?.errorCode === "user_cancelled" ||
+        err?.errorCode === "user_cancelled_request"
+          ? "Microsoft connection was cancelled."
+          : err?.message || "Microsoft Calendar could not be connected.";
+
+      setMicrosoftError(message);
+    }
   };
 
   const createEvent = async ({ title, date, time, area, recurrence, notes, bypassProtected, targetGoogleAccountId }) => {
@@ -2529,7 +2722,28 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         )}
 
         <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${connectedGoogleAccounts.length} Google account${connectedGoogleAccounts.length === 1 ? "" : "s"} · ${activeCount} calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"}</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
-        {calsOpen && <CalendarsPanel accounts={googleAccounts} setAccounts={setGoogleAccounts} configured={googleConfigured} onConnect={connectGoogle} onRefresh={refreshAllGoogleAccounts} onDisconnect={disconnectGoogleAccount} onToggleCalendar={toggleGoogleCalendar} onRenameAccount={renameGoogleAccount} error={googleError} />}
+        {calsOpen && (
+          <>
+            <CalendarsPanel
+              accounts={googleAccounts}
+              setAccounts={setGoogleAccounts}
+              configured={googleConfigured}
+              onConnect={connectGoogle}
+              onRefresh={refreshAllGoogleAccounts}
+              onDisconnect={disconnectGoogleAccount}
+              onToggleCalendar={toggleGoogleCalendar}
+              onRenameAccount={renameGoogleAccount}
+              error={googleError}
+            />
+
+            <MicrosoftCalendarsPanel
+              accounts={microsoftAccounts}
+              onConnect={connectMicrosoft}
+              onDisconnect={disconnectMicrosoftAccount}
+              error={microsoftError}
+            />
+          </>
+        )}
         {adding && <AddSheet goals={goals} areas={areas} initialDate={selectedDateKey} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={createEvent} googleConnected={googleConnected} googleAccounts={connectedGoogleAccounts} onCreateArea={onCreateArea} />}
         {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} onCreateArea={onCreateArea} />}
         {editingEvent && <EventEditor event={editingEvent} areas={areas} onSave={saveEditedEvent} onCancel={() => setEditingEvent(null)} />}

@@ -4760,10 +4760,39 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
   const stepIndex = Math.min(state.step || 0, blueprint.length - 1);
   const step = blueprint[stepIndex];
 
-  const overdue = tasks.filter((t) => !t.done && taskDateKey(t) < REFERENCE_DATE_KEY).length;
-  const unassigned = tasks.filter((t) => !t.done && !t.area).length;
-  const someday = tasks.filter((t) => !t.done && t.status === "someday").length;
-  const openGoals = goals.length;
+  const overdueTasks = tasks
+    .filter((t) => !t.done && taskDateKey(t) < REFERENCE_DATE_KEY)
+    .sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
+
+  const unassignedTasks = tasks
+    .filter((t) => !t.done && !t.area)
+    .sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
+
+  const somedayTasks = tasks.filter(
+    (t) => !t.done && t.status === "someday"
+  );
+
+  const goalsWithoutNextAction = goals.filter((goal) => {
+    return !tasks.some((task) => {
+      if (task.done) return false;
+
+      const taskGoalId = task.goal ?? task.goalId ?? null;
+      return String(taskGoalId || "") === String(goal.id);
+    });
+  });
+
+  const reviewAttentionTasks = [
+    ...overdueTasks.slice(0, 3),
+    ...unassignedTasks
+      .filter(
+        (task) =>
+          !overdueTasks.some(
+            (overdueTask) => String(overdueTask.id) === String(task.id)
+          )
+      )
+      .slice(0, 2),
+  ].slice(0, 4);
+
   const weekKeys = buildWeekKeys(REFERENCE_DATE_KEY);
   const weekEnd = weekKeys[weekKeys.length - 1];
   const nextMonthDate = new Date(dateFromKey(REFERENCE_DATE_KEY));
@@ -4880,11 +4909,157 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
           <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{progress}% checked · step {stepIndex + 1} of {blueprint.length}</div>
         </div>
 
-        <div className="stat-grid" style={{ marginTop: 0 }}>
-          <div className="stat-card"><div className="stat-num">{overdue}</div><div className="stat-label">Overdue</div></div>
-          <div className="stat-card"><div className="stat-num">{unassigned}</div><div className="stat-label">No Area</div></div>
-          <div className="stat-card"><div className="stat-num">{someday}</div><div className="stat-label">Someday / Maybe</div></div>
-          <div className="stat-card"><div className="stat-num">{openGoals}</div><div className="stat-label">Active goals</div></div>
+        <div className="section-label">Needs Attention</div>
+
+        <div className="card" style={{ marginBottom: 14 }}>
+          {reviewAttentionTasks.length === 0 &&
+          goalsWithoutNextAction.length === 0 ? (
+            <div className="insight-line">
+              Nothing obvious needs intervention right now. Keep the review light.
+            </div>
+          ) : (
+            <>
+              {reviewAttentionTasks.map((task) => {
+                const isOverdue =
+                  taskDateKey(task) < REFERENCE_DATE_KEY;
+
+                return (
+                  <div
+                    key={task.id}
+                    className="nav-row"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setEditingTask(task)}
+                  >
+                    <div
+                      className="nav-row-left"
+                      style={{ minWidth: 0, alignItems: "flex-start" }}
+                    >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          marginTop: 5,
+                          borderRadius: 999,
+                          background: isOverdue ? "#E68080" : "#E8B45C",
+                          flexShrink: 0,
+                        }}
+                      />
+
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13.5,
+                            fontWeight: 650,
+                            color: "var(--text)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {task.title}
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            color: "var(--text3)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {isOverdue
+                            ? `Overdue · ${formatDateLabel(taskDateKey(task))}`
+                            : "Needs an Area"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <ChevronRight size={15} color="var(--text3)" />
+                  </div>
+                );
+              })}
+
+              {goalsWithoutNextAction.slice(0, 2).map((goal) => (
+                <div
+                  key={`goal-${goal.id}`}
+                  className="nav-row"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onOpen("goals")}
+                >
+                  <div
+                    className="nav-row-left"
+                    style={{ minWidth: 0, alignItems: "flex-start" }}
+                  >
+                    <Target
+                      size={14}
+                      color="#7C93C9"
+                      style={{ marginTop: 1, flexShrink: 0 }}
+                    />
+
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 650,
+                          color: "var(--text)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {goal.name || goal.title || "Untitled goal"}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 11.5,
+                          color: "var(--text3)",
+                          marginTop: 2,
+                        }}
+                      >
+                        No open next action
+                      </div>
+                    </div>
+                  </div>
+
+                  <ChevronRight size={15} color="var(--text3)" />
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 7,
+            flexWrap: "wrap",
+            margin: "-5px 0 15px",
+          }}
+        >
+          {overdueTasks.length > 0 && (
+            <div className="filter-chip">
+              {overdueTasks.length} overdue
+            </div>
+          )}
+
+          {unassignedTasks.length > 0 && (
+            <div className="filter-chip">
+              {unassignedTasks.length} without an Area
+            </div>
+          )}
+
+          {goalsWithoutNextAction.length > 0 && (
+            <div className="filter-chip">
+              {goalsWithoutNextAction.length} goal
+              {goalsWithoutNextAction.length === 1 ? "" : "s"} without a next action
+            </div>
+          )}
+
+          {somedayTasks.length > 0 && (
+            <div className="filter-chip">
+              {somedayTasks.length} Someday / Maybe
+            </div>
+          )}
         </div>
 
         <div className="card review-step-card">

@@ -1407,6 +1407,131 @@ function ReminderPicker({
   );
 }
 
+
+function QuickAreaPicker({ areas, value, onChange, onCreateArea, allowNone = true }) {
+  const [addingArea, setAddingArea] = useState(false);
+  const [areaName, setAreaName] = useState("");
+  const [areaColor, setAreaColor] = useState("#8FA88A");
+
+  const create = () => {
+    if (!areaName.trim() || !onCreateArea) return;
+
+    const id = onCreateArea({
+      name: areaName.trim(),
+      color: areaColor,
+    });
+
+    if (id) onChange(id);
+
+    setAreaName("");
+    setAreaColor("#8FA88A");
+    setAddingArea(false);
+  };
+
+  return (
+    <>
+      <div
+        className="filter-row"
+        style={{ padding: "0 0 2px 0" }}
+      >
+        {allowNone && (
+          <div
+            className={`filter-chip ${value === "" ? "active" : ""}`}
+            onClick={() => onChange("")}
+          >
+            No Area
+          </div>
+        )}
+
+        {Object.entries(areas).map(([k, v]) => (
+          <div
+            key={k}
+            className={`filter-chip ${value === k ? "active" : ""}`}
+            style={{ borderColor: v.color + "55" }}
+            onClick={() => onChange(k)}
+          >
+            {v.name}
+          </div>
+        ))}
+
+        {onCreateArea && (
+          <div
+            className={`filter-chip ${addingArea ? "active" : ""}`}
+            onClick={() => setAddingArea(!addingArea)}
+          >
+            <Plus size={11} />
+            New Area
+          </div>
+        )}
+      </div>
+
+      {addingArea && (
+        <div className="quick-area-create">
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <input
+              className="input-line"
+              style={{
+                margin: 0,
+                flex: 1,
+              }}
+              value={areaName}
+              onChange={(e) => setAreaName(e.target.value)}
+              placeholder="Area name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  create();
+                }
+              }}
+            />
+
+            <input
+              type="color"
+              value={areaColor}
+              onChange={(e) => setAreaColor(e.target.value)}
+              style={{
+                width: 42,
+                height: 38,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginTop: 8,
+            }}
+          >
+            <div
+              className="filter-chip active"
+              onClick={create}
+            >
+              Add & Select
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={() => setAddingArea(false)}
+            >
+              Cancel
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function reminderOffsetMinutes(value) {
   const text = String(value || "").trim().toLowerCase();
   if (!text || text === "none") return null;

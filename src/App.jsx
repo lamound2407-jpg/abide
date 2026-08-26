@@ -1,4 +1,9 @@
 import ImportTasksPanel from "./ImportTasksPanel.jsx";
+import {
+  disableBackgroundPush,
+  enableBackgroundPush,
+  getBackgroundPushStatus,
+} from "./pushNotifications.js";
 import { registerSW } from "virtual:pwa-register";
 import packageInfo from "../package.json";
 import React, { useState, useRef, useEffect } from "react";
@@ -4947,12 +4952,337 @@ function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreat
 }
 
 function NotificationCenter({ onBack, tasks = [] }) {
-  const [prefs, setPrefs] = usePersistentState("abide-notification-prefs", { tasks: true, calendar: true, review: true, streak: true, milestones: true });
-  const toggle = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
-  const rows = [{ k: "tasks", label: "Task reminders" }, { k: "calendar", label: "Calendar event alerts" }, { k: "review", label: "Weekly review nudge" }, { k: "streak", label: "Journal streak reminder" }, { k: "milestones", label: "Goal milestone alerts" }];
-  const reminders = tasks.filter((t) => !t.done && t.reminder && t.reminder !== "None").sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
-  return <><Header eyebrow="Insights" title="Notification Center" onBack={onBack} /><div className="scroll"><div className="section-label">What Alerts You</div><div className="card">{rows.map((r) => <div key={r.k} className="settings-row"><span className="settings-row-name">{r.label}</span><Toggle on={prefs[r.k]} onClick={() => toggle(r.k)} /></div>)}</div><div className="section-label">Upcoming</div><div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item"><span>{t.title}</span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No notifications yet.</div>}</div></div></>;
+  const [prefs, setPrefs] = usePersistentState(
+    "abide-notification-prefs",
+    {
+      tasks: true,
+      calendar: true,
+      review: true,
+      streak: true,
+      milestones: true,
+    }
+  );
+
+  const [pushStatus, setPushStatus] = useState({
+    supported: null,
+    permission: "default",
+    registered: false,
+  });
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState("");
+
+  const toggle = (k) =>
+    setPrefs((p) => ({ ...p, [k]: !p[k] }));
+
+  const rows = [
+    { k: "tasks", label: "Task reminders" },
+    { k: "calendar", label: "Calendar event alerts" },
+    { k: "review", label: "Weekly review nudge" },
+    { k: "streak", label: "Journal streak reminder" },
+    { k: "milestones", label: "Goal milestone alerts" },
+  ];
+
+  const reminders = tasks
+    .filter(
+      (t) =>
+        !t.done &&
+        t.reminder &&
+        t.reminder !== "None"
+    )
+    .sort((a, b) =>
+      taskDateKey(a).localeCompare(taskDateKey(b))
+    );
+
+  const refreshPushStatus = async () => {
+    const status = await getBackgroundPushStatus();
+    setPushStatus(status);
+  };
+
+  useEffect(() => {
+    refreshPushStatus().catch(() => {
+      setPushStatus({
+        supported: false,
+        permission: "unsupported",
+        registered: false,
+      });
+    });
+  }, []);
+
+  const enablePush = async () => {
+    if (pushBusy) return;
+
+    setPushBusy(true);
+    setPushMessage("");
+
+    try {
+      await enableBackgroundPush();
+      await refreshPushStatus();
+      setPushMessage(
+        "This device is registered for Abide background notifications."
+      );
+    } catch (error) {
+      setPushMessage(
+        error?.message ||
+          "Abide could not enable background notifications."
+      );
+      await refreshPushStatus().catch(() => {});
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const disablePush = async () => {
+    if (pushBusy) return;
+
+    setPushBusy(true);
+    setPushMessage("");
+
+    try {
+      await disableBackgroundPush();
+      await refreshPushStatus();
+      setPushMessage(
+        "Background notifications are disabled on this device."
+      );
+    } catch (error) {
+      setPushMessage(
+        error?.message ||
+          "Abide could not disable background notifications."
+      );
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const pushEnabled =
+    pushStatus.permission === "granted" &&
+    pushStatus.registered;
+
+  return (
+    <>
+      <Header
+        eyebrow="Reminders & alerts"
+        title="Notification Center"
+        onBack={onBack}
+      />
+
+      <div className="scroll">
+        <div className="section-label">
+          Background Notifications
+        </div>
+
+        <div
+          className="card"
+          style={{ padding: 14 }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 14,
+            }}
+          >
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                }}
+              >
+                {pushEnabled
+                  ? "Background notifications are on"
+                  : "Get reminders when Abide is closed"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11.75,
+                  lineHeight: 1.5,
+                  color: "var(--text3)",
+                  marginTop: 5,
+                }}
+              >
+                {pushStatus.supported === false
+                  ? "This browser or device does not currently support Abide background notifications. On iPhone and iPad, install Abide to the Home Screen first."
+                  : pushEnabled
+                    ? "This device is registered with Abide. Once server-side reminder delivery is active, notifications can arrive even when the app is closed."
+                    : "Allow notifications and register this device so Abide can deliver reminders even when the app is not open."}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "5px 9px",
+                borderRadius: 999,
+                flexShrink: 0,
+                fontSize: 10.5,
+                fontWeight: 750,
+                background: pushEnabled
+                  ? "rgba(143,168,138,.12)"
+                  : "var(--pillBg)",
+                border: pushEnabled
+                  ? "1px solid rgba(143,168,138,.22)"
+                  : "1px solid var(--pillBorder)",
+                color: pushEnabled
+                  ? "#8FA88A"
+                  : "var(--text3)",
+              }}
+            >
+              {pushEnabled ? "Registered" : "Not registered"}
+            </div>
+          </div>
+
+          {pushStatus.supported !== false && (
+            <button
+              type="button"
+              disabled={pushBusy}
+              onClick={
+                pushEnabled
+                  ? disablePush
+                  : enablePush
+              }
+              style={{
+                width: "100%",
+                border: pushEnabled
+                  ? "1px solid var(--pillBorder)"
+                  : "1px solid #E8B45C",
+                background: pushEnabled
+                  ? "var(--pillBg)"
+                  : "#E8B45C",
+                color: pushEnabled
+                  ? "var(--text2)"
+                  : "#14100A",
+                borderRadius: 11,
+                padding: "10px 12px",
+                font: "inherit",
+                fontSize: 12.5,
+                fontWeight: 750,
+                cursor: pushBusy
+                  ? "default"
+                  : "pointer",
+                opacity: pushBusy ? .6 : 1,
+                marginTop: 13,
+              }}
+            >
+              {pushBusy
+                ? "Working…"
+                : pushEnabled
+                  ? "Disable Background Notifications"
+                  : "Enable Background Notifications"}
+            </button>
+          )}
+
+          {pushMessage && (
+            <div
+              style={{
+                fontSize: 11.5,
+                lineHeight: 1.45,
+                color:
+                  pushEnabled
+                    ? "#8FA88A"
+                    : "var(--text3)",
+                marginTop: 9,
+              }}
+            >
+              {pushMessage}
+            </div>
+          )}
+
+          {pushStatus.permission === "denied" && (
+            <div
+              style={{
+                fontSize: 11.5,
+                lineHeight: 1.45,
+                color: "#E68080",
+                marginTop: 9,
+              }}
+            >
+              Notifications are blocked for Abide in your device settings.
+              Re-enable them there before trying again.
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            fontSize: 11.5,
+            color: "var(--text3)",
+            margin: "7px 4px 0",
+            lineHeight: 1.5,
+          }}
+        >
+          Registering this device prepares it for true background push.
+          The next backend step will send scheduled task reminders through
+          Firebase Cloud Messaging rather than depending on Abide being open.
+        </div>
+
+        <div className="section-label">
+          Upcoming Notifications
+        </div>
+
+        <div className="card">
+          {reminders.length ? (
+            reminders.map((t) => (
+              <div
+                key={t.id}
+                className="review-item"
+              >
+                <span>
+                  <strong>{t.title}</strong>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 11.5,
+                      color: "var(--text3)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {formatDateLabel(taskDateKey(t))}
+                    {t.dueTime
+                      ? ` · ${formatTimeLabel(t.dueTime)}`
+                      : ""}
+                  </span>
+                </span>
+
+                <span className="review-count">
+                  {t.reminder}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="insight-line">
+              No task reminders scheduled yet.
+            </div>
+          )}
+        </div>
+
+        <div className="section-label">
+          Notification Types
+        </div>
+
+        <div className="card">
+          {rows.map((r) => (
+            <div
+              key={r.k}
+              className="settings-row"
+            >
+              <span className="settings-row-name">
+                {r.label}
+              </span>
+
+              <Toggle
+                on={prefs[r.k]}
+                onClick={() => toggle(r.k)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
+
 
 function ProtectedBlockRow({ block, onEdit, onDelete }) {
   return (

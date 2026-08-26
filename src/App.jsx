@@ -6280,7 +6280,7 @@ export default function App({ accountSync }) {
 
       return [...children, ...nextParents];
     });
-  }, [tasks]);
+  }, []);
 
   useEffect(() => {
     const goalsWithLegacyMilestones = goals.filter(

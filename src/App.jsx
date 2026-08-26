@@ -788,8 +788,22 @@ function Sidebar({ tabs, tab, setTab, viewport, theme, setTheme }) {
   );
 }
 
-function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = AREAS, onEdit }) {
-  const area = task.area && areas[task.area] ? areas[task.area] : { name: "No Area", color: "#9AA2B1" };
+function TaskRow({
+  task,
+  expanded,
+  onToggleExpand,
+  onToggleDone,
+  goals,
+  areas = AREAS,
+  onEdit,
+  parentTask = null,
+  childTasks = [],
+}) {
+  const area =
+    task.area && areas[task.area]
+      ? areas[task.area]
+      : { name: "No Area", color: "#9AA2B1" };
+
   const goal = goals?.find((g) => g.id === task.goal);
   return (
     <div>
@@ -800,7 +814,19 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
         <div style={{ flex: 1 }}>
           <div className={`task-title ${task.done ? "done" : ""}`}>{task.title}</div>
           <div className="task-meta">
-            <span className="chip" style={{ background: area.color + "26", color: area.color }}>{area.name}</span>
+            <span
+              className="chip"
+              style={{ background: area.color + "26", color: area.color }}
+            >
+              {area.name}
+            </span>
+
+            {parentTask && (
+              <span className="time-chip">
+                Subtask of {parentTask.title}
+              </span>
+            )}
+
             <span
               className="chip"
               style={{
@@ -837,7 +863,86 @@ function TaskRow({ task, expanded, onToggleExpand, onToggleDone, goals, areas = 
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Repeat</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{task.recurrence ? recurrenceLabel(task.recurrence) : task.repeat || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Reminder</span><span className="field-value"><Bell size={11} color="var(--text2)" />{task.reminder || "None"}</span></div>
           <div className="field-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><span className="field-label">Goal</span><span className="field-value"><Pencil size={11} color="var(--text2)" />{goal ? goal.name : "No goal — standalone"}</span></div>
-          {(task.subtasks || []).length > 0 && <div style={{ paddingTop: 8 }}>{task.subtasks.map((sub) => <div key={sub.id} className="subtask-row" style={{ cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}><Check size={12} color={sub.done ? "#E8B45C" : "var(--text3)"} /><span style={{ textDecoration: sub.done ? "line-through" : "none", opacity: sub.done ? 0.65 : 1 }}>{sub.label}</span></div>)}</div>}
+          {(task.subtasks || []).length > 0 && (
+            <div style={{ paddingTop: 8 }}>
+              {task.subtasks.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="subtask-row"
+                  style={{ cursor: onEdit ? "pointer" : "default" }}
+                  onClick={() => onEdit?.(task)}
+                >
+                  <Check
+                    size={12}
+                    color={sub.done ? "#E8B45C" : "var(--text3)"}
+                  />
+                  <span
+                    style={{
+                      textDecoration: sub.done ? "line-through" : "none",
+                      opacity: sub.done ? 0.65 : 1,
+                    }}
+                  >
+                    {sub.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {childTasks.length > 0 && (
+            <div style={{ paddingTop: 8 }}>
+              <div
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 750,
+                  color: "var(--text3)",
+                  textTransform: "uppercase",
+                  letterSpacing: .45,
+                  marginBottom: 4,
+                }}
+              >
+                Subtasks
+              </div>
+
+              {childTasks.map((child) => (
+                <div
+                  key={child.id}
+                  className="subtask-row"
+                  style={{ cursor: onEdit ? "pointer" : "default" }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEdit?.(child);
+                  }}
+                >
+                  <Check
+                    size={12}
+                    color={child.done ? "#E8B45C" : "var(--text3)"}
+                  />
+
+                  <span
+                    style={{
+                      flex: 1,
+                      textDecoration: child.done ? "line-through" : "none",
+                      opacity: child.done ? .65 : 1,
+                    }}
+                  >
+                    {child.title}
+                  </span>
+
+                  {child.priority === "high" && (
+                    <Flag
+                      size={11}
+                      color="#E68080"
+                      fill="#E68080"
+                    />
+                  )}
+
+                  <ChevronRight size={13} color="var(--text3)" />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="notes-box" style={{ minHeight: 38, cursor: onEdit ? "pointer" : "default" }} onClick={() => onEdit?.(task)}>
             {normalizeActivity(task).length ? `${normalizeActivity(task).length} activit${normalizeActivity(task).length === 1 ? "y" : "ies"} · ${normalizeActivity(task)[normalizeActivity(task).length - 1].text}` : "Add an activity update…"}
           </div>
@@ -1330,7 +1435,14 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
     <div ref={modalRef} className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
         <div className="editor-shell">
-          <div className="editor-header"><div className="editor-title">Edit Task</div><div className="editor-close" onClick={onCancel}><X size={17} /></div></div>
+          <div className="editor-header">
+            <div className="editor-title">
+              {task.parentTaskId ? "Edit Subtask" : "Edit Task"}
+            </div>
+            <div className="editor-close" onClick={onCancel}>
+              <X size={17} />
+            </div>
+          </div>
           <div className="editor-scroll">
             <div className="fb-label" style={{ marginTop:0 }}>Task</div>
             <input className="input-line" style={{ marginTop:0 }} value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Task title" />
@@ -1614,6 +1726,16 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
       onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
       onToggleDone={toggleDone}
       onEdit={openEditor}
+      parentTask={
+        t.parentTaskId
+          ? tasks.find(
+              (parent) => String(parent.id) === String(t.parentTaskId)
+            ) || null
+          : null
+      }
+      childTasks={tasks.filter(
+        (child) => String(child.parentTaskId || "") === String(t.id)
+      )}
     />
   );
 
@@ -3228,7 +3350,36 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       )}
       <div className="section-label">Tasks</div>
       <div className="card">{dayTasks.length || daySubtasks.length ? <>
-        {dayTasks.map((t) => <TaskRow key={t.id} task={t} goals={goals} areas={areas} expanded={false} onToggleExpand={() => { setAdding(false); setEditingTask(t); }} onToggleDone={toggleDone} onEdit={(task) => { setAdding(false); setEditingTask(task); }} />)}
+        {dayTasks.map((t) => (
+          <TaskRow
+            key={t.id}
+            task={t}
+            goals={goals}
+            areas={areas}
+            expanded={false}
+            onToggleExpand={() => {
+              setAdding(false);
+              setEditingTask(t);
+            }}
+            onToggleDone={toggleDone}
+            onEdit={(task) => {
+              setAdding(false);
+              setEditingTask(task);
+            }}
+            parentTask={
+              t.parentTaskId
+                ? tasks.find(
+                    (parent) =>
+                      String(parent.id) === String(t.parentTaskId)
+                  ) || null
+                : null
+            }
+            childTasks={tasks.filter(
+              (child) =>
+                String(child.parentTaskId || "") === String(t.id)
+            )}
+          />
+        ))}
         {daySubtasks.map((entry) => <ScheduledSubtaskRow key={`${entry.parent.id}:${entry.sub.id}`} entry={entry} areas={areas} onToggle={toggleCalendarSubtask} />)}
       </> : <div className="insight-line">No tasks due this day.</div>}</div>
       <div className="section-label">Events</div>
@@ -5924,6 +6075,126 @@ export default function App({ accountSync }) {
     setTasks((prev) => prev.map((t) => t.area === id ? { ...t, area: null } : t));
     setGoals((prev) => prev.map((g) => g.area === id ? { ...g, area: null } : g));
   };
+
+  useEffect(() => {
+    setTasks((prev) => {
+      const parentsWithEmbeddedSubtasks = prev.filter(
+        (task) =>
+          Array.isArray(task.subtasks) &&
+          task.subtasks.length > 0
+      );
+
+      if (!parentsWithEmbeddedSubtasks.length) return prev;
+
+      const existingIds = new Set(
+        prev.map((task) => String(task.id))
+      );
+
+      const existingLegacyKeys = new Set(
+        prev
+          .map((task) => task.legacySubtaskKey)
+          .filter(Boolean)
+      );
+
+      const children = [];
+
+      const nextParents = prev.map((parent) => {
+        if (
+          !Array.isArray(parent.subtasks) ||
+          parent.subtasks.length === 0
+        ) {
+          return parent;
+        }
+
+        parent.subtasks.forEach((sub, index) => {
+          const legacyKey = `${parent.id}:${sub.id || index}`;
+
+          if (existingLegacyKeys.has(legacyKey)) return;
+
+          let childId =
+            sub.id ||
+            `child_${parent.id}_${index}`;
+
+          if (existingIds.has(String(childId))) {
+            childId = `child_${parent.id}_${sub.id || index}`;
+          }
+
+          existingIds.add(String(childId));
+          existingLegacyKeys.add(legacyKey);
+
+          const dueDate =
+            sub.dueDate ||
+            parent.dueDate ||
+            taskDateKey(parent);
+
+          const dueTime = sub.dueTime || null;
+          const done = Boolean(sub.done);
+
+          children.push({
+            id: childId,
+            legacySubtaskKey: legacyKey,
+            parentTaskId: parent.id,
+            kind: "task",
+            title:
+              String(sub.label || sub.title || "").trim() ||
+              "Subtask",
+            notes: sub.notes || "",
+            activities: Array.isArray(sub.activities)
+              ? sub.activities
+              : [],
+            area:
+              sub.area !== undefined
+                ? sub.area
+                : parent.area || null,
+            goal:
+              sub.goal !== undefined
+                ? sub.goal
+                : parent.goal || null,
+            dueDate,
+            dueTime,
+            dueOffsetDays: offsetFromDateKey(dueDate),
+            due: dueTime
+              ? formatTimeLabel(dueTime)
+              : formatDateLabel(dueDate),
+            priority:
+              sub.priority ||
+              parent.priority ||
+              "med",
+            status: sub.status || "next",
+            progress: done
+              ? "completed"
+              : sub.progress || "not_started",
+            done,
+            completedAt: done
+              ? sub.completedAt ||
+                new Date().toISOString()
+              : null,
+            recurrence: sub.recurrence || null,
+            repeat:
+              sub.repeat ||
+              (sub.recurrence
+                ? recurrenceLabel(sub.recurrence)
+                : null),
+            reminder: sub.reminder || "None",
+            bypassProtected:
+              sub.bypassProtected ??
+              parent.bypassProtected ??
+              false,
+            createdAt:
+              sub.createdAt ||
+              parent.createdAt ||
+              new Date().toISOString(),
+          });
+        });
+
+        const { subtasks: _legacySubtasks, ...cleanParent } = parent;
+        return cleanParent;
+      });
+
+      return [...children, ...nextParents];
+    });
+  }, []);
+
   useEffect(() => {
     const goalsWithLegacyMilestones = goals.filter(
       (goal) => Array.isArray(goal.milestones) &&

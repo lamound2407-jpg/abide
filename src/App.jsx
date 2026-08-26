@@ -4654,59 +4654,171 @@ function SettingsScreen({
         <div className="card"><div className="nav-row" onClick={onOpenCalendar}><div className="nav-row-left"><CalendarDays size={16} color="#8FA88A" />Manage calendars in Calendar</div><ChevronRight size={16} color="var(--text3)" /></div></div>
 
         <div className="section-label">Abide</div>
-        <div className="card">
-          <div className="settings-row">
-            <span className="settings-row-name">Version</span>
-            <span style={{ fontSize: 12.5, color: "var(--text2)" }}>v{APP_VERSION}</span>
-          </div>
 
-          <div className="settings-row">
-            <span className="settings-row-name">Updated</span>
-            <span style={{ fontSize: 12.5, color: "var(--text2)" }}>
-              {new Date(APP_BUILD_DATE).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </span>
-          </div>
+        <div
+          className="card"
+          style={{
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <img
+              src="/abide-logo.png"
+              alt=""
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 11,
+                boxShadow: "0 4px 12px rgba(0,0,0,.12)",
+                flexShrink: 0,
+              }}
+            />
 
-          <div className="settings-row" style={{ alignItems: "flex-start", gap: 12 }}>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="settings-row-name">
-                {updateAvailable ? "Update ready" : "App updates"}
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 750,
+                  color: "var(--text)",
+                  letterSpacing: "-.1px",
+                }}
+              >
+                Abide
               </div>
-              <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 3, lineHeight: 1.4 }}>
-                {updateAvailable
-                  ? "A newer version of Abide is ready."
-                  : updateMessage || "Abide checks for updates automatically."}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "3px 8px",
+                  marginTop: 3,
+                  fontSize: 11.5,
+                  color: "var(--text3)",
+                  lineHeight: 1.4,
+                }}
+              >
+                <span>Version {APP_VERSION}</span>
+                <span style={{ opacity: .55 }}>·</span>
+                <span>
+                  Updated{" "}
+                  {new Date(APP_BUILD_DATE).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 15,
+              padding: 12,
+              borderRadius: 12,
+              background: "var(--subtleBg)",
+              border: "1px solid var(--divider)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                minWidth: 0,
+                alignItems: "flex-start",
+              }}
+            >
+              <div
+                style={{
+                  width: 29,
+                  height: 29,
+                  borderRadius: 9,
+                  background: updateAvailable
+                    ? "rgba(232,180,92,.14)"
+                    : "var(--pillBg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <RefreshCw
+                  size={13}
+                  color={updateAvailable ? "#E8B45C" : "var(--text2)"}
+                />
+              </div>
+
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: "var(--text)",
+                  }}
+                >
+                  {updateAvailable ? "Update ready" : "App updates"}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 11.25,
+                    color: "var(--text3)",
+                    lineHeight: 1.45,
+                    marginTop: 2,
+                  }}
+                >
+                  {updateAvailable
+                    ? "A newer version of Abide is ready to install."
+                    : updateMessage ||
+                      "Updates install here without removing the Home Screen app."}
+                </div>
               </div>
             </div>
 
-            <div
-              className={`filter-chip ${updateAvailable ? "active" : ""}`}
-              style={{
-                opacity: updateChecking ? 0.65 : 1,
-                pointerEvents: updateChecking ? "none" : "auto",
-                flexShrink: 0,
-                whiteSpace: "nowrap",
-              }}
+            <button
+              type="button"
               onClick={updateAvailable ? updateNow : checkForUpdatesNow}
+              disabled={updateChecking}
+              style={{
+                border: updateAvailable
+                  ? "1px solid #E8B45C"
+                  : "1px solid var(--pillBorder)",
+                background: updateAvailable
+                  ? "#E8B45C"
+                  : "var(--pillBg)",
+                color: updateAvailable
+                  ? "#14100A"
+                  : "var(--text2)",
+                borderRadius: 10,
+                padding: "7px 10px",
+                font: "inherit",
+                fontSize: 11.5,
+                fontWeight: 700,
+                cursor: updateChecking ? "default" : "pointer",
+                opacity: updateChecking ? .6 : 1,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
             >
-              <RefreshCw size={12} />
               {updateAvailable
-                ? "Update now"
+                ? "Update"
                 : updateChecking
                   ? "Checking…"
-                  : "Check for updates"}
-            </div>
+                  : "Check"}
+            </button>
           </div>
-        </div>
-
-        <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "7px 4px 0" }}>
-          Install future Abide updates here without removing the Home Screen app.
         </div>
 
         <div className="section-label">Learn Abide</div>

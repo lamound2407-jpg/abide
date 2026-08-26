@@ -2480,7 +2480,7 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         {alertsOpen && (
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="section-label" style={{ margin: "10px 14px 4px 0" }}>Upcoming Reminders</div>
-            {upcomingReminders.length ? upcomingReminders.map((t) => <div key={t.id} className="review-item"><span>{t.title}</span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No reminders set for the next day.</div>}
+            {upcomingReminders.length ? upcomingReminders.map((t) => <div key={t.id} className="review-item"><span>{t.title}</span><span className="review-count">{taskReminderLabel(t)}</span></div>) : <div className="insight-line">No reminders set for the next day.</div>}
           </div>
         )}
 
@@ -5126,6 +5126,41 @@ function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreat
   const reminders = tasks.filter((t) => !t.done && t.reminder && t.reminder !== "None").sort((a, b) => taskDateKey(a).localeCompare(taskDateKey(b)));
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let taskId = "";
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      taskId = params.get("taskId") || "";
+    } catch {
+      return;
+    }
+
+    if (!taskId) return;
+
+    const targetTask = tasks.find(
+      (task) => String(task.id) === String(taskId)
+    );
+
+    if (!targetTask) return;
+
+    setEditingTask(targetTask);
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("taskId");
+      url.searchParams.delete("tab");
+
+      window.history.replaceState(
+        {},
+        "",
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    } catch {}
+  }, [tasks]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const refreshBackgroundPushStatus = async () => {
@@ -5362,7 +5397,7 @@ function RemindersTab({ tasks, goals, areas, onUpdateTask, onDeleteTask, onCreat
         </div>
 
         <div className="section-label">Upcoming Notifications</div>
-        <div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item" style={{ cursor: "pointer" }} onClick={() => setEditingTask(t)}><span><strong>{t.title}</strong><span style={{ display: "block", fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>{formatDateLabel(taskDateKey(t))}{t.dueTime ? ` · ${formatTimeLabel(t.dueTime)}` : ""}</span></span><span className="review-count">{t.reminder}</span></div>) : <div className="insight-line">No task reminders scheduled yet.</div>}</div>
+        <div className="card">{reminders.length ? reminders.map((t) => <div key={t.id} className="review-item" style={{ cursor: "pointer" }} onClick={() => setEditingTask(t)}><span><strong>{t.title}</strong><span style={{ display: "block", fontSize: 11.5, color: "var(--text3)", marginTop: 2 }}>{formatDateLabel(taskDateKey(t))}{t.dueTime ? ` · ${formatTimeLabel(t.dueTime)}` : ""}</span></span><span className="review-count">{taskReminderLabel(t)}</span></div>) : <div className="insight-line">No task reminders scheduled yet.</div>}</div>
         <div className="section-label">Notification Types</div>
         <div className="card">{rows.map((r) => <div key={r.k} className="settings-row"><span className="settings-row-name">{r.label}</span><Toggle on={prefs[r.k]} onClick={() => toggle(r.k)} /></div>)}</div>
       </div>
@@ -5525,7 +5560,7 @@ function NotificationCenter({ onBack, tasks = [] }) {
                 {pushStatus.supported === false
                   ? "This browser or device does not currently support Abide background notifications. On iPhone and iPad, install Abide to the Home Screen first."
                   : pushEnabled
-                    ? "This device is registered with Abide. Once server-side reminder delivery is active, notifications can arrive even when the app is closed."
+                    ? "This device is registered with Abide. Task reminders can arrive through Firebase even when Abide is closed."
                     : "Allow notifications and register this device so Abide can deliver reminders even when the app is not open."}
               </div>
             </div>
@@ -5631,9 +5666,9 @@ function NotificationCenter({ onBack, tasks = [] }) {
             lineHeight: 1.5,
           }}
         >
-          Registering this device prepares it for true background push.
-          The next backend step will send scheduled task reminders through
-          Firebase Cloud Messaging rather than depending on Abide being open.
+          Registered devices receive scheduled task reminders through
+          Firebase Cloud Messaging, so delivery does not depend on keeping
+          Abide open.
         </div>
 
         <div className="section-label">
@@ -7361,7 +7396,25 @@ function getViewport(w) {
 }
 
 export default function App({ accountSync }) {
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState(() => {
+    if (typeof window === "undefined") return "today";
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const requestedTab = params.get("tab");
+
+      if (params.get("taskId")) return "reminders";
+
+      if (
+        requestedTab &&
+        ["today", "calendar", "review", "goals", "journal", "scratch", "reminders", "insights", "more"].includes(requestedTab)
+      ) {
+        return requestedTab;
+      }
+    } catch {}
+
+    return "today";
+  });
   const [tasks, setTasks] = usePersistentState("abide-tasks", seedTasks);
   const [goals, setGoals] = usePersistentState("abide-goals", seedGoals);
   const [areas, setAreas] = usePersistentState("abide-areas", AREAS);

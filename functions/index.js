@@ -106,28 +106,82 @@ function deliveryId(taskId, moment) {
     .digest("hex");
 }
 
-function notificationBody(task, moment, timezone) {
-  const localMoment = moment.setZone(timezone);
+function naturalReminderLead(value) {
+  const minutes = reminderOffsetMinutes(value);
 
-  const reminderText =
-    task.reminder === "Custom"
-      ? `Custom reminder · ${localMoment.toFormat("MMM d 'at' h:mm a")}`
-      : task.reminder;
-
-  if (task.dueDate) {
-    const dueTime = task.dueTime || "09:00";
-
-    const due = DateTime.fromISO(
-      `${task.dueDate}T${dueTime}`,
-      { zone: timezone }
-    );
-
-    if (due.isValid) {
-      return `${reminderText} · Due ${due.toFormat("MMM d 'at' h:mm a")}`;
-    }
+  if (value === "At time" || minutes === 0) {
+    return "Due now";
   }
 
-  return reminderText || "You have an Abide reminder.";
+  if (minutes == null) {
+    return "Reminder";
+  }
+
+  if (minutes < 60) {
+    return `Due in ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+
+  if (minutes < 1440 && minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `Due in ${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+    return `Due in ${days} day${days === 1 ? "" : "s"}`;
+  }
+
+  return "Upcoming reminder";
+}
+
+function dueDescription(task, timezone) {
+  if (!task.dueDate) return "";
+
+  const dueTime = task.dueTime || "09:00";
+
+  const due = DateTime.fromISO(
+    `${task.dueDate}T${dueTime}`,
+    { zone: timezone }
+  );
+
+  if (!due.isValid) return "";
+
+  const now = DateTime.now().setZone(timezone);
+  const tomorrow = now.plus({ days: 1 });
+
+  let dateText;
+
+  if (due.hasSame(now, "day")) {
+    dateText = "today";
+  } else if (due.hasSame(tomorrow, "day")) {
+    dateText = "tomorrow";
+  } else {
+    dateText = `on ${due.toFormat("MMM d")}`;
+  }
+
+  if (task.dueTime) {
+    return `${dateText.charAt(0).toUpperCase()}${dateText.slice(1)} at ${due.toFormat("h:mm a")}`;
+  }
+
+  return `${dateText.charAt(0).toUpperCase()}${dateText.slice(1)}`;
+}
+
+function notificationBody(task, moment, timezone) {
+  const dueText = dueDescription(task, timezone);
+
+  if (task.reminder === "Custom") {
+    return dueText
+      ? `Due ${dueText.charAt(0).toLowerCase()}${dueText.slice(1)}`
+      : "It's time for this reminder.";
+  }
+
+  const lead = naturalReminderLead(task.reminder);
+
+  if (!dueText) {
+    return lead;
+  }
+
+  return `${lead} · ${dueText}`;
 }
 
 function validTimezone(value) {
@@ -393,9 +447,11 @@ exports.sendTaskReminders = onSchedule(
           continue;
         }
 
-        const title =
+        const taskTitle =
           String(task.title || "").trim() ||
-          "Abide reminder";
+          "Task";
+
+        const title = `Reminder: ${taskTitle}`;
 
         const body = notificationBody(
           task,
@@ -417,7 +473,7 @@ exports.sendTaskReminders = onSchedule(
               data: {
                 title,
                 body,
-                url: "/",
+                url: `/?tab=reminders&taskId=${encodeURIComponent(String(task.id))}`,
                 tag: `abide-task-${String(task.id)}`,
                 taskId: String(task.id),
               },

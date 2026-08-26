@@ -236,6 +236,37 @@ foreground notification behavior may remain as a convenience, but the server
 is the authoritative mechanism for reminders that must arrive while Abide is
 closed.
 
+### Task reminder model
+
+Task reminders support both relative presets and an exact custom date/time.
+
+Preset reminder choices such as "At time", "15 minutes before", "1 hour before",
+"1 day before", or "2 days before" remain relative to the task's due date/time.
+
+A task may also use a **Custom** reminder. Custom reminders are not free-form
+text. They store an explicit local reminder date and time selected by the user.
+
+The task reminder fields are:
+
+- `reminder`: the reminder mode/label, including `"None"`, preset relative
+  choices, or `"Custom"`
+- `reminderAt`: an explicit local date/time value used only when
+  `reminder === "Custom"`
+
+For a Custom reminder, `reminderAt` is authoritative and does not depend on the
+task due date. Changing a task's due date/time therefore does not silently move
+an explicitly chosen Custom reminder.
+
+For relative preset reminders, Abide derives the notification moment from the
+task due date/time and the selected offset.
+
+The task editor and task-creation flow must show date and time controls whenever
+Custom is selected. A Custom reminder is not valid until both a date and a time
+have been chosen.
+
+The server-side notification scheduler must use the structured reminder values
+rather than relying on free-form reminder text.
+
 **Filtering and search:** Area, priority, progress, and completed-visibility filters are client-side state against whatever the current Firestore query already returned — no new backend is required. Tasks carry a separate `progress: not_started|in_progress|completed` property in addition to GTD `status`; `status` answers where an item belongs in the GTD system, while `progress` answers whether work has started. Marking a task complete sets `progress: completed` and completion metadata; reopening it restores an actionable progress state. Working views hide completed items by default but provide a persistent "Show completed" control, similar to a database property filter. **Saved custom filters** may persist areas[], priorities[], progress[], and showCompleted so useful views can be restored across devices.
 
 **Global search:** Abide provides a unified search surface across tasks, scheduled subtasks, native events, and currently loaded Google Calendar events. Search matches user-facing text such as title, subtask label, Area, goal, notes/activity text, and calendar/event labels. Completed tasks remain searchable even when hidden from normal working views. Search is presentation/query behavior and does not duplicate task or event records.

@@ -191,6 +191,51 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 **Scratchbook:** `scratchPages/{pageId}` — `{ type: "draw" | "type", content, contentHtml (typed pages), uid, createdAt }`. Typed pages support rich text (bold, italic, underline, font selection, and highlight colors). Drawings save as PNG (canvas `toDataURL()` client-side → uploaded to **Firebase Storage**, with the Firestore doc just holding the storage URL — don't store base64 PNGs directly in Firestore, it blows past the 1MB document limit fast). On iPad this is standard HTML5 Pointer Events (`pointerdown/move/up`), which already report Apple Pencil `pressure` and `tiltX/tiltY` natively in Safari — no extra SDK needed, which is what the prototype's canvas is already wired for.
 
+## Background push notifications
+
+Abide supports true Web Push notifications so task reminders can arrive even
+when the PWA is closed.
+
+This does not mean the Abide React application remains continuously running in
+the background. Instead, notification delivery is server-driven:
+
+1. The signed-in device requests notification permission from a direct user
+   action.
+2. Abide registers the installed PWA/service worker for Firebase Cloud
+   Messaging Web Push.
+3. The resulting device registration token is stored privately beneath the
+   signed-in user's Firebase data and is never shared between accounts.
+4. Reminder scheduling is performed server-side rather than by a browser
+   setInterval.
+5. A scheduled Firebase Cloud Function finds reminders that are due and sends
+   an FCM Web Push notification to that user's registered devices.
+6. The service worker receives background messages and displays a visible
+   notification even when Abide itself is closed.
+7. Tapping the notification opens or focuses Abide at the relevant task when
+   practical.
+
+On iPhone and iPad, background Web Push requires a supported iOS/iPadOS version,
+Abide installed as a Home Screen web app, and notification permission granted
+from user interaction. Device-level Focus, Do Not Disturb, notification
+settings, connectivity, and operating-system delivery policies remain under
+the user's control.
+
+Push notification registration is per device. One Abide account may therefore
+have multiple registered devices, and signing out must detach that device from
+the prior account's notification registration.
+
+The durable notification backend should use:
+- Firebase Cloud Messaging for Web Push delivery
+- a service worker capable of receiving background messages
+- private per-user device registration records
+- Firebase Cloud Functions / Cloud Scheduler for due-reminder delivery
+- idempotent reminder-send records so a reminder is not delivered repeatedly
+
+Task reminder scheduling must not depend on the Abide page being open. Existing
+foreground notification behavior may remain as a convenience, but the server
+is the authoritative mechanism for reminders that must arrive while Abide is
+closed.
+
 **Filtering and search:** Area, priority, progress, and completed-visibility filters are client-side state against whatever the current Firestore query already returned — no new backend is required. Tasks carry a separate `progress: not_started|in_progress|completed` property in addition to GTD `status`; `status` answers where an item belongs in the GTD system, while `progress` answers whether work has started. Marking a task complete sets `progress: completed` and completion metadata; reopening it restores an actionable progress state. Working views hide completed items by default but provide a persistent "Show completed" control, similar to a database property filter. **Saved custom filters** may persist areas[], priorities[], progress[], and showCompleted so useful views can be restored across devices.
 
 **Global search:** Abide provides a unified search surface across tasks, scheduled subtasks, native events, and currently loaded Google Calendar events. Search matches user-facing text such as title, subtask label, Area, goal, notes/activity text, and calendar/event labels. Completed tasks remain searchable even when hidden from normal working views. Search is presentation/query behavior and does not duplicate task or event records.

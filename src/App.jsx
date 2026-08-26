@@ -1026,6 +1026,34 @@ function taskProgressLabel(task) {
   return "Not Started";
 }
 
+function makeChildTaskDraft(parent, title) {
+  const dueDate = taskDateKey(parent);
+
+  return {
+    title: String(title || "").trim(),
+    parentTaskId: parent.id,
+    kind: "task",
+    dueDate,
+    dueTime: null,
+    due: formatDateLabel(dueDate),
+    dueOffsetDays: offsetFromDateKey(dueDate),
+    priority: parent.priority || "med",
+    area: parent.area || null,
+    goal: parent.goal || null,
+    notes: "",
+    activities: [],
+    recurrence: null,
+    repeat: null,
+    reminder: "None",
+    status: "next",
+    progress: "not_started",
+    done: false,
+    completedAt: null,
+    bypassProtected: parent.bypassProtected ?? false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function scheduledSubtaskEntries(tasks = []) {
   return tasks.flatMap((parent) =>
     (parent.subtasks || [])
@@ -1347,7 +1375,18 @@ function activityTimeLabel(value) {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateArea }) {
+function TaskEditor({
+  task,
+  goals,
+  areas,
+  onSave,
+  onCancel,
+  onDelete,
+  onCreateArea,
+  childTasks = [],
+  onCreateChildTask,
+  onOpenChildTask,
+}) {
   const modalRef = useRef(null);
   const [title, setTitle] = useState(task.title || "");
   const [dueDate, setDueDate] = useState(taskDateKey(task));
@@ -1360,10 +1399,7 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   const [reminder, setReminder] = useState(task.reminder || "None");
   const [activities, setActivities] = useState(() => normalizeActivity(task));
   const [activityDraft, setActivityDraft] = useState("");
-  const [subtasks, setSubtasks] = useState(task.subtasks || []);
-  const [subtaskDraft, setSubtaskDraft] = useState("");
-  const [subtaskDueDate, setSubtaskDueDate] = useState("");
-  const [subtaskDueTime, setSubtaskDueTime] = useState("");
+  const [childTitleDraft, setChildTitleDraft] = useState("");
   useEffect(() => {
     const bodyOverflow = document.body.style.overflow;
     const htmlOverflow = document.documentElement.style.overflow;
@@ -1386,19 +1422,19 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
   }, []);
 
 
-  const addSubtask = () => {
-    if (!subtaskDraft.trim()) return;
-    setSubtasks((p) => [...p, {
-      id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      label: subtaskDraft.trim(),
-      done: false,
-      dueDate: subtaskDueDate || null,
-      dueTime: subtaskDueTime || null,
-    }]);
-    setSubtaskDraft("");
-    setSubtaskDueDate("");
-    setSubtaskDueTime("");
+  const addChildTask = () => {
+    const nextTitle = childTitleDraft.trim();
+
+    if (!nextTitle || !onCreateChildTask) return;
+
+    const child = onCreateChildTask(task, nextTitle);
+    setChildTitleDraft("");
+
+    if (child && onOpenChildTask) {
+      onOpenChildTask(child);
+    }
   };
+
   const addActivity = () => {
     if (!activityDraft.trim()) return;
     setActivities((p) => [...p, { id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }]);
@@ -1427,7 +1463,6 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
       reminder,
       notes: "",
       activities,
-      subtasks,
     });
   };
 
@@ -1462,26 +1497,147 @@ function TaskEditor({ task, goals, areas, onSave, onCancel, onDelete, onCreateAr
             <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={dueDate} />
             <div className="fb-label">Reminder</div><ReminderPicker value={reminder} onChange={setReminder} />
             <div className="fb-label">Subtasks</div>
-            {subtasks.map((sub)=><div key={sub.id} style={{ padding:"8px 0", borderBottom:"1px solid var(--divider)" }}>
-              <div className="subtask-row">
-                <input type="checkbox" checked={Boolean(sub.done)} onChange={()=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,done:!x.done}:x))}/>
-                <span style={{ flex:1, textDecoration:sub.done?"line-through":"none", opacity:sub.done?0.65:1 }}>{sub.label}</span>
-                <X size={13} style={{ cursor:"pointer" }} onClick={()=>setSubtasks((p)=>p.filter((x)=>x.id!==sub.id))}/>
+
+            {childTasks.length > 0 ? (
+              <div
+                className="card"
+                style={{
+                  padding: "2px 12px",
+                  background: "var(--subtleBg)",
+                }}
+              >
+                {childTasks.map((child, index) => (
+                  <div
+                    key={child.id}
+                    onClick={() => onOpenChildTask?.(child)}
+                    style={{
+                      minHeight: 46,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 9,
+                      padding: "8px 0",
+                      cursor: onOpenChildTask ? "pointer" : "default",
+                      borderBottom:
+                        index === childTasks.length - 1
+                          ? "none"
+                          : "1px solid var(--divider)",
+                    }}
+                  >
+                    <Check
+                      size={13}
+                      color={child.done ? "#E8B45C" : "var(--text3)"}
+                    />
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 650,
+                          color: "var(--text)",
+                          textDecoration: child.done
+                            ? "line-through"
+                            : "none",
+                          opacity: child.done ? .65 : 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {child.title}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 10.75,
+                          color: "var(--text3)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {formatDateLabel(taskDateKey(child))}
+                        {child.priority === "high"
+                          ? " · High priority"
+                          : ""}
+                        {normalizeActivity(child).length
+                          ? ` · ${normalizeActivity(child).length} update${
+                              normalizeActivity(child).length === 1 ? "" : "s"
+                            }`
+                          : ""}
+                      </div>
+                    </div>
+
+                    <ChevronRight size={14} color="var(--text3)" />
+                  </div>
+                ))}
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:6 }}>
-                <input type="date" className="input-line" style={{ margin:0 }} value={sub.dueDate || ""} onChange={(e)=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,dueDate:e.target.value || null}:x))}/>
-                <input type="time" className="input-line" style={{ margin:0 }} value={sub.dueTime || ""} onChange={(e)=>setSubtasks((p)=>p.map((x)=>x.id===sub.id?{...x,dueTime:e.target.value || null}:x))}/>
+            ) : (
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--text3)",
+                  marginBottom: 8,
+                }}
+              >
+                No subtasks yet.
               </div>
-            </div>)}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-              <input type="date" className="input-line" style={{ margin:0 }} value={subtaskDueDate} onChange={(e)=>setSubtaskDueDate(e.target.value)} />
-              <input type="time" className="input-line" style={{ margin:0 }} value={subtaskDueTime} onChange={(e)=>setSubtaskDueTime(e.target.value)} />
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              <input
+                className="input-line"
+                style={{ margin: 0 }}
+                value={childTitleDraft}
+                onChange={(event) =>
+                  setChildTitleDraft(event.target.value)
+                }
+                placeholder="New subtask"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addChildTask();
+                  }
+                }}
+              />
+
+              <div
+                className="filter-chip active"
+                onClick={addChildTask}
+              >
+                Add
+              </div>
             </div>
-            <div style={{ display:"flex", gap:8 }}><input className="input-line" style={{ margin:0 }} value={subtaskDraft} onChange={(e)=>setSubtaskDraft(e.target.value)} placeholder="Add a subtask" onKeyDown={(e)=>{ if(e.key==="Enter"){ e.preventDefault(); addSubtask(); } }} /><div className="filter-chip active" onClick={addSubtask}>Add</div></div>
+
+            <div
+              style={{
+                fontSize: 10.75,
+                lineHeight: 1.4,
+                color: "var(--text3)",
+                marginTop: 6,
+              }}
+            >
+              Subtasks are full tasks. Add one to open its complete editor for
+              priority, Area, goal, reminder, recurrence, activity, and more.
+            </div>
+
             <div className="fb-label">Activity</div>
             <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
             <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e)=>setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
-            <div className="filter-chip editor-delete" onClick={()=>{ if(window.confirm(`Delete "${task.title}"?`)) onDelete(task.id); }}><Trash2 size={12}/>Delete Task</div>
+            <div
+              className="filter-chip editor-delete"
+              onClick={() => {
+                if (window.confirm(`Delete "${task.title}"?`)) {
+                  onDelete(task.id);
+                }
+              }}
+            >
+              <Trash2 size={12} />
+              {task.parentTaskId ? "Delete Subtask" : "Delete Task"}
+            </div>
           </div>
           <div className="editor-footer"><div className="filter-chip active" style={{ flex:1, justifyContent:"center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex:1, justifyContent:"center" }} onClick={onCancel}>Cancel</div></div>
         </div>
@@ -1711,9 +1867,20 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
   const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
+
   const openEditor = (t) => {
     setAdding(false);
     setEditingTask(t);
+  };
+
+  const createChildTaskFromEditor = (parent, title) => {
+    const draft = makeChildTaskDraft(parent, title);
+    const id = onCreateTask(draft);
+
+    return {
+      id,
+      ...draft,
+    };
   };
 
   const renderTask = (t) => (
@@ -2015,7 +2182,23 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => { setEditingTask(null); setAdding(!adding); }}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
         {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} onCreateArea={onCreateArea} />}
 
-        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveTask} onCancel={() => setEditingTask(null)} onDelete={deleteTask} onCreateArea={onCreateArea} />}
+        {editingTask && (
+          <TaskEditor
+            task={editingTask}
+            goals={goals}
+            areas={areas}
+            onSave={saveTask}
+            onCancel={() => setEditingTask(null)}
+            onDelete={deleteTask}
+            onCreateArea={onCreateArea}
+            childTasks={tasks.filter(
+              (child) =>
+                String(child.parentTaskId || "") === String(editingTask.id)
+            )}
+            onCreateChildTask={createChildTaskFromEditor}
+            onOpenChildTask={openEditor}
+          />
+        )}
 
         {alertsOpen && (
           <div className="card" style={{ marginBottom: 14 }}>
@@ -3334,6 +3517,17 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   };
 
   const saveEditedTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
+
+  const createCalendarChildTask = (parent, title) => {
+    const draft = makeChildTaskDraft(parent, title);
+    const id = onCreateTask(draft);
+
+    return {
+      id,
+      ...draft,
+    };
+  };
+
   const saveEditedEvent = (updated) => { setEvents((prev) => prev.map((e) => e.id === updated.id ? updated : e)); setEditingEvent(null); };
   const deleteEditedTask = (id) => { onDeleteTask(id); setEditingTask(null); };
   const moveMonth = (delta) => { const d = dateFromKey(selectedDateKey); d.setMonth(d.getMonth() + delta, 1); setSelectedDateKey(localDateKey(d)); setOverridden(false); setOverrideOpen(false); };
@@ -3581,7 +3775,26 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
             onCreateArea={onCreateArea}
           />
         )}
-        {editingTask && <TaskEditor task={editingTask} goals={goals} areas={areas} onSave={saveEditedTask} onCancel={() => setEditingTask(null)} onDelete={deleteEditedTask} onCreateArea={onCreateArea} />}
+        {editingTask && (
+          <TaskEditor
+            task={editingTask}
+            goals={goals}
+            areas={areas}
+            onSave={saveEditedTask}
+            onCancel={() => setEditingTask(null)}
+            onDelete={deleteEditedTask}
+            onCreateArea={onCreateArea}
+            childTasks={tasks.filter(
+              (child) =>
+                String(child.parentTaskId || "") === String(editingTask.id)
+            )}
+            onCreateChildTask={createCalendarChildTask}
+            onOpenChildTask={(child) => {
+              setAdding(false);
+              setEditingTask(child);
+            }}
+          />
+        )}
         {editingEvent && <EventEditor event={editingEvent} areas={areas} onSave={saveEditedEvent} onCancel={() => setEditingEvent(null)} />}
 
         <div className="segmented"><div className={`seg-btn ${mode === "week" ? "active" : ""}`} onClick={() => setMode("week")}>Week</div><div className={`seg-btn ${mode === "month" ? "active" : ""}`} onClick={() => setMode("month")}>Month</div></div>
@@ -6193,7 +6406,7 @@ export default function App({ accountSync }) {
 
       return [...children, ...nextParents];
     });
-  }, []);
+  }, [tasks]);
 
   useEffect(() => {
     const goalsWithLegacyMilestones = goals.filter(

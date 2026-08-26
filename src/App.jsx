@@ -113,7 +113,9 @@ const microsoftAuth = new PublicClientApplication({
     redirectUri: window.location.origin,
   },
   cache: {
-    cacheLocation: "sessionStorage",
+    // Keep Microsoft authentication across Abide reloads,
+    // PWA updates, tab closes, and normal browser restarts.
+    cacheLocation: "localStorage",
   },
 });
 
@@ -2989,18 +2991,83 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const [googleError, setGoogleError] = useState("");
   const [googleAccounts, setGoogleAccounts] = useState(() => {
     try {
-      const raw = sessionStorage.getItem("abideGoogleCalendarAccounts");
-      if (raw) return JSON.parse(raw);
-      const legacyToken = sessionStorage.getItem("abideGoogleCalendarToken");
-      return legacyToken ? [{ id: "legacy", label: "Previously connected Google", token: legacyToken, calendars: [] }] : [];
-    } catch { return []; }
+      // Current persistent storage.
+      const persistent =
+        localStorage.getItem("abideGoogleCalendarAccounts");
+
+      if (persistent) {
+        return JSON.parse(persistent);
+      }
+
+      // One-time migration from Abide's old session-only storage.
+      const session =
+        sessionStorage.getItem("abideGoogleCalendarAccounts");
+
+      if (session) {
+        const parsed = JSON.parse(session);
+
+        localStorage.setItem(
+          "abideGoogleCalendarAccounts",
+          JSON.stringify(parsed)
+        );
+
+        return parsed;
+      }
+
+      const legacyToken =
+        sessionStorage.getItem("abideGoogleCalendarToken");
+
+      if (legacyToken) {
+        const legacy = [
+          {
+            id: "legacy",
+            label: "Previously connected Google",
+            displayName: "Google Account",
+            token: legacyToken,
+            calendars: [],
+          },
+        ];
+
+        localStorage.setItem(
+          "abideGoogleCalendarAccounts",
+          JSON.stringify(legacy)
+        );
+
+        return legacy;
+      }
+
+      return [];
+    } catch {
+      return [];
+    }
   });
 
   const [microsoftError, setMicrosoftError] = useState("");
   const [microsoftAccounts, setMicrosoftAccounts] = useState(() => {
     try {
-      const raw = sessionStorage.getItem("abideMicrosoftCalendarAccounts");
-      return raw ? JSON.parse(raw) : [];
+      const persistent =
+        localStorage.getItem("abideMicrosoftCalendarAccounts");
+
+      if (persistent) {
+        return JSON.parse(persistent);
+      }
+
+      // One-time migration from the previous session-only storage.
+      const session =
+        sessionStorage.getItem("abideMicrosoftCalendarAccounts");
+
+      if (session) {
+        const parsed = JSON.parse(session);
+
+        localStorage.setItem(
+          "abideMicrosoftCalendarAccounts",
+          JSON.stringify(parsed)
+        );
+
+        return parsed;
+      }
+
+      return [];
     } catch {
       return [];
     }
@@ -3190,16 +3257,26 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
   useEffect(() => {
     try {
-      sessionStorage.setItem("abideGoogleCalendarAccounts", JSON.stringify(googleAccounts));
+      localStorage.setItem(
+        "abideGoogleCalendarAccounts",
+        JSON.stringify(googleAccounts)
+      );
+
+      // Clean up Abide's old session-only copies after migration.
+      sessionStorage.removeItem("abideGoogleCalendarAccounts");
       sessionStorage.removeItem("abideGoogleCalendarToken");
     } catch {}
   }, [googleAccounts]);
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(
+      localStorage.setItem(
         "abideMicrosoftCalendarAccounts",
         JSON.stringify(microsoftAccounts)
+      );
+
+      sessionStorage.removeItem(
+        "abideMicrosoftCalendarAccounts"
       );
     } catch {}
   }, [microsoftAccounts]);
@@ -3235,8 +3312,12 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       const headers = { Authorization: `Bearer ${token}` };
       const calRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", { headers });
       if (calRes.status === 401) {
-        if (knownAccountId) disconnectGoogleAccount(knownAccountId);
-        throw new Error("A Google Calendar authorization expired. Reconnect that Google account.");
+        // Keep the account/calendar configuration intact.
+        // An expired access token should not look like the user
+        // disconnected their calendar.
+        throw new Error(
+          "Google Calendar access needs to be refreshed. Your connected account and calendar settings have been preserved."
+        );
       }
       if (!calRes.ok) throw new Error("Could not load Google calendars for this account.");
       const calJson = await calRes.json();
@@ -3396,12 +3477,54 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     );
   };
 
+  const getMicrosoftAccessToken = async (account) => {
+    if (!account?.homeAccountId) {
+      throw new Error(
+        "Microsoft Calendar needs to be connected once on this device."
+      );
+    }
+
+    await microsoftAuthReady;
+
+    const cachedAccount =
+      microsoftAuth
+        .getAllAccounts()
+        .find(
+          (candidate) =>
+            candidate.homeAccountId === account.homeAccountId
+        );
+
+    if (!cachedAccount) {
+      throw new Error(
+        "Microsoft sign-in needs to be refreshed. Your calendar settings are still saved."
+      );
+    }
+
+    const tokenResult =
+      await microsoftAuth.acquireTokenSilent({
+        scopes: MICROSOFT_CALENDAR_SCOPES,
+        account: cachedAccount,
+      });
+
+    if (!tokenResult?.accessToken) {
+      throw new Error(
+        "Microsoft did not return a calendar access token."
+      );
+    }
+
+    return tokenResult.accessToken;
+  };
+
   const fetchMicrosoftAccountEvents = async (account) => {
-    if (!account?.token || !account?.id) return;
+    if (!account?.id) return;
 
     setMicrosoftError("");
 
     try {
+      // Always ask MSAL for the current token.
+      // acquireTokenSilent reuses or renews it when possible.
+      const accessToken =
+        await getMicrosoftAccessToken(account);
       const rangeStart = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth() - 1,
@@ -3421,7 +3544,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       );
 
       const headers = {
-        Authorization: `Bearer ${account.token}`,
+        Authorization: `Bearer ${accessToken}`,
       };
 
       const eventGroups = await Promise.all(
@@ -3436,7 +3559,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
           if (response.status === 401) {
             throw new Error(
-              "A Microsoft Calendar authorization expired. Reconnect that Microsoft account."
+              "Microsoft Calendar access needs to be refreshed. Your connected calendars have been preserved."
             );
           }
 
@@ -3681,7 +3804,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${targetAccount.token}`,
+            Authorization: `Bearer ${await getMicrosoftAccessToken(targetAccount)}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
@@ -3784,7 +3907,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${targetAccount.token}`,
+            Authorization: `Bearer ${await getMicrosoftAccessToken(targetAccount)}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),

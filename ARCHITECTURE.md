@@ -144,6 +144,25 @@ Token expiry: browser prototype access tokens are short-lived. If one expires, o
 
 **Global search:** Abide provides a unified search surface across tasks, scheduled subtasks, native events, and currently loaded Google Calendar events. Search matches user-facing text such as title, subtask label, Area, goal, notes/activity text, and calendar/event labels. Completed tasks remain searchable even when hidden from normal working views. Search is presentation/query behavior and does not duplicate task or event records.
 
+**Fast, decision-focused Reviews:** Weekly and monthly Review are designed to restore trust in the system without becoming lengthy rituals. Review should prioritize exceptions, decisions, and a small number of meaningful commitments rather than asking the user to re-confirm every item that is already fine.
+
+The **Weekly Review** should normally take about 5–7 minutes and center on four movements:
+1. **Clear** — surface overdue work, uncategorized captures, and unresolved loose ends that actually need a decision.
+2. **Get Current** — scan the near-term calendar and active goals/projects for anything requiring a next action or adjustment.
+3. **Choose** — name no more than three meaningful outcomes for the coming week.
+4. **Protect** — identify overload, needed margin, protected rhythms, or something that should be deferred, delegated, simplified, or declined.
+
+The **Monthly Review** should normally take about 10–15 minutes and center on five movements:
+1. **Clear** — resolve stale commitments and unfinished decisions before adding more.
+2. **Survey** — scan the next 4–6 weeks of calendar reality, including deadlines, travel, demanding weeks, and preparation needs.
+3. **Attend** — surface Areas and active goals that appear neglected, stalled, or disproportionately demanding.
+4. **Choose** — select no more than three meaningful outcomes for the month and ensure each has a concrete next action.
+5. **Protect** — review important rhythms and margin, and intentionally name at least one thing to stop, pause, simplify, delegate, or decline.
+
+Review should be **exception-driven** where possible. Abide may compute attention prompts from existing task, Area, goal, calendar, milestone, and protected-time data instead of forcing the user through a static checklist. Items that are healthy or unchanged should not require repetitive confirmation. The user should be able to take action directly from Review by creating or linking the real underlying task/event rather than duplicating review-only records.
+
+Completed review history remains useful and may retain period, completion time, notes, selected outcomes, and linked task IDs. Simplifying Review changes the interaction model, not the user's existing task/goal data model or private account boundary.
+
 **Daily Brief:** Today begins with a compact, computed Daily Brief that helps the user engage with confidence without creating more hurry. The brief is derived from existing Abide data rather than stored as a separate record. It summarizes: overdue open work, urgent/high-priority work due today, today's actionable load, upcoming high-priority tasks and milestones, and a short pace/focus observation when the current workload is unusually heavy. The brief should prioritize clarity over volume: surface the few items that genuinely need attention rather than restating the entire task list. Completed items are excluded from attention counts. Milestone tasks participate exactly like other tasks. Scheduled subtasks participate according to their own due dates. Calendar/event load may join the brief once calendar events are available in shared application state.
 
 **Multi-user / share-ready accounts:** Abide is one shared application codebase with private per-user data, not a separate fork or deployment for each person. Every signed-in user owns an isolated Firebase namespace under `users/{uid}`. No user's tasks, goals, journal entries, Areas, filters, review state, or other synced Abide state may be visible to another user. Authentication identity is the boundary for cloud data access.

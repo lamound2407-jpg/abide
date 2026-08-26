@@ -2212,12 +2212,59 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const selectedDayName = selectedDate.toLocaleDateString("en-US", { weekday: "short" });
   const todaysBlock = protectedBlocks.find((b) => b.day === selectedDayName);
   const connectedGoogleAccounts = googleAccounts.filter((a) => a.token);
-  const flatCalendars = connectedGoogleAccounts.flatMap((account) => (account.calendars || []).map((c) => ({ ...c, accountId: account.id, accountLabel: account.label })));
+  const connectedMicrosoftAccounts = microsoftAccounts.filter((a) => a.token);
+
+  const flatCalendars = connectedGoogleAccounts.flatMap((account) =>
+    (account.calendars || []).map((c) => ({
+      ...c,
+      provider: "google",
+      accountId: account.id,
+      accountLabel: account.label,
+    }))
+  );
+
+  const flatMicrosoftCalendars = connectedMicrosoftAccounts.flatMap((account) =>
+    (account.calendars || []).map((c) => ({
+      ...c,
+      provider: "microsoft",
+      accountId: account.id,
+      accountLabel: account.displayName,
+    }))
+  );
+
   const activeCount = flatCalendars.filter((c) => c.on).length;
-  const visibleCalendarKeys = new Set(flatCalendars.filter((c) => c.on).map((c) => `${c.accountId}::${c.id}`));
+  const microsoftActiveCount = flatMicrosoftCalendars.filter((c) => c.on !== false).length;
+
+  const visibleCalendarKeys = new Set(
+    flatCalendars.filter((c) => c.on).map((c) => `google::${c.accountId}::${c.id}`)
+  );
+
+  const visibleMicrosoftCalendarKeys = new Set(
+    flatMicrosoftCalendars
+      .filter((c) => c.on !== false)
+      .map((c) => `microsoft::${c.accountId}::${c.id}`)
+  );
   const dayTasks = tasks.filter((t) => taskDateKey(t) === selectedDateKey);
   const daySubtasks = scheduledSubtaskEntries(tasks).filter((entry) => entry.dueDate === selectedDateKey);
-  const dayEvents = events.filter((e) => e.date === selectedDateKey && (e.source !== "google" || visibleCalendarKeys.has(e.calendarKey || `${e.accountId || "legacy"}::${e.calendarId}`)));
+  const dayEvents = events.filter((e) => {
+    if (e.date !== selectedDateKey) return false;
+
+    if (e.source === "google") {
+      return visibleCalendarKeys.has(
+        e.calendarKey ||
+          `google::${e.accountId || "legacy"}::${e.calendarId}`
+      );
+    }
+
+    if (e.source === "microsoft") {
+      return visibleMicrosoftCalendarKeys.has(
+        e.calendarKey ||
+          `microsoft::${e.accountId}::${e.calendarId}`
+      );
+    }
+
+    return true;
+  });
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -2245,7 +2292,18 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     ? events.filter((event) => {
         if (
           event.source === "google" &&
-          !visibleCalendarKeys.has(event.calendarKey || `${event.accountId || "legacy"}::${event.calendarId}`)
+          !visibleCalendarKeys.has(
+            event.calendarKey ||
+              `google::${event.accountId || "legacy"}::${event.calendarId}`
+          )
+        ) return false;
+
+        if (
+          event.source === "microsoft" &&
+          !visibleMicrosoftCalendarKeys.has(
+            event.calendarKey ||
+              `microsoft::${event.accountId}::${event.calendarId}`
+          )
         ) return false;
 
         const areaName = event.area && areas[event.area] ? areas[event.area].name : "";
@@ -2421,11 +2479,43 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     if (connectedGoogleAccounts.length) refreshAllGoogleAccounts();
   }, [selectedMonthKey]);
 
+  useEffect(() => {
+    if (connectedMicrosoftAccounts.length) {
+      refreshAllMicrosoftAccounts();
+    }
+  }, [selectedMonthKey]);
+
   const connectGoogle = () => {
     setGoogleError("");
     if (!googleConfigured) { setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first."); return; }
     if (!tokenClientRef.current) { setGoogleError("Google sign-in is still loading. Try again in a moment."); return; }
     tokenClientRef.current.requestAccessToken({ prompt: "select_account consent" });
+  };
+
+  const microsoftEventDateKey = (event) => {
+    if (event?.isAllDay && event?.start?.dateTime) {
+      return String(event.start.dateTime).slice(0, 10);
+    }
+
+    if (!event?.start?.dateTime) return "";
+
+    const date = new Date(event.start.dateTime);
+    return Number.isNaN(date.getTime())
+      ? String(event.start.dateTime).slice(0, 10)
+      : localDateKey(date);
+  };
+
+  const microsoftEventTimeLabel = (event) => {
+    if (event?.isAllDay) return "All day";
+    if (!event?.start?.dateTime) return "";
+
+    const date = new Date(event.start.dateTime);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   const disconnectMicrosoftAccount = (accountId) => {
@@ -2434,6 +2524,111 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       prev.filter(
         (event) =>
           !(event.source === "microsoft" && event.accountId === accountId)
+      )
+    );
+  };
+
+  const fetchMicrosoftAccountEvents = async (account) => {
+    if (!account?.token || !account?.id) return;
+
+    setMicrosoftError("");
+
+    try {
+      const rangeStart = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth() - 1,
+        1,
+        0,
+        0,
+        0
+      );
+
+      const rangeEnd = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth() + 2,
+        1,
+        0,
+        0,
+        0
+      );
+
+      const headers = {
+        Authorization: `Bearer ${account.token}`,
+      };
+
+      const eventGroups = await Promise.all(
+        (account.calendars || []).map(async (calendar) => {
+          const url =
+            `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendar.id)}/calendarView` +
+            `?startDateTime=${encodeURIComponent(rangeStart.toISOString())}` +
+            `&endDateTime=${encodeURIComponent(rangeEnd.toISOString())}` +
+            `&$select=id,subject,start,end,isAllDay,isCancelled`;
+
+          const response = await fetch(url, { headers });
+
+          if (response.status === 401) {
+            throw new Error(
+              "A Microsoft Calendar authorization expired. Reconnect that Microsoft account."
+            );
+          }
+
+          if (!response.ok) return [];
+
+          const json = await response.json();
+
+          return (json.value || [])
+            .filter((event) => !event.isCancelled)
+            .map((event) => ({
+              id: `microsoft:${account.id}:${calendar.id}:${event.id}`,
+              microsoftEventId: event.id,
+              accountId: account.id,
+              accountLabel:
+                account.displayName || account.email || "Microsoft Account",
+              calendarId: calendar.id,
+              calendarKey: `microsoft::${account.id}::${calendar.id}`,
+              calendarLabel: calendar.label || "Outlook Calendar",
+              color: calendar.color || "#0078D4",
+              source: "microsoft",
+              title: event.subject || "(Untitled event)",
+              date: microsoftEventDateKey(event),
+              time: microsoftEventTimeLabel(event),
+              start: event.start,
+              end: event.end,
+            }));
+        })
+      );
+
+      setEvents((prev) => {
+        const prior = new Map(prev.map((event) => [event.id, event]));
+
+        const refreshedMicrosoft = eventGroups
+          .flat()
+          .filter((event) => event.date)
+          .map((event) => ({
+            ...event,
+            activities: prior.get(event.id)?.activities || [],
+            notes: "",
+          }));
+
+        return [
+          ...prev.filter(
+            (event) =>
+              !(event.source === "microsoft" && event.accountId === account.id)
+          ),
+          ...refreshedMicrosoft,
+        ];
+      });
+    } catch (err) {
+      setMicrosoftError(
+        err?.message || "Microsoft Calendar events could not be loaded."
+      );
+    }
+  };
+
+  const refreshAllMicrosoftAccounts = async () => {
+    await Promise.all(
+      connectedMicrosoftAccounts.map((account) =>
+        fetchMicrosoftAccountEvents(account)
       )
     );
   };
@@ -2519,6 +2714,8 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
             )
           : [...prev, nextAccount];
       });
+
+      await fetchMicrosoftAccountEvents(nextAccount);
     } catch (err) {
       const message =
         err?.errorCode === "user_cancelled" ||
@@ -2721,7 +2918,18 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
           </div>
         )}
 
-        <div className="gcal-badge" onClick={() => setCalsOpen(!calsOpen)}><span style={{ display: "flex", alignItems: "center", gap: 7 }}><span className="gcal-dot" />{googleConnected ? `${connectedGoogleAccounts.length} Google account${connectedGoogleAccounts.length === 1 ? "" : "s"} · ${activeCount} calendar${activeCount === 1 ? "" : "s"} visible` : "Google Calendar not connected"}</span>{calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
+        <div
+          className="gcal-badge"
+          onClick={() => setCalsOpen(!calsOpen)}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <span className="gcal-dot" />
+            {connectedGoogleAccounts.length || connectedMicrosoftAccounts.length
+              ? `${activeCount + microsoftActiveCount} calendar${activeCount + microsoftActiveCount === 1 ? "" : "s"} visible · ${connectedGoogleAccounts.length} Google · ${connectedMicrosoftAccounts.length} Microsoft`
+              : "No external calendar connected"}
+          </span>
+          {calsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </div>
         {calsOpen && (
           <>
             <CalendarsPanel

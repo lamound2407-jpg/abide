@@ -15,7 +15,8 @@ import {
   Flag, Repeat, ChevronRight, ChevronDown, ChevronLeft, Flame, TrendingUp,
   Check, Clock, Pencil, Sparkles, Filter, PenTool, Type, Trash2,
   RefreshCw, ShieldCheck, Archive, Bell, SlidersHorizontal, Sun, Moon,
-  Dumbbell, Salad, ExternalLink, Search, Settings as SettingsIcon
+  Dumbbell, Salad, ExternalLink, Search, Settings as SettingsIcon,
+  Maximize2, Minimize2, Undo2, Redo2
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, PieChart, Pie, Cell, Tooltip
@@ -5131,6 +5132,33 @@ function JournalTab({
   );
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [highlightSettingsOpen, setHighlightSettingsOpen] = useState(false);
+  const [journalSearch, setJournalSearch] = useState("");
+
+  const normalizedJournalSearch =
+    journalSearch.trim().toLowerCase();
+
+  const filteredJournalEntries =
+    normalizedJournalSearch
+      ? entries.filter((entry) => {
+          const searchableText = [
+            entry.ref || "",
+            entry.note || "",
+            htmlToPlainText(
+              entry.richTextHtml || ""
+            ),
+            entry.date || "",
+            entry.dateKey || "",
+            entry.tag || "",
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          return searchableText.includes(
+            normalizedJournalSearch
+          );
+        })
+      : entries;
+
   const streak = journalStreak(entries);
 
   const save = () => {
@@ -5409,10 +5437,106 @@ function JournalTab({
           <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 10 }} onClick={save}>Save Entry</div>
         </div>
         <div className="section-label">Entries</div>
+
+        <div
+          style={{
+            position: "relative",
+            marginBottom: 10,
+          }}
+        >
+          <Search
+            size={15}
+            color="var(--text3)"
+            style={{
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              pointerEvents: "none",
+            }}
+          />
+
+          <input
+            value={journalSearch}
+            onChange={(event) =>
+              setJournalSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search journal entries…"
+            aria-label="Search journal entries"
+            style={{
+              width: "100%",
+              height: 42,
+              padding:
+                journalSearch
+                  ? "0 40px 0 36px"
+                  : "0 12px 0 36px",
+              borderRadius: 12,
+              border:
+                "1px solid var(--inputBorder)",
+              background: "var(--inputBg)",
+              color: "var(--text)",
+              fontSize: 13.5,
+              outline: "none",
+            }}
+          />
+
+          {journalSearch && (
+            <button
+              type="button"
+              aria-label="Clear journal search"
+              onClick={() =>
+                setJournalSearch("")
+              }
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform:
+                  "translateY(-50%)",
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "var(--text3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {journalSearch && (
+          <div
+            style={{
+              fontSize: 11.5,
+              color: "var(--text3)",
+              margin: "-2px 3px 9px",
+            }}
+          >
+            {filteredJournalEntries.length}
+            {" "}
+            {filteredJournalEntries.length === 1
+              ? "entry"
+              : "entries"}
+            {" found"}
+          </div>
+        )}
+
         <div className="card">
-          {entries.length ? entries.map((entry) => <div key={entry.id} className="journal-entry">
+          {filteredJournalEntries.length ? filteredJournalEntries.map((entry) => <div key={entry.id} className="journal-entry">
             {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}</>}
-          </div>) : <div className="insight-line">No journal entries yet.</div>}
+          </div>) : <div className="insight-line">
+            {journalSearch
+              ? "No journal entries match your search."
+              : "No journal entries yet."}
+          </div>}
         </div>
       </div>
     </>
@@ -5460,8 +5584,187 @@ function ScratchTab() {
     null
   );
 
+  const [scratchSearch, setScratchSearch] =
+    useState("");
+
+  const [isDrawingFullscreen, setIsDrawingFullscreen] =
+    useState(false);
+
+  const drawingFullscreenRef = useRef(false);
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+
+  // Used only to force toolbar button-state refreshes.
+  const [drawingHistoryVersion, setDrawingHistoryVersion] =
+    useState(0);
+
+  const normalizedScratchSearch =
+    scratchSearch.trim().toLowerCase();
+
+  const filteredScratchPages =
+    normalizedScratchSearch
+      ? pages.filter((pg) => {
+          const typedText =
+            pg.type === "type"
+              ? htmlToPlainText(
+                  pg.contentHtml ||
+                    pg.content ||
+                    ""
+                )
+              : "";
+
+          const searchableText = [
+            typedText,
+            pg.date || "",
+            pg.type === "draw"
+              ? "drawing sketch"
+              : "note text",
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          return searchableText.includes(
+            normalizedScratchSearch
+          );
+        })
+      : pages;
+
   const SCRATCH_DRAWING_DRAFT_KEY =
     "abide-scratch-drawing-draft";
+
+  const refreshDrawingHistoryControls = () => {
+    setDrawingHistoryVersion(
+      (version) => version + 1
+    );
+  };
+
+  const canvasSnapshot = () => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return "";
+
+    try {
+      return canvas.toDataURL("image/png");
+    } catch {
+      return "";
+    }
+  };
+
+  const pushUndoSnapshot = () => {
+    const snapshot = canvasSnapshot();
+
+    if (!snapshot) return;
+
+    undoStack.current.push(snapshot);
+
+    // Keep memory bounded while still providing
+    // plenty of useful drawing history.
+    if (undoStack.current.length > 30) {
+      undoStack.current.shift();
+    }
+
+    redoStack.current = [];
+    refreshDrawingHistoryControls();
+  };
+
+  const loadCanvasSnapshot = (
+    dataUrl,
+    autosave = true
+  ) => {
+    if (!dataUrl) return;
+
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx =
+        canvas.getContext("2d");
+
+      const {
+        width,
+        height,
+        dpr,
+      } = canvasMetrics.current;
+
+      ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+      );
+
+      ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+      );
+
+      ctx.fillStyle = "#F2F1EC";
+      ctx.fillRect(
+        0,
+        0,
+        width,
+        height
+      );
+
+      ctx.drawImage(
+        img,
+        0,
+        0,
+        width,
+        height
+      );
+
+      if (autosave) {
+        saveDrawingDraftNow();
+      }
+    };
+
+    img.src = dataUrl;
+  };
+
+  const undoDrawing = () => {
+    if (!undoStack.current.length) return;
+
+    const current = canvasSnapshot();
+
+    if (current) {
+      redoStack.current.push(current);
+    }
+
+    const previous =
+      undoStack.current.pop();
+
+    loadCanvasSnapshot(previous);
+    refreshDrawingHistoryControls();
+  };
+
+  const redoDrawing = () => {
+    if (!redoStack.current.length) return;
+
+    const current = canvasSnapshot();
+
+    if (current) {
+      undoStack.current.push(current);
+    }
+
+    const next =
+      redoStack.current.pop();
+
+    loadCanvasSnapshot(next);
+    refreshDrawingHistoryControls();
+  };
+
+  const resetDrawingHistory = () => {
+    undoStack.current = [];
+    redoStack.current = [];
+    refreshDrawingHistoryControls();
+  };
 
   const clearDrawingDraft = () => {
     try {
@@ -5600,9 +5903,27 @@ function ScratchTab() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const width = Math.max(1, rect.width || 380);
-    const height = width * (260 / 380);
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+    const width =
+      Math.max(
+        1,
+        rect.width || 380
+      );
+
+    const height =
+      drawingFullscreenRef.current
+        ? Math.max(
+            1,
+            rect.height ||
+              window.innerHeight - 100
+          )
+        : width * (260 / 380);
+
+    const dpr =
+      Math.max(
+        1,
+        window.devicePixelRatio || 1
+      );
 
     let snapshot = null;
     if (preserve && canvas.width > 0 && canvas.height > 0) {
@@ -5657,6 +5978,62 @@ function ScratchTab() {
     };
   }, []);
 
+  useEffect(() => {
+    drawingFullscreenRef.current =
+      isDrawingFullscreen;
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    if (isDrawingFullscreen) {
+      document.body.style.overflow =
+        "hidden";
+    }
+
+    const resizeFrame =
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resizeCanvas(true);
+        });
+      });
+
+    const handleEscape = (event) => {
+      if (
+        event.key === "Escape" &&
+        isDrawingFullscreen
+      ) {
+        saveDrawingDraftNow();
+        setIsDrawingFullscreen(false);
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleEscape
+    );
+
+    return () => {
+      cancelAnimationFrame(
+        resizeFrame
+      );
+
+      window.removeEventListener(
+        "keydown",
+        handleEscape
+      );
+
+      document.body.style.overflow =
+        previousOverflow;
+    };
+  }, [isDrawingFullscreen]);
+
+  const toggleDrawingFullscreen = () => {
+    saveDrawingDraftNow();
+    setIsDrawingFullscreen(
+      (current) => !current
+    );
+  };
+
   const getPos = (event) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -5667,6 +6044,10 @@ function ScratchTab() {
 
   const onDown = (e) => {
     e.preventDefault();
+
+    // Save the canvas exactly as it looked before this stroke.
+    pushUndoSnapshot();
+
     drawing.current = true;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     const p = getPos(e);
@@ -5729,6 +6110,11 @@ function ScratchTab() {
     }
   };
 
+  const clearCanvasWithHistory = () => {
+    pushUndoSnapshot();
+    clearCanvas();
+  };
+
   const saveDrawing = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -5765,6 +6151,7 @@ function ScratchTab() {
     // The permanent page now owns the drawing.
     clearDrawingDraft();
     clearCanvas(false);
+    resetDrawingHistory();
   };
 
   const saveTyped = () => {
@@ -5812,6 +6199,8 @@ function ScratchTab() {
     }
 
     setTool("draw");
+    resetDrawingHistory();
+
     requestAnimationFrame(() => {
       resizeCanvas(false);
       const img = new Image();
@@ -5867,24 +6256,306 @@ function ScratchTab() {
         </div>
         {editingId && <div className="insight-line" style={{ padding: "0 4px 10px 4px" }}>Editing a saved page — save to update it, or delete it below.</div>}
         {tool === "draw" ? (
-          <>
-            <div className="scratch-toolbar">
-              <div style={{ display: "flex", gap: 8 }}>{["#141A28", "#E8B45C", "#8FA88A", "#D98595", "#7C93C9"].map((c) => <div key={c} className={`swatch-mini ${color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setColor(c)} />)}</div>
-              <div style={{ display: "flex", gap: 8 }}><div className="tool-btn" onClick={clearCanvas}><Trash2 size={16} /></div><div className="tool-btn active" onClick={saveDrawing}><Check size={16} /></div></div>
+          <div
+            style={
+              isDrawingFullscreen
+                ? {
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 20000,
+                    background:
+                      "var(--appBg)",
+                    display: "flex",
+                    flexDirection: "column",
+                    paddingTop:
+                      "env(safe-area-inset-top, 0px)",
+                    paddingBottom:
+                      "env(safe-area-inset-bottom, 0px)",
+                  }
+                : undefined
+            }
+          >
+            {isDrawingFullscreen && (
+              <div
+                style={{
+                  minHeight: 46,
+                  padding: "8px 12px 4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent:
+                    "space-between",
+                  gap: 10,
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    minWidth: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "var(--text)",
+                    }}
+                  >
+                    Scratchbook
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      color: "var(--text3)",
+                      marginTop: 1,
+                    }}
+                  >
+                    Drawing autosaves as you work
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    toggleDrawingFullscreen
+                  }
+                  aria-label="Exit full screen"
+                  title="Exit full screen"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    border:
+                      "1px solid var(--pillBorder)",
+                    background:
+                      "var(--pillBg)",
+                    color: "var(--text)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent:
+                      "center",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Minimize2 size={16} />
+                </button>
+              </div>
+            )}
+
+            <div
+              className="scratch-toolbar"
+              style={{
+                margin:
+                  isDrawingFullscreen
+                    ? "4px 10px 8px"
+                    : undefined,
+                padding:
+                  isDrawingFullscreen
+                    ? "8px 10px"
+                    : undefined,
+                borderRadius:
+                  isDrawingFullscreen
+                    ? 14
+                    : undefined,
+                background:
+                  isDrawingFullscreen
+                    ? "var(--card)"
+                    : undefined,
+                border:
+                  isDrawingFullscreen
+                    ? "1px solid var(--cardBorder)"
+                    : undefined,
+                flexWrap: "wrap",
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                {[
+                  "#141A28",
+                  "#E8B45C",
+                  "#8FA88A",
+                  "#D98595",
+                  "#7C93C9",
+                ].map((c) => (
+                  <div
+                    key={c}
+                    className={`swatch-mini ${
+                      color === c
+                        ? "selected"
+                        : ""
+                    }`}
+                    style={{
+                      background: c,
+                    }}
+                    onClick={() =>
+                      setColor(c)
+                    }
+                  />
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 7,
+                  alignItems: "center",
+                  marginLeft: "auto",
+                }}
+              >
+                <button
+                  type="button"
+                  className="tool-btn"
+                  aria-label="Undo"
+                  title="Undo"
+                  disabled={
+                    !undoStack.current.length
+                  }
+                  onClick={undoDrawing}
+                  style={{
+                    opacity:
+                      undoStack.current.length
+                        ? 1
+                        : 0.38,
+                  }}
+                >
+                  <Undo2 size={15} />
+                </button>
+
+                <button
+                  type="button"
+                  className="tool-btn"
+                  aria-label="Redo"
+                  title="Redo"
+                  disabled={
+                    !redoStack.current.length
+                  }
+                  onClick={redoDrawing}
+                  style={{
+                    opacity:
+                      redoStack.current.length
+                        ? 1
+                        : 0.38,
+                  }}
+                >
+                  <Redo2 size={15} />
+                </button>
+
+                <button
+                  type="button"
+                  className="tool-btn"
+                  aria-label="Clear page"
+                  title="Clear page"
+                  onClick={
+                    clearCanvasWithHistory
+                  }
+                >
+                  <Trash2 size={15} />
+                </button>
+
+                {!isDrawingFullscreen && (
+                  <button
+                    type="button"
+                    className="tool-btn"
+                    aria-label="Full screen"
+                    title="Full screen"
+                    onClick={
+                      toggleDrawingFullscreen
+                    }
+                  >
+                    <Maximize2 size={15} />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="tool-btn active"
+                  aria-label="Save drawing"
+                  title={
+                    editingId
+                      ? "Update drawing"
+                      : "Save drawing"
+                  }
+                  onClick={saveDrawing}
+                >
+                  <Check size={16} />
+                </button>
+              </div>
             </div>
-            <div ref={wrapRef} className="scratch-canvas-wrap">
+
+            <div
+              ref={wrapRef}
+              className="scratch-canvas-wrap"
+              style={
+                isDrawingFullscreen
+                  ? {
+                      flex: 1,
+                      minHeight: 0,
+                      height:
+                        "calc(100vh - 118px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+                      margin: "0 10px 10px",
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      boxShadow:
+                        "0 8px 28px rgba(0,0,0,0.18)",
+                    }
+                  : undefined
+              }
+            >
               <canvas
                 ref={canvasRef}
-                style={{ width: "100%", aspectRatio: "380 / 260", display: "block", touchAction: "none" }}
+                style={{
+                  width: "100%",
+                  height:
+                    isDrawingFullscreen
+                      ? "100%"
+                      : undefined,
+                  aspectRatio:
+                    isDrawingFullscreen
+                      ? "auto"
+                      : "380 / 260",
+                  display: "block",
+                  touchAction: "none",
+                  cursor: "crosshair",
+                }}
                 onPointerDown={onDown}
                 onPointerMove={onMove}
                 onPointerUp={onUp}
                 onPointerCancel={onUp}
-                onPointerLeave={(e) => { if (drawing.current && e.buttons === 0) onUp(e); }}
+                onPointerLeave={(e) => {
+                  if (
+                    drawing.current &&
+                    e.buttons === 0
+                  ) {
+                    onUp(e);
+                  }
+                }}
               />
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8, display: "flex", alignItems: "center", gap: 5 }}><PenTool size={12} />High-resolution, pressure-sensitive canvas calibrated to the visible page for finger, mouse, or Apple Pencil. Drawing autosaves as you work.</div>
-          </>
+
+            {!isDrawingFullscreen && (
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--text3)",
+                  marginTop: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <PenTool size={12} />
+                High-resolution, pressure-sensitive canvas for finger, mouse, or Apple Pencil. Drawing autosaves as you work.
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <RichTextEditor
@@ -5915,8 +6586,117 @@ function ScratchTab() {
           </>
         )}
         <div className="section-label">Past Pages</div>
+
+        <div
+          style={{
+            position: "relative",
+            marginBottom: 10,
+          }}
+        >
+          <Search
+            size={15}
+            color="var(--text3)"
+            style={{
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              pointerEvents: "none",
+            }}
+          />
+
+          <input
+            value={scratchSearch}
+            onChange={(event) =>
+              setScratchSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search Scratchbook…"
+            aria-label="Search Scratchbook"
+            style={{
+              width: "100%",
+              height: 42,
+              padding:
+                scratchSearch
+                  ? "0 40px 0 36px"
+                  : "0 12px 0 36px",
+              borderRadius: 12,
+              border:
+                "1px solid var(--inputBorder)",
+              background: "var(--inputBg)",
+              color: "var(--text)",
+              fontSize: 13.5,
+              outline: "none",
+            }}
+          />
+
+          {scratchSearch && (
+            <button
+              type="button"
+              aria-label="Clear Scratchbook search"
+              onClick={() =>
+                setScratchSearch("")
+              }
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform:
+                  "translateY(-50%)",
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "var(--text3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "center",
+                cursor: "pointer",
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {scratchSearch && (
+          <div
+            style={{
+              fontSize: 11.5,
+              color: "var(--text3)",
+              margin: "-2px 3px 9px",
+              lineHeight: 1.45,
+            }}
+          >
+            {filteredScratchPages.length}
+            {" "}
+            {filteredScratchPages.length === 1
+              ? "page"
+              : "pages"}
+            {" found"}
+            {" · "}
+            Typed notes are searchable by text.
+            Drawings can be found by date.
+          </div>
+        )}
+
+        {scratchSearch &&
+          filteredScratchPages.length === 0 && (
+            <div
+              className="insight-line"
+              style={{
+                marginBottom: 10,
+              }}
+            >
+              No Scratchbook pages match your search.
+            </div>
+          )}
+
         <div className="scratch-grid">
-          {pages.map((pg) => (
+          {filteredScratchPages.map((pg) => (
             <div key={pg.id} className="scratch-item card">
               {pg.type === "draw" ? <img src={pg.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70, lineHeight: 1.45 }} dangerouslySetInnerHTML={{ __html: pg.contentHtml || (String(pg.content || "").includes("<") ? pg.content : plainTextToHtml(pg.content || "")) }} />}
               <div className="cap"><span>{pg.date}</span><span className="cap-icons"><Pencil size={12} onClick={() => editPage(pg)} /><Trash2 size={12} onClick={() => deletePage(pg.id)} /></span></div>

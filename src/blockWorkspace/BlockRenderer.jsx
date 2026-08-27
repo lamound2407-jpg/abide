@@ -1,7 +1,4 @@
-import React, {
-  useEffect,
-  useRef,
-} from "react";
+import React from "react";
 
 import {
   BLOCK_TYPES,
@@ -13,8 +10,6 @@ function BlockChildren({
   onChange,
   onOpenSlash,
   onOpenMention,
-  onEnter,
-  onBackspaceEmpty,
 }) {
   if (!blocks.length) {
     return null;
@@ -43,64 +38,8 @@ function RichText({
   onChange,
   onOpenSlash,
   onOpenMention,
-  onEnter,
-  onBackspaceEmpty,
 }) {
   const Tag = tag;
-
-  const editorRef =
-    useRef(null);
-
-  useEffect(
-    () => {
-      const element =
-        editorRef.current;
-
-      if (!element) return;
-
-      const nextText =
-        String(
-          block.text || ""
-        );
-
-      // Only touch the DOM when the text is actually
-      // different. Normal typing already changed the DOM,
-      // so React must not rewrite it and destroy the caret.
-      if (
-        element.textContent !==
-        nextText
-      ) {
-        element.textContent =
-          nextText;
-
-        // Programmatic block changes such as slash commands
-        // should leave the caret at the end of the new text.
-        if (
-          document.activeElement ===
-          element
-        ) {
-          const selection =
-            window.getSelection();
-
-          const range =
-            document.createRange();
-
-          range.selectNodeContents(
-            element
-          );
-
-          range.collapse(false);
-
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-        }
-      }
-    },
-    [
-      block.id,
-      block.text,
-    ]
-  );
 
   const handleInput = (event) => {
     const text =
@@ -113,71 +52,6 @@ function RichText({
       updatedAt:
         Date.now(),
     });
-  };
-
-
-  const handleKeyDown = (
-    event
-  ) => {
-    const text =
-      event.currentTarget
-        .textContent || "";
-
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-
-      let caret =
-        text.length;
-
-      try {
-        const selection =
-          window.getSelection();
-
-        if (
-          selection?.rangeCount
-        ) {
-          const range =
-            selection
-              .getRangeAt(0)
-              .cloneRange();
-
-          range.selectNodeContents(
-            event.currentTarget
-          );
-
-          range.setEnd(
-            selection.anchorNode,
-            selection.anchorOffset
-          );
-
-          caret =
-            range
-              .toString()
-              .length;
-        }
-      } catch {}
-
-      onEnter?.(
-        block,
-        caret
-      );
-
-      return;
-    }
-
-    if (
-      event.key === "Backspace" &&
-      !text
-    ) {
-      event.preventDefault();
-
-      onBackspaceEmpty?.(
-        block
-      );
-    }
   };
 
 
@@ -247,14 +121,14 @@ function RichText({
 
   return (
     <Tag
-      ref={editorRef}
       className={`abide-block-richtext ${className}`}
       contentEditable
       suppressContentEditableWarning
       onInput={handleInput}
-      onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
-    />
+    >
+      {block.text || ""}
+    </Tag>
   );
 }
 
@@ -275,8 +149,6 @@ export default function BlockRenderer({
     onChange,
     onOpenSlash,
     onOpenMention,
-    onEnter,
-    onBackspaceEmpty,
   };
 
 

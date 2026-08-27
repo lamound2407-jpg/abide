@@ -256,6 +256,49 @@ export default function WorkspaceEditor({
     };
 
 
+  const focusBlock =
+    (
+      blockId,
+      atEnd = true
+    ) => {
+      requestAnimationFrame(
+        () => {
+          const shell =
+            rootRef.current
+              ?.querySelector(
+                `[data-block-id="${blockId}"]`
+              );
+
+          const editor =
+            shell?.querySelector(
+              ".abide-block-richtext"
+            );
+
+          if (!editor) return;
+
+          editor.focus();
+
+          const selection =
+            window.getSelection();
+
+          const range =
+            document.createRange();
+
+          range.selectNodeContents(
+            editor
+          );
+
+          range.collapse(
+            !atEnd
+          );
+
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
+      );
+    };
+
+
   const updateOne =
     (updated) => {
       publish(
@@ -370,6 +413,146 @@ export default function WorkspaceEditor({
       );
 
       publish(next);
+    };
+
+
+  const handleBlockEnter =
+    (
+      block,
+      caret = String(
+        block.text || ""
+      ).length
+    ) => {
+      const index =
+        findBlockIndex(
+          blocks,
+          block.id
+        );
+
+      if (index === -1) {
+        return;
+      }
+
+      const text =
+        String(
+          block.text || ""
+        );
+
+      const safeCaret =
+        Math.max(
+          0,
+          Math.min(
+            caret,
+            text.length
+          )
+        );
+
+      const before =
+        text.slice(
+          0,
+          safeCaret
+        );
+
+      const after =
+        text.slice(
+          safeCaret
+        );
+
+      const continuationTypes =
+        new Set([
+          BLOCK_TYPES.TODO,
+          BLOCK_TYPES.BULLETED_LIST,
+          BLOCK_TYPES.NUMBERED_LIST,
+        ]);
+
+      const nextType =
+        continuationTypes.has(
+          block.type
+        )
+          ? block.type
+          : BLOCK_TYPES.TEXT;
+
+      const currentBlock = {
+        ...block,
+        text: before,
+        updatedAt:
+          Date.now(),
+      };
+
+      const nextBlock =
+        createBlock({
+          type:
+            nextType,
+          text:
+            after,
+        });
+
+      const next = [
+        ...blocks,
+      ];
+
+      next[index] =
+        currentBlock;
+
+      next.splice(
+        index + 1,
+        0,
+        nextBlock
+      );
+
+      publish(next);
+
+      focusBlock(
+        nextBlock.id,
+        false
+      );
+    };
+
+  const handleEmptyBackspace =
+    (block) => {
+      const index =
+        findBlockIndex(
+          blocks,
+          block.id
+        );
+
+      if (
+        index === -1
+      ) {
+        return;
+      }
+
+      // Keep one editable block alive.
+      if (
+        blocks.length === 1
+      ) {
+        return;
+      }
+
+      const focusTarget =
+        index > 0
+          ? blocks[
+              index - 1
+            ]
+          : blocks[
+              index + 1
+            ];
+
+      const next =
+        blocks.filter(
+          (item) =>
+            item.id !==
+            block.id
+        );
+
+      publish(next);
+
+      if (focusTarget) {
+        focusBlock(
+          focusTarget.id,
+          index > 0
+        );
+      }
     };
 
 
@@ -879,6 +1062,7 @@ export default function WorkspaceEditor({
             "Enter"
           ) {
             event.preventDefault();
+            event.stopPropagation();
 
             chooseMenuItem(
               menu.results[
@@ -939,65 +1123,6 @@ export default function WorkspaceEditor({
               block.id
             }
           >
-            <div
-              className="abide-workspace-block-actions"
-              contentEditable={
-                false
-              }
-            >
-              <button
-                type="button"
-                title="Move up"
-                onClick={() =>
-                  moveBlock(
-                    block.id,
-                    -1
-                  )
-                }
-              >
-                ↑
-              </button>
-
-              <button
-                type="button"
-                title="Move down"
-                onClick={() =>
-                  moveBlock(
-                    block.id,
-                    1
-                  )
-                }
-              >
-                ↓
-              </button>
-
-              <button
-                type="button"
-                title="Add block"
-                onClick={() =>
-                  addAfter(
-                    block.id,
-                    makeStarterBlock()
-                  )
-                }
-              >
-                +
-              </button>
-
-              <button
-                type="button"
-                title="Delete block"
-                onClick={() =>
-                  removeBlock(
-                    block.id
-                  )
-                }
-              >
-                ×
-              </button>
-            </div>
-
-
             <BlockRenderer
               block={
                 block
@@ -1011,24 +1136,16 @@ export default function WorkspaceEditor({
               onOpenMention={
                 openMention
               }
+              onEnter={
+                handleBlockEnter
+              }
+              onBackspaceEmpty={
+                handleEmptyBackspace
+              }
             />
           </div>
         )
       )}
-
-
-      <button
-        type="button"
-        className="abide-add-empty-block"
-        onClick={() =>
-          publish([
-            ...blocks,
-            makeStarterBlock(),
-          ])
-        }
-      >
-        + Add block
-      </button>
 
 
       <CommandMenu

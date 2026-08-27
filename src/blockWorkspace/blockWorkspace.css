@@ -1,0 +1,343 @@
+
+/* =========================================================
+   COMMAND MENU + DATE PICKER
+   ========================================================= */
+
+.abide-command-menu {
+  position: fixed;
+  z-index: 43000;
+  max-height: min(62vh, 500px);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--pillBorder);
+  border-radius: 13px;
+  padding: 5px;
+  box-shadow: 0 20px 55px rgba(0,0,0,.3);
+  scrollbar-width: none;
+}
+
+.abide-command-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.abide-command-menu-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--card);
+  border-bottom: 1px solid var(--divider);
+  color: var(--text3);
+  font-size: 10px;
+}
+
+.abide-command-menu-head strong {
+  color: var(--text);
+  margin-right: 4px;
+}
+
+.abide-command-menu-head button {
+  border: 0;
+  background: transparent;
+  color: var(--text3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.abide-command-menu-row {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  padding: 7px 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.abide-command-menu-row.active,
+.abide-command-menu-row:hover {
+  background: var(--pillBg);
+}
+
+.abide-command-menu-icon {
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--divider);
+  background: var(--subtleBg);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text2);
+}
+
+.abide-command-menu-copy {
+  min-width: 0;
+}
+
+.abide-command-menu-copy strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.abide-command-menu-copy small {
+  display: block;
+  color: var(--text3);
+  font-size: 9.5px;
+  margin-top: 1px;
+}
+
+.abide-command-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 46000;
+  background: rgba(0,0,0,.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.abide-command-modal {
+  width: min(94vw, 390px);
+  background: var(--card);
+  border: 1px solid var(--cardBorder);
+  border-radius: 15px;
+  padding: 14px;
+  box-shadow: 0 25px 80px rgba(0,0,0,.4);
+}
+
+.abide-command-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.abide-command-modal-head strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.abide-command-modal-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text3);
+  font-size: 10px;
+}
+
+.abide-command-modal-head button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--pillBorder);
+  background: var(--pillBg);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.abide-command-modal label {
+  display: block;
+  margin: 10px 0 4px;
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.abide-command-modal input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--inputBorder);
+  background: var(--inputBg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px;
+  font: inherit;
+}
+
+.abide-command-date-preview {
+  margin-top: 10px;
+  border: 1px solid var(--divider);
+  background: var(--subtleBg);
+  border-radius: 9px;
+  padding: 9px;
+  color: var(--text2);
+  font-size: 11px;
+}
+
+.abide-command-save {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid rgba(124,147,201,.35);
+  background: rgba(124,147,201,.15);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+/* =========================================================
+   STRUCTURED WORKSPACE EDITOR
+   ========================================================= */
+
+.abide-workspace-editor {
+  position: relative;
+  min-height: 150px;
+}
+
+.abide-workspace-block-shell {
+  position: relative;
+  padding-left: 28px;
+  margin: 2px 0;
+}
+
+.abide-workspace-block-actions {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.abide-workspace-block-shell:hover
+.abide-workspace-block-actions {
+  opacity: 1;
+}
+
+.abide-workspace-block-actions button {
+  width: 21px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text3);
+  border-radius: 5px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.abide-workspace-block-actions button:hover {
+  background: var(--pillBg);
+  color: var(--text);
+}
+
+.abide-block {
+  min-height: 24px;
+}
+
+.abide-block-richtext {
+  min-height: 22px;
+  outline: none;
+  line-height: 1.55;
+  color: var(--body);
+}
+
+.abide-block-richtext:empty::before {
+  content: "Type / for commands or @ to mention…";
+  color: var(--text3);
+  opacity: .6;
+  pointer-events: none;
+}
+
+.abide-block-richtext.completed {
+  text-decoration: line-through;
+  opacity: .62;
+}
+
+.abide-block-todo,
+.abide-block-list {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 4px;
+  align-items: start;
+}
+
+.abide-block-todo > input {
+  margin-top: 6px;
+}
+
+.abide-list-marker {
+  padding-top: 2px;
+  color: var(--text2);
+  text-align: center;
+}
+
+.abide-block-toggle {
+  padding: 3px 0;
+}
+
+.abide-block-toggle > summary {
+  cursor: pointer;
+}
+
+.abide-block-toggle > summary::marker {
+  color: var(--text3);
+}
+
+.abide-block-children {
+  margin-left: 22px;
+  padding-left: 10px;
+  border-left: 1px solid var(--divider);
+}
+
+.abide-block-quote {
+  margin: 4px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--pillBorder);
+}
+
+.abide-block-divider hr {
+  border: 0;
+  border-top: 1px solid var(--divider);
+  margin: 10px 0;
+}
+
+.abide-block-callout {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid var(--divider);
+  border-radius: 9px;
+  background: var(--subtleBg);
+}
+
+.abide-add-empty-block {
+  margin: 8px 0 0 28px;
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text3);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.abide-add-empty-block:hover {
+  background: var(--pillBg);
+  color: var(--text);
+}
+
+.abide-workspace-placeholder {
+  padding: 8px 28px;
+  color: var(--text3);
+  font-size: 11px;
+}

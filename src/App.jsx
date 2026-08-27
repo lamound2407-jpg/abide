@@ -1,4 +1,11 @@
 import ImportTasksPanel from "./ImportTasksPanel.jsx";
+import WorkspaceEditor from "./blockWorkspace/WorkspaceEditor.jsx";
+import {
+  normalizeWorkspaceBlocks,
+  workspaceBlocksToHtml,
+  workspaceBlocksToPlainText,
+  workspaceBlockReferences,
+} from "./blockWorkspace/contentBridge.js";
 import {
   AbideCommandLayer,
   sendToScratchPadAndOfferOpen,
@@ -7511,6 +7518,11 @@ function JournalTab({
     "abide-journal-draft-html",
     ""
   );
+
+  const [noteBlocks, setNoteBlocks] = usePersistentState(
+    "abide-journal-draft-blocks",
+    []
+  );
   const [tag, setTag] = usePersistentState(
     "abide-journal-draft-tag",
     "yellow"
@@ -7532,6 +7544,11 @@ function JournalTab({
   const [editHtml, setEditHtml] = usePersistentState(
     "abide-journal-edit-html",
     ""
+  );
+
+  const [editBlocks, setEditBlocks] = usePersistentState(
+    "abide-journal-edit-blocks",
+    []
   );
   const [editTag, setEditTag] = usePersistentState(
     "abide-journal-edit-tag",
@@ -7601,7 +7618,23 @@ function JournalTab({
   const streak = journalStreak(entries);
 
   const save = () => {
-    if (!htmlToPlainText(noteHtml) && !ref.trim()) return;
+    const effectiveBlocks =
+      normalizeWorkspaceBlocks(
+        noteBlocks,
+        noteHtml
+      );
+
+    const plain =
+      workspaceBlocksToPlainText(
+        effectiveBlocks
+      );
+
+    const html =
+      workspaceBlocksToHtml(
+        effectiveBlocks
+      );
+
+    if (!plain && !ref.trim()) return;
 
     const savedAt = Date.now();
 
@@ -7614,9 +7647,12 @@ function JournalTab({
         date: formatDateLabel(entryDate),
         ref: ref || "",
         tag,
-        note: htmlToPlainText(noteHtml),
-        richTextHtml: noteHtml,
-        references: extractAbideReferences(noteHtml),
+        note: plain,
+        richTextHtml: html,
+        workspaceBlocks: effectiveBlocks,
+        references: workspaceBlockReferences(
+          effectiveBlocks
+        ),
       },
       ...p,
     ]);
@@ -7624,6 +7660,7 @@ function JournalTab({
     // Saving converts the autosaved draft into a permanent entry.
     setRef("");
     setNoteHtml("");
+    setNoteBlocks([]);
     setTag("yellow");
     setEntryDate(REFERENCE_DATE_KEY);
   };
@@ -7631,10 +7668,24 @@ function JournalTab({
     setEditingId(entry.id);
     setEditDate(entry.dateKey || REFERENCE_DATE_KEY);
     setEditRef(entry.ref || "");
-    setEditHtml(
+
+    const legacyHtml =
       entry.richTextHtml ||
-        plainTextToHtml(entry.note || "")
+      plainTextToHtml(
+        entry.note || ""
+      );
+
+    setEditHtml(
+      legacyHtml
     );
+
+    setEditBlocks(
+      normalizeWorkspaceBlocks(
+        entry.workspaceBlocks,
+        legacyHtml
+      )
+    );
+
     setEditTag(entry.tag || "yellow");
   };
 
@@ -7643,10 +7694,27 @@ function JournalTab({
     setEditDate(REFERENCE_DATE_KEY);
     setEditRef("");
     setEditHtml("");
+    setEditBlocks([]);
     setEditTag("yellow");
   };
 
   const saveEdit = (id) => {
+    const effectiveBlocks =
+      normalizeWorkspaceBlocks(
+        editBlocks,
+        editHtml
+      );
+
+    const plain =
+      workspaceBlocksToPlainText(
+        effectiveBlocks
+      );
+
+    const html =
+      workspaceBlocksToHtml(
+        effectiveBlocks
+      );
+
     setEntries((p) =>
       p.map((e) =>
         e.id === id
@@ -7659,9 +7727,12 @@ function JournalTab({
               dateKey: editDate,
               date: formatDateLabel(editDate),
               ref: editRef,
-              note: htmlToPlainText(editHtml),
-              richTextHtml: editHtml,
-              references: extractAbideReferences(editHtml),
+              note: plain,
+              richTextHtml: html,
+              workspaceBlocks: effectiveBlocks,
+              references: workspaceBlockReferences(
+                effectiveBlocks
+              ),
               tag: editTag,
             }
           : e
@@ -7845,13 +7916,23 @@ function JournalTab({
         <div className="card journal-compose">
           <input type="date" className="input-line" style={{ marginTop: 0 }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
           <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none", marginTop: 10 }} value={ref} onChange={(e) => setRef(e.target.value)} />
-          <div style={{ marginTop: 10 }}><RichTextEditor
-  value={noteHtml}
-  onChange={setNoteHtml}
-  placeholder="What is He saying to you right now?"
-  minHeight={150}
-  highlightMeanings={highlightMeanings}
-/></div>
+          <div style={{ marginTop: 10 }}>
+            <WorkspaceEditor
+              initialBlocks={normalizeWorkspaceBlocks(
+                noteBlocks,
+                noteHtml
+              )}
+              onChange={(blocks) => {
+                setNoteBlocks(blocks);
+                setNoteHtml(
+                  workspaceBlocksToHtml(
+                    blocks
+                  )
+                );
+              }}
+              placeholder="What is He saying to you right now? Type / for blocks or @ to mention."
+            />
+          </div>
 
           <div
             style={{
@@ -7864,7 +7945,12 @@ function JournalTab({
             }}
           >
             <Check size={11} />
-            {htmlToPlainText(noteHtml) || ref.trim()
+            {workspaceBlocksToPlainText(
+              normalizeWorkspaceBlocks(
+                noteBlocks,
+                noteHtml
+              )
+            ) || ref.trim()
               ? "Draft autosaved"
               : "Your writing will autosave here"}
           </div>
@@ -7980,7 +8066,23 @@ function JournalTab({
 
         <div className="card">
           {filteredJournalEntries.length ? filteredJournalEntries.map((entry) => <div key={entry.id} className="journal-entry">
-            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}<SavedTimestampLine item={entry} /></>}
+            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}>
+              <WorkspaceEditor
+                initialBlocks={normalizeWorkspaceBlocks(
+                  editBlocks,
+                  editHtml
+                )}
+                onChange={(blocks) => {
+                  setEditBlocks(blocks);
+                  setEditHtml(
+                    workspaceBlocksToHtml(
+                      blocks
+                    )
+                  );
+                }}
+                placeholder="Journal note · Type / for blocks or @ to mention."
+              />
+            </div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}<SavedTimestampLine item={entry} /></>}
           </div>) : <div className="insight-line">
             {journalSearch
               ? "No journal entries match your search."
@@ -8026,6 +8128,11 @@ function ScratchTab() {
   const [typedDraft, setTypedDraft] = usePersistentState(
     "abide-scratch-typed-draft",
     ""
+  );
+
+  const [typedBlocks, setTypedBlocks] = usePersistentState(
+    "abide-scratch-typed-blocks",
+    []
   );
 
   const [editingId, setEditingId] = usePersistentState(
@@ -8646,7 +8753,23 @@ function ScratchTab() {
   };
 
   const saveTyped = () => {
-    if (!htmlToPlainText(typedDraft)) return;
+    const effectiveBlocks =
+      normalizeWorkspaceBlocks(
+        typedBlocks,
+        typedDraft
+      );
+
+    const plain =
+      workspaceBlocksToPlainText(
+        effectiveBlocks
+      );
+
+    const html =
+      workspaceBlocksToHtml(
+        effectiveBlocks
+      );
+
+    if (!plain) return;
 
     const savedAt = Date.now();
 
@@ -8657,9 +8780,13 @@ function ScratchTab() {
             ? {
                 ...pg,
                 type: "type",
-                content: typedDraft,
-                contentHtml: typedDraft,
-          references: extractAbideReferences(typedDraft),
+                content: html,
+                contentHtml: html,
+                workspaceBlocks: effectiveBlocks,
+                references:
+                  workspaceBlockReferences(
+                    effectiveBlocks
+                  ),
                 createdAt:
                   savedCreatedAt(pg) ||
                   savedAt,
@@ -8675,8 +8802,13 @@ function ScratchTab() {
         {
           id: savedAt,
           type: "type",
-          content: typedDraft,
-          contentHtml: typedDraft,
+          content: html,
+          contentHtml: html,
+          workspaceBlocks: effectiveBlocks,
+          references:
+            workspaceBlockReferences(
+              effectiveBlocks
+            ),
           date: formatDateLabel(
             REFERENCE_DATE_KEY
           ),
@@ -8688,13 +8820,38 @@ function ScratchTab() {
     }
 
     setTypedDraft("");
+    setTypedBlocks([]);
   };
 
   const editPage = (pg) => {
     setEditingId(pg.id);
+
     if (pg.type === "type") {
       setTool("type");
-      setTypedDraft(pg.contentHtml || (String(pg.content || "").includes("<") ? pg.content : plainTextToHtml(pg.content || "")));
+
+      const legacyHtml =
+        pg.contentHtml ||
+        (
+          String(
+            pg.content || ""
+          ).includes("<")
+            ? pg.content
+            : plainTextToHtml(
+                pg.content || ""
+              )
+        );
+
+      setTypedDraft(
+        legacyHtml
+      );
+
+      setTypedBlocks(
+        normalizeWorkspaceBlocks(
+          pg.workspaceBlocks,
+          legacyHtml
+        )
+      );
+
       return;
     }
 
@@ -8743,6 +8900,7 @@ function ScratchTab() {
       clearDrawingDraft();
       clearCanvas(false);
       setTypedDraft("");
+      setTypedBlocks([]);
     }
   };
 
@@ -9058,11 +9216,21 @@ function ScratchTab() {
           </div>
         ) : (
           <>
-            <RichTextEditor
-              value={typedDraft}
-              onChange={setTypedDraft}
-              placeholder="Jot it down…"
-              minHeight={180}
+            <WorkspaceEditor
+              initialBlocks={normalizeWorkspaceBlocks(
+                typedBlocks,
+                typedDraft
+              )}
+              onChange={(blocks) => {
+                setTypedBlocks(blocks);
+
+                setTypedDraft(
+                  workspaceBlocksToHtml(
+                    blocks
+                  )
+                );
+              }}
+              placeholder="Jot it down… Type / for blocks or @ to mention."
             />
 
             <div

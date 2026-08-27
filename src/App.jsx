@@ -16,7 +16,7 @@ import {
   Check, Clock, Pencil, Sparkles, Filter, PenTool, Type, Trash2,
   RefreshCw, ShieldCheck, Archive, Bell, SlidersHorizontal, Sun, Moon,
   Dumbbell, Salad, ExternalLink, Search, Settings as SettingsIcon,
-  Maximize2, Minimize2, Undo2, Redo2
+  Maximize2, Minimize2, Undo2, Redo2, LifeBuoy
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, PieChart, Pie, Cell, Tooltip
@@ -1546,6 +1546,80 @@ function QuickAreaPicker({ areas, value, onChange, onCreateArea, allowNone = tru
   );
 }
 
+function taskPersonalTargetKey(task) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(
+    String(task?.targetDate || "")
+  )
+    ? task.targetDate
+    : "";
+}
+
+function taskRescueDateKey(task) {
+  return (
+    taskPersonalTargetKey(task) ||
+    taskDateKey(task)
+  );
+}
+
+function rescuePriorityWeight(task) {
+  if (task?.priority === "high") return 30;
+  if (task?.priority === "med") return 20;
+  return 10;
+}
+
+function rescueTaskScore(task) {
+  const dueOffset = taskOffsetDays(task);
+  const target = taskPersonalTargetKey(task);
+
+  const targetOffset = target
+    ? offsetFromDateKey(target)
+    : null;
+
+  let score = rescuePriorityWeight(task);
+
+  // The further behind the true deadline, the stronger
+  // the rescue priority.
+  if (dueOffset < 0) {
+    score += 100 + Math.min(30, Math.abs(dueOffset) * 4);
+  } else if (dueOffset === 0) {
+    score += 70;
+  } else if (dueOffset <= 2) {
+    score += 50;
+  } else if (dueOffset <= 7) {
+    score += 25;
+  }
+
+  // A personal finish-by target intentionally creates
+  // earlier urgency without changing the real deadline.
+  if (targetOffset != null) {
+    if (targetOffset < 0) {
+      score += 45;
+    } else if (targetOffset === 0) {
+      score += 35;
+    } else if (targetOffset <= 2) {
+      score += 15;
+    }
+  }
+
+  if (task?.kind === "milestone") {
+    score += 8;
+  }
+
+  return score;
+}
+
+function rescueCapacityLimit(capacity) {
+  if (capacity === "low") return 2;
+  if (capacity === "high") return 5;
+  return 3;
+}
+
+function rescueCapacityLabel(capacity) {
+  if (capacity === "low") return "Low";
+  if (capacity === "high") return "High";
+  return "Normal";
+}
+
 function reminderOffsetMinutes(value) {
   const text = String(value || "").trim().toLowerCase();
   if (!text || text === "none") return null;
@@ -1615,6 +1689,9 @@ function TaskEditor({
   const [title, setTitle] = useState(task.title || "");
   const [dueDate, setDueDate] = useState(taskDateKey(task));
   const [dueTime, setDueTime] = useState(inferTaskTime(task));
+  const [targetDate, setTargetDate] = useState(
+    taskPersonalTargetKey(task)
+  );
   const [priority, setPriority] = useState(task.priority || "med");
   const [progress, setProgress] = useState(taskProgress(task));
   const [area, setArea] = useState(task.area && areas[task.area] ? task.area : "");
@@ -1677,6 +1754,11 @@ function TaskEditor({
       dueTime: dueTime || null,
       due,
       dueOffsetDays,
+      targetDate:
+        targetDate &&
+        targetDate <= dueDate
+          ? targetDate
+          : null,
       priority,
       progress,
       done,
@@ -1708,8 +1790,35 @@ function TaskEditor({
             <div className="fb-label" style={{ marginTop:0 }}>Task</div>
             <input className="input-line" style={{ marginTop:0 }} value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Task title" />
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-              <div><div className="fb-label">Date</div><input type="date" className="input-line" style={{ marginTop:0 }} value={dueDate} onChange={(e)=>{ setDueDate(e.target.value); if (recurrence?.freq === "weekly" && !(recurrence.days||[]).length) setRecurrence({ ...recurrence, days:[weekdayCodeFromDate(e.target.value)] }); }} /></div>
+              <div><div className="fb-label">Due date</div><input type="date" className="input-line" style={{ marginTop:0 }} value={dueDate} onChange={(e)=>{ const next=e.target.value; setDueDate(next); if (targetDate && targetDate > next) setTargetDate(""); if (recurrence?.freq === "weekly" && !(recurrence.days||[]).length) setRecurrence({ ...recurrence, days:[weekdayCodeFromDate(next)] }); }} /></div>
               <div><div className="fb-label">Time</div><input type="time" className="input-line" style={{ marginTop:0 }} value={dueTime} onChange={(e)=>setDueTime(e.target.value)} /></div>
+            </div>
+
+            <div className="fb-label">Finish by (optional)</div>
+
+            <input
+              type="date"
+              className="input-line"
+              style={{ marginTop: 0 }}
+              value={targetDate}
+              max={dueDate || undefined}
+              onChange={(e) =>
+                setTargetDate(e.target.value)
+              }
+            />
+
+            <div
+              style={{
+                fontSize: 10.75,
+                color: "var(--text3)",
+                marginTop: 5,
+                lineHeight: 1.45,
+              }}
+            >
+              This is your personal target. The real deadline stays{" "}
+              {dueDate
+                ? formatDateLabel(dueDate)
+                : "unchanged"}.
             </div>
             <div className="fb-label">Priority</div><div className="filter-row" style={{ padding:"0 0 2px 0" }}>{[["high","High"],["med","Medium"],["low","Low"]].map(([k,label])=><div key={k} className={`filter-chip ${priority===k?"active":""}`} onClick={()=>setPriority(k)}>{label}</div>)}</div>
             <div className="fb-label">Progress</div>
@@ -2067,6 +2176,12 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
   const [range, setRange] = useState("week");
   const [somedayOpen, setSomedayOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [rescueOpen, setRescueOpen] = useState(false);
+  const [rescueCapacity, setRescueCapacity] =
+    usePersistentState(
+      "abide-rescue-capacity",
+      "normal"
+    );
   const [editingTask, setEditingTask] = useState(null);
   const [adding, setAdding] = useState(false);
   const [briefCollapsed, setBriefCollapsed] = usePersistentState(
@@ -2153,6 +2268,151 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
 
     return "The day is manageable. Work from what is already clear rather than creating more urgency.";
   })();
+
+  const rescueCandidateTasks = tasks
+    .filter((task) => {
+      if (task.done) return false;
+
+      const dueOffset =
+        taskOffsetDays(task);
+
+      const targetKey =
+        taskPersonalTargetKey(task);
+
+      const targetOffset = targetKey
+        ? offsetFromDateKey(targetKey)
+        : null;
+
+      return (
+        dueOffset < 0 ||
+        dueOffset <= 7 ||
+        (targetOffset != null &&
+          targetOffset <= 7)
+      );
+    })
+    .sort((a, b) => {
+      const scoreDiff =
+        rescueTaskScore(b) -
+        rescueTaskScore(a);
+
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      return taskDateKey(a).localeCompare(
+        taskDateKey(b)
+      );
+    });
+
+  const rescueTodayLimit =
+    rescueCapacityLimit(rescueCapacity);
+
+  const rescueTodayTasks =
+    rescueCandidateTasks.slice(
+      0,
+      rescueTodayLimit
+    );
+
+  const rescueLaterTasks =
+    rescueCandidateTasks.slice(
+      rescueTodayLimit
+    );
+
+  const rescueOverdueCount =
+    rescueCandidateTasks.filter(
+      (task) =>
+        taskOffsetDays(task) < 0
+    ).length;
+
+  const rescueDueThisWeekCount =
+    rescueCandidateTasks.filter(
+      (task) => {
+        const offset =
+          taskOffsetDays(task);
+
+        return offset >= 0 && offset <= 7;
+      }
+    ).length;
+
+  const rescueTargetBehindCount =
+    rescueCandidateTasks.filter(
+      (task) => {
+        const target =
+          taskPersonalTargetKey(task);
+
+        return (
+          target &&
+          offsetFromDateKey(target) < 0 &&
+          taskOffsetDays(task) >= 0
+        );
+      }
+    ).length;
+
+  const rescueSetTargetToday = (task) => {
+    const dueKey = taskDateKey(task);
+
+    if (
+      REFERENCE_DATE_KEY <= dueKey
+    ) {
+      onUpdateTask({
+        ...task,
+        targetDate:
+          REFERENCE_DATE_KEY,
+      });
+    } else {
+      // If the real deadline is already past, today cannot
+      // logically be an "ahead of deadline" target.
+      openEditor(task);
+    }
+  };
+
+  const rescueRescheduleTask = (
+    task,
+    daysAhead = 1
+  ) => {
+    const oldDue = taskDateKey(task);
+    const newDue = shiftDateKey(
+      REFERENCE_DATE_KEY,
+      daysAhead
+    );
+
+    const history = Array.isArray(
+      task.rescheduleHistory
+    )
+      ? task.rescheduleHistory
+      : [];
+
+    const nextTarget =
+      taskPersonalTargetKey(task);
+
+    onUpdateTask({
+      ...task,
+      originalDueDate:
+        task.originalDueDate ||
+        oldDue,
+      rescheduleHistory: [
+        ...history,
+        {
+          from: oldDue,
+          to: newDue,
+          changedAt:
+            new Date().toISOString(),
+          reason: "rescue-plan",
+        },
+      ],
+      dueDate: newDue,
+      dueOffsetDays:
+        offsetFromDateKey(newDue),
+      due: task.dueTime
+        ? formatTimeLabel(task.dueTime)
+        : formatDateLabel(newDue),
+      targetDate:
+        nextTarget &&
+        nextTarget <= newDue
+          ? nextTarget
+          : null,
+    });
+  };
 
   const briefSummaryParts = [
     briefOverdueTasks.length
@@ -2470,6 +2730,659 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
           )}
         </div>
 
+        <div
+          className="card"
+          style={{
+            marginBottom: 14,
+            overflow: "hidden",
+            border:
+              rescueOverdueCount > 0
+                ? "1px solid rgba(230,128,128,0.30)"
+                : "1px solid var(--cardBorder)",
+          }}
+        >
+          <div
+            onClick={() =>
+              setRescueOpen(!rescueOpen)
+            }
+            style={{
+              padding: "13px 14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 11,
+                  background:
+                    "rgba(124,147,201,0.14)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <LifeBuoy
+                  size={17}
+                  color="#7C93C9"
+                />
+              </div>
+
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13.5,
+                    fontWeight: 750,
+                    color: "var(--text)",
+                  }}
+                >
+                  Rescue Plan
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 11.25,
+                    color: "var(--text3)",
+                    marginTop: 2,
+                  }}
+                >
+                  {rescueCandidateTasks.length
+                    ? `${rescueCandidateTasks.length} task${
+                        rescueCandidateTasks.length === 1
+                          ? ""
+                          : "s"
+                      } need a decision`
+                    : "Nothing needs rescuing right now"}
+                </div>
+              </div>
+            </div>
+
+            {rescueOpen
+              ? (
+                <ChevronDown
+                  size={15}
+                  color="var(--text3)"
+                />
+              )
+              : (
+                <ChevronRight
+                  size={15}
+                  color="var(--text3)"
+                />
+              )}
+          </div>
+
+          {rescueOpen && (
+            <div
+              style={{
+                padding: "0 14px 14px",
+                borderTop:
+                  "1px solid var(--divider)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: "var(--text2)",
+                  paddingTop: 12,
+                }}
+              >
+                This plan limits what you commit to now. Everything else gets
+                deliberately rescheduled, kept where it is, or reviewed
+                instead of silently becoming background stress.
+              </div>
+
+              <div
+                className="fb-label"
+                style={{ marginTop: 13 }}
+              >
+                My capacity today
+              </div>
+
+              <div
+                className="filter-row"
+                style={{
+                  padding: 0,
+                  overflowX: "visible",
+                }}
+              >
+                {[
+                  ["low", "Low · 2"],
+                  ["normal", "Normal · 3"],
+                  ["high", "High · 5"],
+                ].map(([key, label]) => (
+                  <div
+                    key={key}
+                    className={`filter-chip ${
+                      rescueCapacity === key
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      setRescueCapacity(key)
+                    }
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(3, 1fr)",
+                  gap: 7,
+                  marginTop: 12,
+                }}
+              >
+                <div
+                  style={{
+                    padding: 9,
+                    borderRadius: 11,
+                    background:
+                      "var(--subtleBg)",
+                    border:
+                      "1px solid var(--divider)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 750,
+                      color:
+                        rescueOverdueCount
+                          ? "#E68080"
+                          : "var(--text)",
+                    }}
+                  >
+                    {rescueOverdueCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text3)",
+                      marginTop: 2,
+                    }}
+                  >
+                    Overdue
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: 9,
+                    borderRadius: 11,
+                    background:
+                      "var(--subtleBg)",
+                    border:
+                      "1px solid var(--divider)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 750,
+                      color: "var(--text)",
+                    }}
+                  >
+                    {rescueDueThisWeekCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text3)",
+                      marginTop: 2,
+                    }}
+                  >
+                    Due ≤ 7 days
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: 9,
+                    borderRadius: 11,
+                    background:
+                      "var(--subtleBg)",
+                    border:
+                      "1px solid var(--divider)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 750,
+                      color:
+                        rescueTargetBehindCount
+                          ? "#E8B45C"
+                          : "var(--text)",
+                    }}
+                  >
+                    {rescueTargetBehindCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text3)",
+                      marginTop: 2,
+                    }}
+                  >
+                    Target slipped
+                  </div>
+                </div>
+              </div>
+
+              {rescueCandidateTasks.length === 0 ? (
+                <div
+                  style={{
+                    marginTop: 13,
+                    padding: 12,
+                    borderRadius: 12,
+                    background:
+                      "rgba(143,168,138,0.10)",
+                    border:
+                      "1px solid rgba(143,168,138,0.24)",
+                    color: "var(--body)",
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  You are caught up enough that Abide does not need to build a
+                  recovery list. Keep working from Today and your personal
+                  finish-by dates.
+                </div>
+              ) : (
+                <>
+                  <div
+                    className="fb-label"
+                    style={{ marginTop: 14 }}
+                  >
+                    Do now · {rescueCapacityLabel(rescueCapacity)} capacity
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10.75,
+                      color: "var(--text3)",
+                      marginBottom: 5,
+                    }}
+                  >
+                    Abide intentionally caps this list at{" "}
+                    {rescueTodayLimit}.
+                  </div>
+
+                  {rescueTodayTasks.map(
+                    (task, index) => {
+                      const target =
+                        taskPersonalTargetKey(
+                          task
+                        );
+
+                      const dueOffset =
+                        taskOffsetDays(task);
+
+                      return (
+                        <div
+                          key={`rescue-now-${task.id}`}
+                          style={{
+                            padding:
+                              "11px 0",
+                            borderBottom:
+                              "1px solid var(--divider)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 9,
+                              alignItems:
+                                "flex-start",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 8,
+                                background:
+                                  "#E8B45C22",
+                                color:
+                                  "#E8B45C",
+                                display: "flex",
+                                alignItems:
+                                  "center",
+                                justifyContent:
+                                  "center",
+                                fontSize: 11,
+                                fontWeight: 800,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {index + 1}
+                            </div>
+
+                            <div
+                              style={{
+                                minWidth: 0,
+                                flex: 1,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  color:
+                                    "var(--text)",
+                                }}
+                              >
+                                {task.title}
+                              </div>
+
+                              <div
+                                style={{
+                                  fontSize: 10.75,
+                                  color:
+                                    "var(--text3)",
+                                  marginTop: 3,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                {dueOffset < 0
+                                  ? `Overdue ${Math.abs(
+                                      dueOffset
+                                    )} day${
+                                      Math.abs(
+                                        dueOffset
+                                      ) === 1
+                                        ? ""
+                                        : "s"
+                                    }`
+                                  : dueOffset === 0
+                                    ? "Due today"
+                                    : `Due ${formatDateLabel(
+                                        taskDateKey(
+                                          task
+                                        )
+                                      )}`}
+                                {task.priority ===
+                                "high"
+                                  ? " · High priority"
+                                  : ""}
+                                {target
+                                  ? ` · Target ${formatDateLabel(
+                                      target
+                                    )}`
+                                  : ""}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 6,
+                              flexWrap: "wrap",
+                              marginTop: 8,
+                              paddingLeft: 33,
+                            }}
+                          >
+                            <div
+                              className="filter-chip active"
+                              onClick={() =>
+                                toggleDone(
+                                  task.id
+                                )
+                              }
+                            >
+                              <Check
+                                size={11}
+                              />
+                              Done
+                            </div>
+
+                            {dueOffset >= 0 && (
+                              <div
+                                className="filter-chip"
+                                onClick={() =>
+                                  rescueSetTargetToday(
+                                    task
+                                  )
+                                }
+                              >
+                                <Clock
+                                  size={11}
+                                />
+                                Target today
+                              </div>
+                            )}
+
+                            {dueOffset < 0 && (
+                              <>
+                                <div
+                                  className="filter-chip"
+                                  onClick={() =>
+                                    rescueRescheduleTask(
+                                      task,
+                                      1
+                                    )
+                                  }
+                                >
+                                  Tomorrow
+                                </div>
+
+                                <div
+                                  className="filter-chip"
+                                  onClick={() =>
+                                    rescueRescheduleTask(
+                                      task,
+                                      3
+                                    )
+                                  }
+                                >
+                                  +3 days
+                                </div>
+                              </>
+                            )}
+
+                            <div
+                              className="filter-chip"
+                              onClick={() =>
+                                openEditor(task)
+                              }
+                            >
+                              <Pencil
+                                size={11}
+                              />
+                              Open
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+
+                  {rescueLaterTasks.length >
+                    0 && (
+                    <>
+                      <div
+                        className="fb-label"
+                        style={{
+                          marginTop: 15,
+                        }}
+                      >
+                        Not today
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 10.75,
+                          color:
+                            "var(--text3)",
+                          marginBottom: 4,
+                        }}
+                      >
+                        These stay visible, but they do not belong on your
+                        immediate list.
+                      </div>
+
+                      {rescueLaterTasks
+                        .slice(0, 8)
+                        .map((task) => {
+                          const overdue =
+                            taskOffsetDays(
+                              task
+                            ) < 0;
+
+                          return (
+                            <div
+                              key={`rescue-later-${task.id}`}
+                              style={{
+                                padding:
+                                  "8px 0",
+                                display:
+                                  "flex",
+                                alignItems:
+                                  "center",
+                                gap: 8,
+                                borderBottom:
+                                  "1px solid var(--divider)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  flex: 1,
+                                  minWidth: 0,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    color:
+                                      "var(--body)",
+                                    overflow:
+                                      "hidden",
+                                    textOverflow:
+                                      "ellipsis",
+                                    whiteSpace:
+                                      "nowrap",
+                                  }}
+                                >
+                                  {task.title}
+                                </div>
+
+                                <div
+                                  style={{
+                                    fontSize:
+                                      10.25,
+                                    color:
+                                      "var(--text3)",
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {overdue
+                                    ? "Needs rescheduling or a decision"
+                                    : `Keep scheduled · ${formatDateLabel(
+                                        taskDateKey(
+                                          task
+                                        )
+                                      )}`}
+                                </div>
+                              </div>
+
+                              {overdue ? (
+                                <div
+                                  className="filter-chip"
+                                  onClick={() =>
+                                    rescueRescheduleTask(
+                                      task,
+                                      1
+                                    )
+                                  }
+                                >
+                                  Tomorrow
+                                </div>
+                              ) : (
+                                <div
+                                  className="filter-chip"
+                                  onClick={() =>
+                                    openEditor(task)
+                                  }
+                                >
+                                  Review
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                      {rescueLaterTasks.length >
+                        8 && (
+                        <div
+                          style={{
+                            fontSize: 10.75,
+                            color:
+                              "var(--text3)",
+                            marginTop: 7,
+                          }}
+                        >
+                          +
+                          {rescueLaterTasks.length -
+                            8}{" "}
+                          more tasks remain scheduled outside today’s rescue
+                          capacity.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div
+                    style={{
+                      marginTop: 13,
+                      padding:
+                        "10px 11px",
+                      borderRadius: 12,
+                      background:
+                        "rgba(143,168,138,0.10)",
+                      border:
+                        "1px solid rgba(143,168,138,0.24)",
+                      fontSize: 11.5,
+                      lineHeight: 1.5,
+                      color: "var(--text2)",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        color:
+                          "#8FA88A",
+                      }}
+                    >
+                      Start with #1.
+                    </strong>{" "}
+                    Do not promote another task into today until one of the
+                    current rescue tasks is completed, deliberately moved, or
+                    reviewed.
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => { setEditingTask(null); setAdding(!adding); }}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
         {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} onCreateArea={onCreateArea} />}
 
@@ -2598,6 +3511,7 @@ function AddSheet({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
   const [time, setTime] = useState("");
+  const [targetDate, setTargetDate] = useState("");
   const [area, setArea] = useState(Object.keys(areas)[0] || "");
   const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState("med");
@@ -2656,7 +3570,7 @@ function AddSheet({
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, reminderAt: reminder === "Custom" ? reminderAt || null : null, done: false, status: "next", bypassProtected: bypass });
+        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), targetDate: targetDate && targetDate <= date ? targetDate : null, priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, reminderAt: reminder === "Custom" ? reminderAt || null : null, done: false, status: "next", bypassProtected: bypass });
       } else {
         await onCreateEvent({
           title: title.trim(),
@@ -2692,7 +3606,38 @@ function AddSheet({
         <div className={`seg-btn ${kind === "import" ? "active" : ""}`} onClick={() => setKind("import")}>Import</div>
       </div>
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
-      <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
+      <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => { const next=e.target.value; setDate(next); if (targetDate && targetDate > next) setTargetDate(""); }} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
+
+      {kind === "task" && (
+        <>
+          <div className="fb-label">
+            Finish by (optional)
+          </div>
+
+          <input
+            type="date"
+            className="input-line"
+            style={{ marginTop: 0 }}
+            value={targetDate}
+            max={date || undefined}
+            onChange={(e) =>
+              setTargetDate(e.target.value)
+            }
+          />
+
+          <div
+            style={{
+              fontSize: 10.75,
+              color: "var(--text3)",
+              marginTop: 5,
+              lineHeight: 1.45,
+            }}
+          >
+            Use this when you want the task finished before its real deadline.
+          </div>
+        </>
+      )}
+
       <div className="fb-label">Area</div><QuickAreaPicker areas={areas} value={area} onChange={setArea} onCreateArea={onCreateArea} />
       {kind === "task" && <><div className="fb-label">Priority</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}>{[["high", "High"], ["med", "Medium"], ["low", "Low"]].map(([k, label]) => <div key={k} className={`filter-chip ${priority === k ? "active" : ""}`} onClick={() => setPriority(k)}>{label}</div>)}</div><div className="fb-label">Goal (optional)</div><div className="filter-row" style={{ padding: "0 0 2px 0" }}><div className={`filter-chip ${goal === "" ? "active" : ""}`} onClick={() => setGoal("")}>No Goal</div>{goals.map((g) => <div key={g.id} className={`filter-chip ${goal === g.id ? "active" : ""}`} onClick={() => setGoal(g.id)}>{g.name}</div>)}</div><div className="fb-label">Reminder</div><ReminderPicker
   value={reminder}

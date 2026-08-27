@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onRequest } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 
 const { initializeApp } = require("firebase-admin/app");
@@ -9,6 +10,7 @@ const {
   FieldValue,
 } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 
 const { DateTime } = require("luxon");
 
@@ -16,12 +18,29 @@ initializeApp();
 
 const db = getFirestore();
 const messaging = getMessaging();
+const adminAuth = getAuth();
 
 const TASK_STATE_KEY = "abide-tasks";
 const EVENT_STATE_KEY = "abide-calendar-events";
 const PREF_STATE_KEY = "abide-notification-prefs";
 
 const DEFAULT_TIMEZONE = "America/Chicago";
+
+const GOOGLE_CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar";
+
+const GOOGLE_CALENDAR_OAUTH_SECRET =
+  "GOOGLE_CALENDAR_OAUTH";
+
+const GOOGLE_CALENDAR_CALLBACK_URL =
+  "https://us-central1-abide-809d9.cloudfunctions.net/googleCalendarOAuthCallback";
+
+const ABIDE_APP_URL =
+  "https://abide-809d9.web.app";
+
+const GOOGLE_OAUTH_STATE_TTL_MS =
+  10 * 60 * 1000;
+
 
 /*
  * Scheduler runs every minute.
@@ -401,6 +420,792 @@ async function cleanInvalidTokens(deviceDocs, responses) {
     await Promise.allSettled(deletions);
   }
 }
+
+
+function googleOAuthConfig() {
+  const raw =
+    process.env.GOOGLE_CALENDAR_OAUTH || "";
+
+  let config;
+
+  try {
+    config = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      "GOOGLE_CALENDAR_OAUTH secret is not valid JSON."
+    );
+  }
+
+  if (
+    !config?.clientId ||
+    !config?.clientSecret
+  ) {
+    throw new Error(
+      "Google OAuth client ID or secret is missing."
+    );
+  }
+
+  return config;
+}
+
+function googlePrivateAccountRef(uid, accountId) {
+  return db
+    .collection("privateGoogleCalendarTokens")
+    .doc(String(uid))
+    .collection("accounts")
+    .doc(encodeURIComponent(String(accountId)));
+}
+
+function googleOAuthStateRef(state) {
+  return db
+    .collection("privateGoogleCalendarOAuthStates")
+    .doc(String(state));
+}
+
+function setAbideCors(req, res) {
+  const origin = req.get("origin") || "";
+
+  if (
+    origin === ABIDE_APP_URL ||
+    origin === "http://localhost:5173" ||
+    origin === "http://127.0.0.1:5173"
+  ) {
+    res.set(
+      "Access-Control-Allow-Origin",
+      origin
+    );
+  }
+
+  res.set(
+    "Access-Control-Allow-Headers",
+    "Authorization, Content-Type"
+  );
+
+  res.set(
+    "Access-Control-Allow-Methods",
+    "POST, OPTIONS"
+  );
+
+  res.set(
+    "Vary",
+    "Origin"
+  );
+}
+
+async function requireFirebaseUser(req) {
+  const authorization =
+    String(req.get("authorization") || "");
+
+  const match =
+    authorization.match(/^Bearer\s+(.+)$/i);
+
+  if (!match) {
+    const error =
+      new Error("Firebase authorization required.");
+
+    error.statusCode = 401;
+    throw error;
+  }
+
+  try {
+    return await adminAuth.verifyIdToken(
+      match[1]
+    );
+  } catch {
+    const error =
+      new Error("Invalid Firebase authorization.");
+
+    error.statusCode = 401;
+    throw error;
+  }
+}
+
+async function exchangeGoogleAuthorizationCode(code) {
+  const {
+    clientId,
+    clientSecret,
+  } = googleOAuthConfig();
+
+  const body =
+    new URLSearchParams({
+      code: String(code),
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri:
+        GOOGLE_CALENDAR_CALLBACK_URL,
+      grant_type: "authorization_code",
+    });
+
+  const response = await fetch(
+    "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/x-www-form-urlencoded",
+      },
+      body,
+    }
+  );
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      json?.error_description ||
+      json?.error ||
+      "Google authorization-code exchange failed."
+    );
+  }
+
+  return json;
+}
+
+async function refreshGoogleAccessToken(
+  refreshToken
+) {
+  const {
+    clientId,
+    clientSecret,
+  } = googleOAuthConfig();
+
+  const body =
+    new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: String(refreshToken),
+      grant_type: "refresh_token",
+    });
+
+  const response = await fetch(
+    "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/x-www-form-urlencoded",
+      },
+      body,
+    }
+  );
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    const error =
+      new Error(
+        json?.error_description ||
+        json?.error ||
+        "Google access-token refresh failed."
+      );
+
+    error.googleCode =
+      json?.error || "";
+
+    throw error;
+  }
+
+  return json;
+}
+
+async function googlePrimaryAccount(
+  accessToken
+) {
+  const response = await fetch(
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+    {
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Google connected successfully, but Abide could not read the calendar list."
+    );
+  }
+
+  const json = await response.json();
+
+  const calendars =
+    Array.isArray(json.items)
+      ? json.items
+      : [];
+
+  const primary =
+    calendars.find(
+      (calendar) =>
+        Boolean(calendar.primary)
+    ) ||
+    calendars[0];
+
+  if (!primary?.id) {
+    throw new Error(
+      "Google did not return a primary calendar."
+    );
+  }
+
+  return {
+    accountId: String(primary.id),
+    accountLabel:
+      String(
+        primary.summaryOverride ||
+        primary.summary ||
+        primary.id
+      ),
+  };
+}
+
+function googleOAuthErrorRedirect(message) {
+  const params =
+    new URLSearchParams({
+      tab: "calendar",
+      googleOAuth: "error",
+      message:
+        String(message || "")
+          .slice(0, 300),
+    });
+
+  return `${ABIDE_APP_URL}/?${params.toString()}`;
+}
+
+
+/*
+ * Starts Google's real web-server OAuth flow.
+ *
+ * The browser first authenticates to Abide/Firebase.
+ * This endpoint creates a one-time state token tied to
+ * that Firebase user, then returns Google's authorization URL.
+ */
+exports.googleCalendarStart = onRequest(
+  {
+    region: "us-central1",
+    memory: "256MiB",
+    timeoutSeconds: 60,
+    secrets: [
+      GOOGLE_CALENDAR_OAUTH_SECRET,
+    ],
+  },
+  async (req, res) => {
+    setAbideCors(req, res);
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).json({
+        error: "POST required.",
+      });
+      return;
+    }
+
+    try {
+      const user =
+        await requireFirebaseUser(req);
+
+      const {
+        clientId,
+      } = googleOAuthConfig();
+
+      const state =
+        crypto.randomBytes(32)
+          .toString("hex");
+
+      await googleOAuthStateRef(state).set({
+        uid: user.uid,
+        createdAt:
+          FieldValue.serverTimestamp(),
+        createdAtMs: Date.now(),
+      });
+
+      const params =
+        new URLSearchParams({
+          client_id: clientId,
+          redirect_uri:
+            GOOGLE_CALENDAR_CALLBACK_URL,
+          response_type: "code",
+          scope:
+            GOOGLE_CALENDAR_SCOPE,
+
+          // Critical: this tells Google we need a
+          // refresh token for unattended access.
+          access_type: "offline",
+
+          // Force an explicit consent screen so a
+          // refresh token is returned for this upgrade.
+          prompt: "consent",
+
+          include_granted_scopes: "true",
+          state,
+        });
+
+      res.set(
+        "Cache-Control",
+        "no-store"
+      );
+
+      res.json({
+        url:
+          "https://accounts.google.com/o/oauth2/v2/auth?" +
+          params.toString(),
+      });
+    } catch (error) {
+      logger.error(
+        "Google Calendar OAuth start failed.",
+        error
+      );
+
+      res
+        .status(error?.statusCode || 500)
+        .json({
+          error:
+            error?.message ||
+            "Could not start Google Calendar authorization.",
+        });
+    }
+  }
+);
+
+
+/*
+ * Google redirects here after consent.
+ *
+ * The authorization code is exchanged server-side.
+ * The refresh token NEVER enters browser storage.
+ */
+exports.googleCalendarOAuthCallback =
+  onRequest(
+    {
+      region: "us-central1",
+      memory: "256MiB",
+      timeoutSeconds: 60,
+      secrets: [
+        GOOGLE_CALENDAR_OAUTH_SECRET,
+      ],
+    },
+    async (req, res) => {
+      try {
+        const code =
+          String(req.query.code || "");
+
+        const state =
+          String(req.query.state || "");
+
+        const providerError =
+          String(req.query.error || "");
+
+        if (providerError) {
+          res.redirect(
+            googleOAuthErrorRedirect(
+              `Google authorization was not completed: ${providerError}`
+            )
+          );
+          return;
+        }
+
+        if (!code || !state) {
+          res.redirect(
+            googleOAuthErrorRedirect(
+              "Google did not return the required authorization information."
+            )
+          );
+          return;
+        }
+
+        const stateRef =
+          googleOAuthStateRef(state);
+
+        const stateSnapshot =
+          await stateRef.get();
+
+        // State is single-use whether the flow
+        // succeeds or fails.
+        await stateRef.delete()
+          .catch(() => {});
+
+        if (!stateSnapshot.exists) {
+          res.redirect(
+            googleOAuthErrorRedirect(
+              "This Google connection request expired or was already used."
+            )
+          );
+          return;
+        }
+
+        const stateData =
+          stateSnapshot.data();
+
+        const age =
+          Date.now() -
+          Number(
+            stateData.createdAtMs || 0
+          );
+
+        if (
+          !stateData.uid ||
+          age < 0 ||
+          age > GOOGLE_OAUTH_STATE_TTL_MS
+        ) {
+          res.redirect(
+            googleOAuthErrorRedirect(
+              "This Google connection request expired. Try connecting again."
+            )
+          );
+          return;
+        }
+
+        const tokens =
+          await exchangeGoogleAuthorizationCode(
+            code
+          );
+
+        if (!tokens.access_token) {
+          throw new Error(
+            "Google did not return an access token."
+          );
+        }
+
+        const account =
+          await googlePrimaryAccount(
+            tokens.access_token
+          );
+
+        const accountRef =
+          googlePrivateAccountRef(
+            stateData.uid,
+            account.accountId
+          );
+
+        const existingSnapshot =
+          await accountRef.get();
+
+        const existingRefreshToken =
+          existingSnapshot.exists
+            ? existingSnapshot.data()
+                .refreshToken
+            : "";
+
+        const refreshToken =
+          tokens.refresh_token ||
+          existingRefreshToken;
+
+        if (!refreshToken) {
+          throw new Error(
+            "Google did not return a refresh token. Reconnect and approve calendar access again."
+          );
+        }
+
+        await accountRef.set(
+          {
+            provider: "google",
+            accountId:
+              account.accountId,
+            accountLabel:
+              account.accountLabel,
+
+            // Private server-only credential.
+            refreshToken,
+
+            scope:
+              tokens.scope ||
+              GOOGLE_CALENDAR_SCOPE,
+
+            connectedAt:
+              existingSnapshot.exists
+                ? (
+                    existingSnapshot.data()
+                      .connectedAt ||
+                    FieldValue.serverTimestamp()
+                  )
+                : FieldValue.serverTimestamp(),
+
+            refreshedAt:
+              FieldValue.serverTimestamp(),
+
+            expiresIn:
+              Number(
+                tokens.expires_in || 0
+              ),
+          },
+          {
+            merge: true,
+          }
+        );
+
+        const params =
+          new URLSearchParams({
+            tab: "calendar",
+            googleOAuth: "connected",
+            googleAccountId:
+              account.accountId,
+          });
+
+        res.redirect(
+          `${ABIDE_APP_URL}/?${params.toString()}`
+        );
+      } catch (error) {
+        logger.error(
+          "Google Calendar OAuth callback failed.",
+          error
+        );
+
+        res.redirect(
+          googleOAuthErrorRedirect(
+            error?.message ||
+            "Google Calendar could not be connected."
+          )
+        );
+      }
+    }
+  );
+
+
+/*
+ * Returns a fresh short-lived access token.
+ *
+ * The browser never receives the refresh token.
+ * Every time an access token expires, Abide can
+ * silently call this endpoint and get another one.
+ */
+exports.googleCalendarToken = onRequest(
+  {
+    region: "us-central1",
+    memory: "256MiB",
+    timeoutSeconds: 60,
+    secrets: [
+      GOOGLE_CALENDAR_OAUTH_SECRET,
+    ],
+  },
+  async (req, res) => {
+    setAbideCors(req, res);
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).json({
+        error: "POST required.",
+      });
+      return;
+    }
+
+    try {
+      const user =
+        await requireFirebaseUser(req);
+
+      const accountId =
+        String(
+          req.body?.accountId || ""
+        );
+
+      if (!accountId) {
+        res.status(400).json({
+          error:
+            "Google account ID required.",
+        });
+        return;
+      }
+
+      const accountRef =
+        googlePrivateAccountRef(
+          user.uid,
+          accountId
+        );
+
+      const snapshot =
+        await accountRef.get();
+
+      if (!snapshot.exists) {
+        res.status(404).json({
+          error:
+            "This Google account has not completed persistent authorization.",
+          reconnectRequired: true,
+        });
+        return;
+      }
+
+      const data =
+        snapshot.data();
+
+      if (!data.refreshToken) {
+        res.status(409).json({
+          error:
+            "This Google account does not have a stored refresh token.",
+          reconnectRequired: true,
+        });
+        return;
+      }
+
+      try {
+        const tokens =
+          await refreshGoogleAccessToken(
+            data.refreshToken
+          );
+
+        await accountRef.set(
+          {
+            lastAccessTokenRefresh:
+              FieldValue.serverTimestamp(),
+          },
+          {
+            merge: true,
+          }
+        );
+
+        res.set(
+          "Cache-Control",
+          "no-store"
+        );
+
+        res.json({
+          accessToken:
+            tokens.access_token,
+          expiresIn:
+            Number(
+              tokens.expires_in || 0
+            ),
+          accountId,
+        });
+      } catch (refreshError) {
+        logger.warn(
+          `Google token refresh failed for ${user.uid}/${accountId}.`,
+          refreshError
+        );
+
+        res.status(401).json({
+          error:
+            "Google Calendar authorization needs attention.",
+          reconnectRequired: true,
+        });
+      }
+    } catch (error) {
+      logger.error(
+        "Google Calendar token endpoint failed.",
+        error
+      );
+
+      res
+        .status(error?.statusCode || 500)
+        .json({
+          error:
+            error?.message ||
+            "Could not refresh Google Calendar access.",
+        });
+    }
+  }
+);
+
+
+/*
+ * Explicit disconnect.
+ *
+ * This best-effort revokes the Google grant and
+ * always removes Abide's stored refresh token.
+ */
+exports.googleCalendarDisconnect =
+  onRequest(
+    {
+      region: "us-central1",
+      memory: "256MiB",
+      timeoutSeconds: 60,
+      secrets: [
+        GOOGLE_CALENDAR_OAUTH_SECRET,
+      ],
+    },
+    async (req, res) => {
+      setAbideCors(req, res);
+
+      if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+      }
+
+      if (req.method !== "POST") {
+        res.status(405).json({
+          error: "POST required.",
+        });
+        return;
+      }
+
+      try {
+        const user =
+          await requireFirebaseUser(req);
+
+        const accountId =
+          String(
+            req.body?.accountId || ""
+          );
+
+        if (!accountId) {
+          res.status(400).json({
+            error:
+              "Google account ID required.",
+          });
+          return;
+        }
+
+        const ref =
+          googlePrivateAccountRef(
+            user.uid,
+            accountId
+          );
+
+        const snapshot =
+          await ref.get();
+
+        if (snapshot.exists) {
+          const refreshToken =
+            snapshot.data()
+              .refreshToken;
+
+          if (refreshToken) {
+            try {
+              await fetch(
+                "https://oauth2.googleapis.com/revoke?" +
+                  new URLSearchParams({
+                    token:
+                      refreshToken,
+                  }).toString(),
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/x-www-form-urlencoded",
+                  },
+                }
+              );
+            } catch {}
+          }
+
+          await ref.delete();
+        }
+
+        res.json({
+          disconnected: true,
+        });
+      } catch (error) {
+        logger.error(
+          "Google Calendar disconnect failed.",
+          error
+        );
+
+        res
+          .status(error?.statusCode || 500)
+          .json({
+            error:
+              error?.message ||
+              "Could not disconnect Google Calendar.",
+          });
+      }
+    }
+  );
+
 
 exports.sendTaskReminders = onSchedule(
   {

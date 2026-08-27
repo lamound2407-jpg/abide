@@ -6,6 +6,7 @@ import {
 } from "./pushNotifications.js";
 import { registerSW } from "virtual:pwa-register";
 import packageInfo from "../package.json";
+import { auth } from "./firebase.js";
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
@@ -51,6 +52,16 @@ const THEME = {
 const APP_NAME = "Abide";
 const APP_VERSION = packageInfo.version;
 const APP_BUILD_DATE = __APP_BUILD_DATE__;
+
+const GOOGLE_CALENDAR_START_ENDPOINT =
+  "https://us-central1-abide-809d9.cloudfunctions.net/googleCalendarStart";
+
+const GOOGLE_CALENDAR_TOKEN_ENDPOINT =
+  "https://us-central1-abide-809d9.cloudfunctions.net/googleCalendarToken";
+
+const GOOGLE_CALENDAR_DISCONNECT_ENDPOINT =
+  "https://us-central1-abide-809d9.cloudfunctions.net/googleCalendarDisconnect";
+
 
 const PRIMARY_NAV_DESTINATIONS = [
   { id: "calendar", label: "Calendar", icon: CalendarDays },
@@ -3281,9 +3292,37 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     } catch {}
   }, [microsoftAccounts]);
 
-  const disconnectGoogleAccount = (accountId) => {
-    setGoogleAccounts((prev) => prev.filter((a) => a.id !== accountId));
-    setEvents((prev) => prev.filter((e) => !(e.source === "google" && e.accountId === accountId)));
+  const disconnectGoogleAccount = async (accountId) => {
+    try {
+      await callGoogleCalendarBackend(
+        GOOGLE_CALENDAR_DISCONNECT_ENDPOINT,
+        {
+          accountId,
+        }
+      );
+    } catch {
+      // Local disconnect should still succeed
+      // if Google was already revoked elsewhere.
+    }
+
+    setGoogleAccounts(
+      (prev) =>
+        prev.filter(
+          (account) =>
+            account.id !== accountId
+        )
+    );
+
+    setEvents(
+      (prev) =>
+        prev.filter(
+          (event) =>
+            !(
+              event.source === "google" &&
+              event.accountId === accountId
+            )
+        )
+    );
   };
 
   const renameGoogleAccount = (accountId) => {
@@ -3305,11 +3344,117 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     }));
   };
 
-  const fetchGoogleAccountData = async (token, knownAccountId = "") => {
-    if (!token) return null;
-    setGoogleError("");
+  const callGoogleCalendarBackend = async (
+    endpoint,
+    payload = {}
+  ) => {
+    const user = auth.currentUser;
+
+    if (!user) {
+      throw new Error(
+        "Sign in to Abide before connecting Google Calendar."
+      );
+    }
+
+    const firebaseToken =
+      await user.getIdToken();
+
+    const response =
+      await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${firebaseToken}`,
+          "Content-Type":
+            "application/json",
+        },
+        body:
+          JSON.stringify(payload),
+      });
+
+    let json = {};
+
     try {
-      const headers = { Authorization: `Bearer ${token}` };
+      json = await response.json();
+    } catch {}
+
+    if (!response.ok) {
+      const error =
+        new Error(
+          json?.error ||
+          "Google Calendar request failed."
+        );
+
+      error.reconnectRequired =
+        Boolean(
+          json?.reconnectRequired
+        );
+
+      error.status =
+        response.status;
+
+      throw error;
+    }
+
+    return json;
+  };
+
+  const getGoogleAccessToken = async (
+    accountId,
+    fallbackToken = ""
+  ) => {
+    if (accountId) {
+      try {
+        const result =
+          await callGoogleCalendarBackend(
+            GOOGLE_CALENDAR_TOKEN_ENDPOINT,
+            {
+              accountId,
+            }
+          );
+
+        if (result?.accessToken) {
+          return result.accessToken;
+        }
+      } catch (error) {
+        // Accounts connected before this upgrade do
+        // not yet have a server refresh token.
+        // Their current browser token may still work
+        // until the user completes the one-time upgrade.
+        if (
+          fallbackToken &&
+          error?.status === 404
+        ) {
+          return fallbackToken;
+        }
+
+        throw error;
+      }
+    }
+
+    if (fallbackToken) {
+      return fallbackToken;
+    }
+
+    throw new Error(
+      "Google Calendar needs to be connected."
+    );
+  };
+
+  const fetchGoogleAccountData = async (token, knownAccountId = "") => {
+    setGoogleError("");
+
+    try {
+      const activeToken =
+        await getGoogleAccessToken(
+          knownAccountId,
+          token
+        );
+
+      const headers = {
+        Authorization:
+          `Bearer ${activeToken}`,
+      };
       const calRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", { headers });
       if (calRes.status === 401) {
         // Keep the account/calendar configuration intact.
@@ -3369,7 +3514,14 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
       }));
 
       setGoogleAccounts((prev) => {
-        const nextAccount = { id: accountId, label: accountLabel, displayName, token, calendars: nextCalendars };
+        const nextAccount = {
+          id: accountId,
+          provider: "google",
+          label: accountLabel,
+          displayName,
+          token: activeToken,
+          calendars: nextCalendars,
+        };
         const exists = prev.some((a) => a.id === accountId);
         if (exists) return prev.map((a) => a.id === accountId ? nextAccount : a).filter((a) => a.id !== "legacy");
         return [...prev.filter((a) => a.id !== "legacy"), nextAccount];
@@ -3389,6 +3541,115 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const refreshAllGoogleAccounts = async () => {
     await Promise.all(connectedGoogleAccounts.map((account) => fetchGoogleAccountData(account.token, account.id)));
   };
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const result =
+      params.get("googleOAuth");
+
+    if (!result) {
+      return;
+    }
+
+    if (result === "error") {
+      setGoogleError(
+        params.get("message") ||
+        "Google Calendar could not be connected."
+      );
+
+      params.delete("googleOAuth");
+      params.delete("message");
+
+      window.history.replaceState(
+        {},
+        "",
+        `${window.location.pathname}?${params.toString()}`
+      );
+
+      return;
+    }
+
+    const accountId =
+      params.get(
+        "googleAccountId"
+      );
+
+    if (
+      result !== "connected" ||
+      !accountId
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await fetchGoogleAccountData(
+          "",
+          accountId
+        );
+
+        if (!cancelled) {
+          setGoogleError("");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setGoogleError(
+            error?.message ||
+            "Google Calendar connected, but Abide could not load it."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          const cleanParams =
+            new URLSearchParams(
+              window.location.search
+            );
+
+          cleanParams.delete(
+            "googleOAuth"
+          );
+
+          cleanParams.delete(
+            "googleAccountId"
+          );
+
+          cleanParams.delete(
+            "message"
+          );
+
+          const query =
+            cleanParams.toString();
+
+          window.history.replaceState(
+            {},
+            "",
+            window.location.pathname +
+              (query
+                ? `?${query}`
+                : "")
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
 
   useEffect(() => {
     if (!googleConfigured) return;
@@ -3417,11 +3678,30 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
     }
   }, [selectedMonthKey]);
 
-  const connectGoogle = () => {
+  const connectGoogle = async () => {
     setGoogleError("");
-    if (!googleConfigured) { setGoogleError("Add VITE_GOOGLE_CLIENT_ID to Abide first."); return; }
-    if (!tokenClientRef.current) { setGoogleError("Google sign-in is still loading. Try again in a moment."); return; }
-    tokenClientRef.current.requestAccessToken({ prompt: "select_account consent" });
+
+    try {
+      const result =
+        await callGoogleCalendarBackend(
+          GOOGLE_CALENDAR_START_ENDPOINT
+        );
+
+      if (!result?.url) {
+        throw new Error(
+          "Google did not return an authorization URL."
+        );
+      }
+
+      window.location.assign(
+        result.url
+      );
+    } catch (error) {
+      setGoogleError(
+        error?.message ||
+        "Google Calendar could not start authorization."
+      );
+    }
   };
 
   const microsoftEventDateKey = (event) => {
@@ -3804,7 +4084,10 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${targetAccount.token}`,
+            Authorization: `Bearer ${await getGoogleAccessToken(
+              targetAccount.id,
+              targetAccount.token
+            )}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),

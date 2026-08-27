@@ -5012,6 +5012,131 @@ function htmlToPlainText(html = "") {
   const div = document.createElement("div"); div.innerHTML = html; return (div.textContent || "").trim();
 }
 
+function legacyCreatedAt(item) {
+  const explicit = Number(item?.createdAt);
+
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return explicit;
+  }
+
+  // Most existing Journal/Scratchbook IDs were created
+  // with Date.now(), so they can safely provide a useful
+  // creation-time fallback for older saved items.
+  const idValue = Number(item?.id);
+
+  if (
+    Number.isFinite(idValue) &&
+    idValue > 946684800000
+  ) {
+    return idValue;
+  }
+
+  return null;
+}
+
+function savedCreatedAt(item) {
+  return legacyCreatedAt(item);
+}
+
+function savedUpdatedAt(item) {
+  const updated = Number(item?.updatedAt);
+
+  if (Number.isFinite(updated) && updated > 0) {
+    return updated;
+  }
+
+  return savedCreatedAt(item);
+}
+
+function formatSavedMoment(value) {
+  const timestamp = Number(value);
+
+  if (
+    !Number.isFinite(timestamp) ||
+    timestamp <= 0
+  ) {
+    return "";
+  }
+
+  try {
+    return new Date(timestamp).toLocaleString(
+      undefined,
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }
+    );
+  } catch {
+    return "";
+  }
+}
+
+function savedTimestampSearchText(item) {
+  const created = savedCreatedAt(item);
+  const updated = savedUpdatedAt(item);
+
+  return [
+    formatSavedMoment(created),
+    formatSavedMoment(updated),
+    created
+      ? new Date(created).toLocaleDateString()
+      : "",
+    updated
+      ? new Date(updated).toLocaleDateString()
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function SavedTimestampLine({ item }) {
+  const createdAt = savedCreatedAt(item);
+  const updatedAt = savedUpdatedAt(item);
+
+  if (!createdAt && !updatedAt) {
+    return null;
+  }
+
+  const createdLabel =
+    formatSavedMoment(createdAt);
+
+  const updatedLabel =
+    formatSavedMoment(updatedAt);
+
+  const wasEdited =
+    Boolean(
+      createdAt &&
+        updatedAt &&
+        Math.abs(updatedAt - createdAt) > 1000
+    );
+
+  return (
+    <div
+      style={{
+        fontSize: 10.5,
+        lineHeight: 1.45,
+        color: "var(--text3)",
+        marginTop: 7,
+      }}
+    >
+      {createdLabel && (
+        <span>
+          Saved {createdLabel}
+        </span>
+      )}
+
+      {wasEdited && updatedLabel && (
+        <span>
+          {" · "}Edited {updatedLabel}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RichTextEditor({
   value,
   onChange,
@@ -5149,6 +5274,7 @@ function JournalTab({
             entry.date || "",
             entry.dateKey || "",
             entry.tag || "",
+            savedTimestampSearchText(entry),
           ]
             .join(" ")
             .toLowerCase();
@@ -5159,14 +5285,49 @@ function JournalTab({
         })
       : entries;
 
+  useEffect(() => {
+    const needsBackfill = entries.some(
+      (entry) =>
+        !entry.createdAt ||
+        !entry.updatedAt
+    );
+
+    if (!needsBackfill) return;
+
+    setEntries((current) =>
+      current.map((entry) => {
+        const createdAt =
+          savedCreatedAt(entry);
+
+        if (!createdAt) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          createdAt:
+            entry.createdAt ||
+            createdAt,
+          updatedAt:
+            entry.updatedAt ||
+            createdAt,
+        };
+      })
+    );
+  }, []);
+
   const streak = journalStreak(entries);
 
   const save = () => {
     if (!htmlToPlainText(noteHtml) && !ref.trim()) return;
 
+    const savedAt = Date.now();
+
     setEntries((p) => [
       {
-        id: Date.now(),
+        id: savedAt,
+        createdAt: savedAt,
+        updatedAt: savedAt,
         dateKey: entryDate,
         date: formatDateLabel(entryDate),
         ref: ref || "",
@@ -5208,6 +5369,10 @@ function JournalTab({
         e.id === id
           ? {
               ...e,
+              createdAt:
+                savedCreatedAt(e) ||
+                Date.now(),
+              updatedAt: Date.now(),
               dateKey: editDate,
               date: formatDateLabel(editDate),
               ref: editRef,
@@ -5531,7 +5696,7 @@ function JournalTab({
 
         <div className="card">
           {filteredJournalEntries.length ? filteredJournalEntries.map((entry) => <div key={entry.id} className="journal-entry">
-            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}</>}
+            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}<SavedTimestampLine item={entry} /></>}
           </div>) : <div className="insight-line">
             {journalSearch
               ? "No journal entries match your search."
@@ -5619,6 +5784,7 @@ function ScratchTab() {
             pg.type === "draw"
               ? "drawing sketch"
               : "note text",
+            savedTimestampSearchText(pg),
           ]
             .join(" ")
             .toLowerCase();
@@ -5628,6 +5794,37 @@ function ScratchTab() {
           );
         })
       : pages;
+
+  useEffect(() => {
+    const needsBackfill = pages.some(
+      (page) =>
+        !page.createdAt ||
+        !page.updatedAt
+    );
+
+    if (!needsBackfill) return;
+
+    setPages((current) =>
+      current.map((page) => {
+        const createdAt =
+          savedCreatedAt(page);
+
+        if (!createdAt) {
+          return page;
+        }
+
+        return {
+          ...page,
+          createdAt:
+            page.createdAt ||
+            createdAt,
+          updatedAt:
+            page.updatedAt ||
+            createdAt,
+        };
+      })
+    );
+  }, []);
 
   const SCRATCH_DRAWING_DRAFT_KEY =
     "abide-scratch-drawing-draft";
@@ -6122,6 +6319,8 @@ function ScratchTab() {
     const dataUrl =
       canvas.toDataURL("image/png");
 
+    const savedAt = Date.now();
+
     if (editingId) {
       setPages((prev) =>
         prev.map((pg) =>
@@ -6130,6 +6329,10 @@ function ScratchTab() {
                 ...pg,
                 type: "draw",
                 content: dataUrl,
+                createdAt:
+                  savedCreatedAt(pg) ||
+                  savedAt,
+                updatedAt: savedAt,
               }
             : pg
         )
@@ -6139,10 +6342,14 @@ function ScratchTab() {
     } else {
       setPages((prev) => [
         {
-          id: Date.now(),
+          id: savedAt,
           type: "draw",
           content: dataUrl,
-          date: "Today",
+          date: formatDateLabel(
+            REFERENCE_DATE_KEY
+          ),
+          createdAt: savedAt,
+          updatedAt: savedAt,
         },
         ...prev,
       ]);
@@ -6157,6 +6364,8 @@ function ScratchTab() {
   const saveTyped = () => {
     if (!htmlToPlainText(typedDraft)) return;
 
+    const savedAt = Date.now();
+
     if (editingId) {
       setPages((prev) =>
         prev.map((pg) =>
@@ -6166,6 +6375,10 @@ function ScratchTab() {
                 type: "type",
                 content: typedDraft,
                 contentHtml: typedDraft,
+                createdAt:
+                  savedCreatedAt(pg) ||
+                  savedAt,
+                updatedAt: savedAt,
               }
             : pg
         )
@@ -6175,13 +6388,15 @@ function ScratchTab() {
     } else {
       setPages((prev) => [
         {
-          id: Date.now(),
+          id: savedAt,
           type: "type",
           content: typedDraft,
           contentHtml: typedDraft,
           date: formatDateLabel(
             REFERENCE_DATE_KEY
           ),
+          createdAt: savedAt,
+          updatedAt: savedAt,
         },
         ...prev,
       ]);
@@ -6254,7 +6469,7 @@ function ScratchTab() {
           <div className={`seg-btn ${tool === "draw" ? "active" : ""}`} onClick={() => setTool("draw")}>Draw</div>
           <div className={`seg-btn ${tool === "type" ? "active" : ""}`} onClick={() => setTool("type")}>Type</div>
         </div>
-        {editingId && <div className="insight-line" style={{ padding: "0 4px 10px 4px" }}>Editing a saved page — save to update it, or delete it below.</div>}
+        {editingId && <div className="insight-line" style={{ padding: "0 4px 10px 4px" }}>Editing this saved page — add to it or change anything, then save to update the same page.</div>}
         {tool === "draw" ? (
           <div
             style={
@@ -6699,6 +6914,9 @@ function ScratchTab() {
           {filteredScratchPages.map((pg) => (
             <div key={pg.id} className="scratch-item card">
               {pg.type === "draw" ? <img src={pg.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70, lineHeight: 1.45 }} dangerouslySetInnerHTML={{ __html: pg.contentHtml || (String(pg.content || "").includes("<") ? pg.content : plainTextToHtml(pg.content || "")) }} />}
+              <div style={{ padding: "0 10px 8px" }}>
+                <SavedTimestampLine item={pg} />
+              </div>
               <div className="cap"><span>{pg.date}</span><span className="cap-icons"><Pencil size={12} onClick={() => editPage(pg)} /><Trash2 size={12} onClick={() => deletePage(pg.id)} /></span></div>
             </div>
           ))}

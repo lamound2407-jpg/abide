@@ -385,6 +385,40 @@ function PwaUpdateBanner() {
 }
 
 const styles = `
+  /* ABIDE NOTION DEPTH */
+
+  .abide-command-overlay {
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .abide-command-overlay::-webkit-scrollbar {
+    display: none;
+  }
+
+  .abide-command-result {
+    transition:
+      background 100ms ease,
+      transform 100ms ease;
+  }
+
+  .abide-command-result:active {
+    transform: scale(.995);
+  }
+
+  .abide-mention[data-abide-type="date"],
+  .abide-mention[data-abide-type="datetime"],
+  .abide-mention[data-abide-type="time"] {
+    background: rgba(124,147,201,.13);
+    border-color: rgba(124,147,201,.25);
+  }
+
+  .abide-mention[data-abide-type="reminder"] {
+    background: rgba(232,180,92,.11);
+    border-color: rgba(232,180,92,.28);
+  }
+
+
   /* ABIDE CONNECTED SYSTEM */
 
   .tabbar {

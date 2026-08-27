@@ -23,6 +23,7 @@ const adminAuth = getAuth();
 const TASK_STATE_KEY = "abide-tasks";
 const EVENT_STATE_KEY = "abide-calendar-events";
 const PREF_STATE_KEY = "abide-notification-prefs";
+const INLINE_REMINDER_STATE_KEY = "abide-inline-reminders";
 
 const DEFAULT_TIMEZONE = "America/Chicago";
 
@@ -1223,7 +1224,11 @@ exports.sendTaskReminders = onSchedule(
      * Query every synced task-state document.
      * Each matching document belongs to one user.
      */
-    const [taskStates, eventStates] = await Promise.all([
+    const [
+      taskStates,
+      eventStates,
+      inlineReminderStates,
+    ] = await Promise.all([
       db
         .collectionGroup("syncState")
         .where("key", "==", TASK_STATE_KEY)
@@ -1233,10 +1238,15 @@ exports.sendTaskReminders = onSchedule(
         .collectionGroup("syncState")
         .where("key", "==", EVENT_STATE_KEY)
         .get(),
+
+      db
+        .collectionGroup("syncState")
+        .where("key", "==", INLINE_REMINDER_STATE_KEY)
+        .get(),
     ]);
 
     logger.info(
-      `Reminder scheduler checking ${taskStates.size} task state document(s) and ${eventStates.size} event state document(s).`
+      `Reminder scheduler checking ${taskStates.size} task state document(s), ${eventStates.size} event state document(s), and ${inlineReminderStates.size} inline reminder state document(s).`
     );
 
     let remindersSent = 0;
@@ -1719,6 +1729,319 @@ exports.sendTaskReminders = onSchedule(
 
           logger.error(
             `Event start-time delivery failed for ${event.id}.`,
+            error
+          );
+        }
+      }
+    }
+
+
+    // ---------------------------------------------------------
+    // INLINE / EDITOR REMINDERS
+    //
+    // Created through:
+    //   @remind tomorrow at 3pm
+    //   /reminder
+    //
+    // These are synced through the same syncState system as
+    // Abide tasks and can therefore use the existing FCM
+    // background-delivery infrastructure.
+    // ---------------------------------------------------------
+
+    for (const inlineStateDoc of inlineReminderStates.docs) {
+      const userRef =
+        inlineStateDoc.ref.parent.parent;
+
+      if (!userRef) {
+        continue;
+      }
+
+      const uid =
+        userRef.id;
+
+      const reminders =
+        parseJson(
+          inlineStateDoc.data().value,
+          []
+        );
+
+      if (
+        !Array.isArray(reminders) ||
+        !reminders.length
+      ) {
+        continue;
+      }
+
+
+      // Inline reminders use Abide's existing task-reminder
+      // notification preference.
+      const prefsRef =
+        inlineStateDoc.ref.parent.doc(
+          encodeURIComponent(
+            PREF_STATE_KEY
+          )
+        );
+
+      const prefsSnapshot =
+        await prefsRef.get();
+
+      if (prefsSnapshot.exists) {
+        const prefs =
+          parseJson(
+            prefsSnapshot.data().value,
+            {}
+          );
+
+        if (prefs.tasks === false) {
+          continue;
+        }
+      }
+
+
+      const devicesSnapshot =
+        await userRef
+          .collection("pushDevices")
+          .where("enabled", "==", true)
+          .get();
+
+      if (devicesSnapshot.empty) {
+        continue;
+      }
+
+
+      const enabledDevices =
+        devicesSnapshot.docs.filter(
+          (document) =>
+            Boolean(
+              document.data().token
+            )
+        );
+
+      if (!enabledDevices.length) {
+        continue;
+      }
+
+
+      const deviceTimezone =
+        enabledDevices
+          .map(
+            (document) =>
+              document.data().timezone
+          )
+          .find(validTimezone) ||
+        DEFAULT_TIMEZONE;
+
+
+      const deviceDocs =
+        enabledDevices.slice(
+          0,
+          500
+        );
+
+      const tokens =
+        deviceDocs.map(
+          (document) =>
+            document.data().token
+        );
+
+
+      for (const reminder of reminders) {
+        if (
+          !reminder ||
+          !reminder.id ||
+          reminder.disabled ||
+          !reminder.fireDateKey ||
+          !reminder.fireTime
+        ) {
+          continue;
+        }
+
+
+        const timezone =
+          validTimezone(
+            reminder.timeZone
+          )
+            ? reminder.timeZone
+            : deviceTimezone;
+
+
+        const moment =
+          DateTime.fromISO(
+            `${reminder.fireDateKey}T${reminder.fireTime}`,
+            {
+              zone: timezone,
+            }
+          );
+
+
+        if (
+          !moment.isValid
+        ) {
+          continue;
+        }
+
+
+        const reminderMs =
+          moment.toMillis();
+
+        const nowMs =
+          Date.now();
+
+
+        // Same recovery window used for task and event reminders.
+        if (
+          reminderMs >
+          nowMs + 30 * 1000
+        ) {
+          continue;
+        }
+
+
+        if (
+          reminderMs <
+          nowMs - 10 * 60 * 1000
+        ) {
+          continue;
+        }
+
+
+        const deliveryItem = {
+          id:
+            `inline:${String(reminder.id)}`,
+        };
+
+
+        const claim =
+          await claimDelivery(
+            uid,
+            deliveryItem,
+            moment,
+            "inline-reminder"
+          );
+
+
+        if (!claim.claimed) {
+          continue;
+        }
+
+
+        const title =
+          String(
+            reminder.title ||
+            ""
+          ).trim() ||
+          "Reminder";
+
+
+        let targetBody =
+          "It's time for this reminder.";
+
+
+        if (
+          reminder.dateKey
+        ) {
+          const targetTime =
+            reminder.time ||
+            "09:00";
+
+          const target =
+            DateTime.fromISO(
+              `${reminder.dateKey}T${targetTime}`,
+              {
+                zone: timezone,
+              }
+            );
+
+          if (target.isValid) {
+            targetBody =
+              `For ${target.toFormat(
+                "MMM d 'at' h:mm a"
+              )}.`;
+          }
+        }
+
+
+        try {
+          const result =
+            await messaging.sendEachForMulticast({
+              tokens,
+
+              data: {
+                title:
+                  `Reminder: ${title}`,
+
+                body:
+                  targetBody,
+
+                url:
+                  `/?tab=reminders&inlineReminderId=${encodeURIComponent(
+                    String(reminder.id)
+                  )}`,
+
+                tag:
+                  `abide-inline-reminder-${String(reminder.id)}`,
+
+                inlineReminderId:
+                  String(reminder.id),
+              },
+
+              webpush: {
+                headers: {
+                  Urgency:
+                    "high",
+                },
+              },
+            });
+
+
+          await cleanInvalidTokens(
+            deviceDocs,
+            result.responses
+          );
+
+
+          if (
+            result.successCount >
+            0
+          ) {
+            await markDeliverySent(
+              claim.ref,
+              result
+            );
+
+            remindersSent += 1;
+
+            logger.info(
+              `Sent inline reminder ${reminder.id} to ${result.successCount} device(s).`
+            );
+          } else {
+            const firstError =
+              result.responses.find(
+                (response) =>
+                  !response.success
+              )?.error?.message ||
+              "FCM returned no successful deliveries.";
+
+
+            await markDeliveryFailed(
+              claim.ref,
+              firstError
+            );
+
+
+            logger.warn(
+              `Inline reminder ${reminder.id} was not delivered: ${firstError}`
+            );
+          }
+        } catch (error) {
+          await markDeliveryFailed(
+            claim.ref,
+            error?.message
+          );
+
+
+          logger.error(
+            `Inline reminder delivery failed for ${reminder.id}.`,
             error
           );
         }

@@ -2182,6 +2182,19 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
       "abide-rescue-capacity",
       "normal"
     );
+
+  const [rescueStrategy, setRescueStrategy] =
+    usePersistentState(
+      "abide-rescue-strategy",
+      "balanced"
+    );
+
+  const [rescueAreaPrefs, setRescueAreaPrefs] =
+    usePersistentState(
+      "abide-rescue-area-preferences",
+      {}
+    );
+
   const [editingTask, setEditingTask] = useState(null);
   const [adding, setAdding] = useState(false);
   const [briefCollapsed, setBriefCollapsed] = usePersistentState(
@@ -2269,6 +2282,80 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     return "The day is manageable. Work from what is already clear rather than creating more urgency.";
   })();
 
+  const rescueAreaKey = (task) =>
+    task.area || "__unassigned";
+
+  const rescueAreaName = (areaKey) => {
+    if (areaKey === "__unassigned") {
+      return "No Area";
+    }
+
+    return (
+      areas[areaKey]?.name ||
+      "Other"
+    );
+  };
+
+  const rescueAreaColor = (areaKey) => {
+    if (areaKey === "__unassigned") {
+      return "#8E97A8";
+    }
+
+    return (
+      areas[areaKey]?.color ||
+      "#8E97A8"
+    );
+  };
+
+  const rescueAreaPreference = (areaKey) => {
+    const saved =
+      rescueAreaPrefs?.[areaKey];
+
+    return {
+      mode:
+        saved?.mode === "protect" ||
+        saved?.mode === "pause"
+          ? saved.mode
+          : "include",
+      slots: Math.max(
+        0,
+        Number(saved?.slots) || 1
+      ),
+    };
+  };
+
+  const setRescueAreaMode = (
+    areaKey,
+    mode
+  ) => {
+    setRescueAreaPrefs((current) => ({
+      ...(current || {}),
+      [areaKey]: {
+        ...rescueAreaPreference(areaKey),
+        mode,
+      },
+    }));
+  };
+
+  const setRescueAreaSlots = (
+    areaKey,
+    slots
+  ) => {
+    setRescueAreaPrefs((current) => ({
+      ...(current || {}),
+      [areaKey]: {
+        ...rescueAreaPreference(areaKey),
+        slots: Math.max(
+          0,
+          Math.min(
+            10,
+            Number(slots) || 0
+          )
+        ),
+      },
+    }));
+  };
+
   const rescueCandidateTasks = tasks
     .filter((task) => {
       if (task.done) return false;
@@ -2304,18 +2391,215 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
       );
     });
 
+  const rescueAreaKeys = Array.from(
+    new Set([
+      ...Object.keys(areas),
+      ...rescueCandidateTasks.map(
+        rescueAreaKey
+      ),
+    ])
+  ).filter(Boolean);
+
   const rescueTodayLimit =
     rescueCapacityLimit(rescueCapacity);
 
-  const rescueTodayTasks =
-    rescueCandidateTasks.slice(
+  const rescueSelectableTasks =
+    rescueCandidateTasks.filter(
+      (task) =>
+        rescueAreaPreference(
+          rescueAreaKey(task)
+        ).mode !== "pause"
+    );
+
+  const buildRescueTodayTasks = () => {
+    if (!rescueSelectableTasks.length) {
+      return [];
+    }
+
+    // URGENCY FIRST:
+    // Respect paused Areas, then use the normal Rescue score.
+    if (rescueStrategy === "urgency") {
+      return rescueSelectableTasks.slice(
+        0,
+        rescueTodayLimit
+      );
+    }
+
+    const chosen = [];
+    const chosenIds = new Set();
+
+    const addTask = (task) => {
+      if (
+        !task ||
+        chosenIds.has(String(task.id)) ||
+        chosen.length >= rescueTodayLimit
+      ) {
+        return false;
+      }
+
+      chosen.push(task);
+      chosenIds.add(String(task.id));
+      return true;
+    };
+
+    const tasksForArea = (areaKey) =>
+      rescueSelectableTasks.filter(
+        (task) =>
+          rescueAreaKey(task) ===
+          areaKey
+      );
+
+    // CUSTOM:
+    // User explicitly chooses how many slots each Area gets.
+    if (rescueStrategy === "custom") {
+      rescueAreaKeys.forEach(
+        (areaKey) => {
+          if (
+            chosen.length >=
+            rescueTodayLimit
+          ) {
+            return;
+          }
+
+          const pref =
+            rescueAreaPreference(
+              areaKey
+            );
+
+          if (pref.mode === "pause") {
+            return;
+          }
+
+          const requested =
+            pref.mode === "protect"
+              ? Math.max(1, pref.slots)
+              : pref.slots;
+
+          tasksForArea(areaKey)
+            .slice(0, requested)
+            .forEach(addTask);
+        }
+      );
+
+      // If custom allocations do not fill available capacity,
+      // fill the remaining spaces with the most urgent eligible work.
+      rescueSelectableTasks.forEach(
+        addTask
+      );
+
+      return chosen.slice(
+        0,
+        rescueTodayLimit
+      );
+    }
+
+    // BALANCED:
+    // First guarantee one task from every Protected Area.
+    rescueAreaKeys
+      .filter(
+        (areaKey) =>
+          rescueAreaPreference(
+            areaKey
+          ).mode === "protect"
+      )
+      .forEach((areaKey) => {
+        addTask(
+          tasksForArea(areaKey)[0]
+        );
+      });
+
+    if (
+      chosen.length >=
+      rescueTodayLimit
+    ) {
+      return chosen.slice(
+        0,
+        rescueTodayLimit
+      );
+    }
+
+    // Then round-robin the active Areas so a single Area
+    // cannot consume the entire Rescue list by accident.
+    const activeAreaKeys =
+      rescueAreaKeys
+        .filter(
+          (areaKey) =>
+            rescueAreaPreference(
+              areaKey
+            ).mode !== "pause"
+        )
+        .filter(
+          (areaKey) =>
+            tasksForArea(areaKey)
+              .length > 0
+        )
+        .sort((a, b) => {
+          const aTop =
+            tasksForArea(a)[0];
+
+          const bTop =
+            tasksForArea(b)[0];
+
+          return (
+            rescueTaskScore(bTop) -
+            rescueTaskScore(aTop)
+          );
+        });
+
+    let round = 0;
+
+    while (
+      chosen.length <
+        rescueTodayLimit &&
+      round < 20
+    ) {
+      let addedThisRound = false;
+
+      activeAreaKeys.forEach(
+        (areaKey) => {
+          const remaining =
+            tasksForArea(areaKey)
+              .filter(
+                (task) =>
+                  !chosenIds.has(
+                    String(task.id)
+                  )
+              );
+
+          if (
+            addTask(remaining[0])
+          ) {
+            addedThisRound = true;
+          }
+        }
+      );
+
+      if (!addedThisRound) break;
+
+      round += 1;
+    }
+
+    return chosen.slice(
       0,
       rescueTodayLimit
     );
+  };
+
+  const rescueTodayTasks =
+    buildRescueTodayTasks();
+
+  const rescueTodayIds = new Set(
+    rescueTodayTasks.map(
+      (task) => String(task.id)
+    )
+  );
 
   const rescueLaterTasks =
-    rescueCandidateTasks.slice(
-      rescueTodayLimit
+    rescueCandidateTasks.filter(
+      (task) =>
+        !rescueTodayIds.has(
+          String(task.id)
+        )
     );
 
   const rescueOverdueCount =
@@ -2330,7 +2614,10 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         const offset =
           taskOffsetDays(task);
 
-        return offset >= 0 && offset <= 7;
+        return (
+          offset >= 0 &&
+          offset <= 7
+        );
       }
     ).length;
 
@@ -2841,9 +3128,9 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
                   paddingTop: 12,
                 }}
               >
-                This plan limits what you commit to now. Everything else gets
-                deliberately rescheduled, kept where it is, or reviewed
-                instead of silently becoming background stress.
+                Choose your capacity, decide which Areas need attention, and
+                let Abide build a realistic mix instead of allowing one part of
+                life to consume the entire Rescue list.
               </div>
 
               <div
@@ -2880,6 +3167,401 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
                   </div>
                 ))}
               </div>
+
+              <div
+                className="fb-label"
+                style={{ marginTop: 14 }}
+              >
+                How should Abide choose?
+              </div>
+
+              <div
+                className="filter-row"
+                style={{
+                  padding: 0,
+                  overflowX: "visible",
+                  flexWrap: "wrap",
+                }}
+              >
+                {[
+                  [
+                    "balanced",
+                    "Balanced",
+                  ],
+                  [
+                    "urgency",
+                    "Urgency first",
+                  ],
+                  [
+                    "custom",
+                    "Custom mix",
+                  ],
+                ].map(
+                  ([key, label]) => (
+                    <div
+                      key={key}
+                      className={`filter-chip ${
+                        rescueStrategy ===
+                        key
+                          ? "active"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setRescueStrategy(
+                          key
+                        )
+                      }
+                    >
+                      {label}
+                    </div>
+                  )
+                )}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 10.75,
+                  lineHeight: 1.45,
+                  color: "var(--text3)",
+                  marginTop: 6,
+                }}
+              >
+                {rescueStrategy ===
+                "urgency"
+                  ? "Highest urgency wins, while paused Areas stay out of today’s plan."
+                  : rescueStrategy ===
+                      "custom"
+                    ? "Choose exactly how much of each Area you want represented."
+                    : "Abide spreads today’s Rescue list across your active Areas while still respecting urgency."}
+              </div>
+
+              {rescueAreaKeys.length >
+                0 && (
+                <>
+                  <div
+                    className="fb-label"
+                    style={{
+                      marginTop: 14,
+                    }}
+                  >
+                    Area mix
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize:
+                        10.75,
+                      color:
+                        "var(--text3)",
+                      lineHeight: 1.45,
+                      marginBottom: 7,
+                    }}
+                  >
+                    Include = eligible · Protect = make room for this Area ·
+                    Pause = keep it out of today’s Rescue plan.
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    {rescueAreaKeys.map(
+                      (areaKey) => {
+                        const pref =
+                          rescueAreaPreference(
+                            areaKey
+                          );
+
+                        const areaTaskCount =
+                          rescueCandidateTasks.filter(
+                            (task) =>
+                              rescueAreaKey(
+                                task
+                              ) ===
+                              areaKey
+                          ).length;
+
+                        return (
+                          <div
+                            key={`rescue-area-${areaKey}`}
+                            style={{
+                              padding:
+                                "10px 11px",
+                              borderRadius:
+                                12,
+                              background:
+                                "var(--subtleBg)",
+                              border:
+                                "1px solid var(--divider)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display:
+                                  "flex",
+                                alignItems:
+                                  "center",
+                                justifyContent:
+                                  "space-between",
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  minWidth:
+                                    0,
+                                  display:
+                                    "flex",
+                                  alignItems:
+                                    "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width:
+                                      9,
+                                    height:
+                                      9,
+                                    borderRadius:
+                                      99,
+                                    background:
+                                      rescueAreaColor(
+                                        areaKey
+                                      ),
+                                    flexShrink:
+                                      0,
+                                  }}
+                                />
+
+                                <div
+                                  style={{
+                                    minWidth:
+                                      0,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize:
+                                        12.25,
+                                      fontWeight:
+                                        700,
+                                      color:
+                                        "var(--text)",
+                                      overflow:
+                                        "hidden",
+                                      textOverflow:
+                                        "ellipsis",
+                                      whiteSpace:
+                                        "nowrap",
+                                    }}
+                                  >
+                                    {rescueAreaName(
+                                      areaKey
+                                    )}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize:
+                                        10.25,
+                                      color:
+                                        "var(--text3)",
+                                      marginTop:
+                                        1,
+                                    }}
+                                  >
+                                    {areaTaskCount} rescue{" "}
+                                    {areaTaskCount ===
+                                    1
+                                      ? "task"
+                                      : "tasks"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {rescueStrategy ===
+                                "custom" &&
+                                pref.mode !==
+                                  "pause" && (
+                                  <div
+                                    style={{
+                                      display:
+                                        "flex",
+                                      alignItems:
+                                        "center",
+                                      gap: 5,
+                                      flexShrink:
+                                        0,
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setRescueAreaSlots(
+                                          areaKey,
+                                          pref.slots -
+                                            1
+                                        )
+                                      }
+                                      style={{
+                                        width:
+                                          27,
+                                        height:
+                                          27,
+                                        borderRadius:
+                                          8,
+                                        border:
+                                          "1px solid var(--pillBorder)",
+                                        background:
+                                          "var(--pillBg)",
+                                        color:
+                                          "var(--text)",
+                                        cursor:
+                                          "pointer",
+                                      }}
+                                    >
+                                      −
+                                    </button>
+
+                                    <div
+                                      style={{
+                                        minWidth:
+                                          25,
+                                        textAlign:
+                                          "center",
+                                        fontSize:
+                                          12,
+                                        fontWeight:
+                                          750,
+                                        color:
+                                          "var(--text)",
+                                      }}
+                                    >
+                                      {pref.slots}
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setRescueAreaSlots(
+                                          areaKey,
+                                          pref.slots +
+                                            1
+                                        )
+                                      }
+                                      style={{
+                                        width:
+                                          27,
+                                        height:
+                                          27,
+                                        borderRadius:
+                                          8,
+                                        border:
+                                          "1px solid var(--pillBorder)",
+                                        background:
+                                          "var(--pillBg)",
+                                        color:
+                                          "var(--text)",
+                                        cursor:
+                                          "pointer",
+                                      }}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                )}
+                            </div>
+
+                            <div
+                              className="filter-row"
+                              style={{
+                                padding:
+                                  "8px 0 0",
+                                overflowX:
+                                  "visible",
+                                flexWrap:
+                                  "wrap",
+                              }}
+                            >
+                              {[
+                                [
+                                  "include",
+                                  "Include",
+                                ],
+                                [
+                                  "protect",
+                                  "Protect",
+                                ],
+                                [
+                                  "pause",
+                                  "Pause",
+                                ],
+                              ].map(
+                                ([
+                                  mode,
+                                  label,
+                                ]) => (
+                                  <div
+                                    key={
+                                      mode
+                                    }
+                                    className={`filter-chip ${
+                                      pref.mode ===
+                                      mode
+                                        ? "active"
+                                        : ""
+                                    }`}
+                                    onClick={() =>
+                                      setRescueAreaMode(
+                                        areaKey,
+                                        mode
+                                      )
+                                    }
+                                  >
+                                    {label}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  {rescueStrategy ===
+                    "custom" && (
+                    <div
+                      style={{
+                        marginTop:
+                          8,
+                        padding:
+                          "9px 10px",
+                        borderRadius:
+                          11,
+                        background:
+                          "rgba(124,147,201,0.10)",
+                        border:
+                          "1px solid rgba(124,147,201,0.20)",
+                        fontSize:
+                          10.75,
+                        lineHeight:
+                          1.45,
+                        color:
+                          "var(--text2)",
+                      }}
+                    >
+                      Example: set Work to 2 and Margin to 1 for a three-task
+                      Rescue day. If your allocations leave unused capacity,
+                      Abide fills the remaining space with the most urgent
+                      eligible tasks.
+                    </div>
+                  )}
+                </>
+              )}
 
               <div
                 style={{
@@ -3022,8 +3704,14 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
                       marginBottom: 5,
                     }}
                   >
-                    Abide intentionally caps this list at{" "}
-                    {rescueTodayLimit}.
+                    Abide caps this list at{" "}
+                    {rescueTodayLimit} and applies your{" "}
+                    {rescueStrategy === "custom"
+                      ? "custom Area mix"
+                      : rescueStrategy === "urgency"
+                        ? "urgency-first settings"
+                        : "Area balance settings"}.
+
                   </div>
 
                   {rescueTodayTasks.map(
@@ -3119,6 +3807,10 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
                                           task
                                         )
                                       )}`}
+                                {" · "}
+                                {rescueAreaName(
+                                  rescueAreaKey(task)
+                                )}
                                 {task.priority ===
                                 "high"
                                   ? " · High priority"
@@ -3294,13 +3986,23 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
                                     marginTop: 2,
                                   }}
                                 >
-                                  {overdue
-                                    ? "Needs rescheduling or a decision"
-                                    : `Keep scheduled · ${formatDateLabel(
-                                        taskDateKey(
-                                          task
-                                        )
-                                      )}`}
+                                  {rescueAreaPreference(
+                                    rescueAreaKey(task)
+                                  ).mode === "pause"
+                                    ? `${rescueAreaName(
+                                        rescueAreaKey(task)
+                                      )} paused for today`
+                                    : overdue
+                                      ? `${rescueAreaName(
+                                          rescueAreaKey(task)
+                                        )} · Needs rescheduling or a decision`
+                                      : `${rescueAreaName(
+                                          rescueAreaKey(task)
+                                        )} · Keep scheduled · ${formatDateLabel(
+                                          taskDateKey(
+                                            task
+                                          )
+                                        )}`}
                                 </div>
                               </div>
 

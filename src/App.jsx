@@ -5089,26 +5089,110 @@ function JournalTab({
   highlightMeanings,
   setHighlightMeanings,
 }) {
-  const [entryDate, setEntryDate] = useState(REFERENCE_DATE_KEY);
-  const [ref, setRef] = useState("");
-  const [noteHtml, setNoteHtml] = useState("");
-  const [tag, setTag] = useState("yellow");
-  const [editingId, setEditingId] = useState(null);
-  const [editDate, setEditDate] = useState(REFERENCE_DATE_KEY);
-  const [editRef, setEditRef] = useState("");
-  const [editHtml, setEditHtml] = useState("");
-  const [editTag, setEditTag] = useState("yellow");
+  // Draft fields are persistent so an accidental refresh,
+  // PWA update, tab close, or navigation cannot erase writing.
+  const [entryDate, setEntryDate] = usePersistentState(
+    "abide-journal-draft-date",
+    REFERENCE_DATE_KEY
+  );
+  const [ref, setRef] = usePersistentState(
+    "abide-journal-draft-reference",
+    ""
+  );
+  const [noteHtml, setNoteHtml] = usePersistentState(
+    "abide-journal-draft-html",
+    ""
+  );
+  const [tag, setTag] = usePersistentState(
+    "abide-journal-draft-tag",
+    "yellow"
+  );
+
+  // Editing an existing entry is protected too.
+  const [editingId, setEditingId] = usePersistentState(
+    "abide-journal-editing-id",
+    null
+  );
+  const [editDate, setEditDate] = usePersistentState(
+    "abide-journal-edit-date",
+    REFERENCE_DATE_KEY
+  );
+  const [editRef, setEditRef] = usePersistentState(
+    "abide-journal-edit-reference",
+    ""
+  );
+  const [editHtml, setEditHtml] = usePersistentState(
+    "abide-journal-edit-html",
+    ""
+  );
+  const [editTag, setEditTag] = usePersistentState(
+    "abide-journal-edit-tag",
+    "yellow"
+  );
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [highlightSettingsOpen, setHighlightSettingsOpen] = useState(false);
   const streak = journalStreak(entries);
 
   const save = () => {
     if (!htmlToPlainText(noteHtml) && !ref.trim()) return;
-    setEntries((p) => [{ id: Date.now(), dateKey: entryDate, date: formatDateLabel(entryDate), ref: ref || "", tag, note: htmlToPlainText(noteHtml), richTextHtml: noteHtml }, ...p]);
-    setRef(""); setNoteHtml(""); setTag("yellow");
+
+    setEntries((p) => [
+      {
+        id: Date.now(),
+        dateKey: entryDate,
+        date: formatDateLabel(entryDate),
+        ref: ref || "",
+        tag,
+        note: htmlToPlainText(noteHtml),
+        richTextHtml: noteHtml,
+      },
+      ...p,
+    ]);
+
+    // Saving converts the autosaved draft into a permanent entry.
+    setRef("");
+    setNoteHtml("");
+    setTag("yellow");
+    setEntryDate(REFERENCE_DATE_KEY);
   };
-  const startEdit = (entry) => { setEditingId(entry.id); setEditDate(entry.dateKey || REFERENCE_DATE_KEY); setEditRef(entry.ref || ""); setEditHtml(entry.richTextHtml || plainTextToHtml(entry.note || "")); setEditTag(entry.tag || "yellow"); };
-  const saveEdit = (id) => { setEntries((p) => p.map((e) => e.id === id ? { ...e, dateKey: editDate, date: formatDateLabel(editDate), ref: editRef, note: htmlToPlainText(editHtml), richTextHtml: editHtml, tag: editTag } : e)); setEditingId(null); };
+  const startEdit = (entry) => {
+    setEditingId(entry.id);
+    setEditDate(entry.dateKey || REFERENCE_DATE_KEY);
+    setEditRef(entry.ref || "");
+    setEditHtml(
+      entry.richTextHtml ||
+        plainTextToHtml(entry.note || "")
+    );
+    setEditTag(entry.tag || "yellow");
+  };
+
+  const clearJournalEditDraft = () => {
+    setEditingId(null);
+    setEditDate(REFERENCE_DATE_KEY);
+    setEditRef("");
+    setEditHtml("");
+    setEditTag("yellow");
+  };
+
+  const saveEdit = (id) => {
+    setEntries((p) =>
+      p.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              dateKey: editDate,
+              date: formatDateLabel(editDate),
+              ref: editRef,
+              note: htmlToPlainText(editHtml),
+              richTextHtml: editHtml,
+              tag: editTag,
+            }
+          : e
+      )
+    );
+
+    clearJournalEditDraft();
+  };
   const remove = (id) => setEntries((p) => p.filter((e) => e.id !== id));
 
   return (
@@ -5291,6 +5375,23 @@ function JournalTab({
   minHeight={150}
   highlightMeanings={highlightMeanings}
 /></div>
+
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text3)",
+              marginTop: 7,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <Check size={11} />
+            {htmlToPlainText(noteHtml) || ref.trim()
+              ? "Draft autosaved"
+              : "Your writing will autosave here"}
+          </div>
+
           <div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${tag === k ? "selected" : ""}`} style={{ background: v.hex }} title={v.label} onClick={() => setTag(k)} />)}</div>
           <div
   style={{
@@ -5310,7 +5411,7 @@ function JournalTab({
         <div className="section-label">Entries</div>
         <div className="card">
           {entries.length ? entries.map((entry) => <div key={entry.id} className="journal-entry">
-            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={() => setEditingId(null)}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}</>}
+            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}><RichTextEditor value={editHtml} onChange={setEditHtml} placeholder="Journal note" minHeight={140} /></div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}</>}
           </div>) : <div className="insight-line">No journal entries yet.</div>}
         </div>
       </div>
@@ -5324,14 +5425,164 @@ function JournalTab({
 function ScratchTab() {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
-  const [tool, setTool] = useState("draw");
-  const [color, setColor] = useState("#141A28");
+  const [tool, setTool] = usePersistentState(
+    "abide-scratch-current-tool",
+    "draw"
+  );
+  const [color, setColor] = usePersistentState(
+    "abide-scratch-current-color",
+    "#141A28"
+  );
+
   const drawing = useRef(false);
   const lastPoint = useRef(null);
-  const canvasMetrics = useRef({ width: 380, height: 260, dpr: 1 });
-  const [pages, setPages] = usePersistentState("abide-scratch-pages", []);
-  const [typedDraft, setTypedDraft] = useState("");
-  const [editingId, setEditingId] = useState(null);
+  const canvasMetrics = useRef({
+    width: 380,
+    height: 260,
+    dpr: 1,
+  });
+
+  const drawingAutosaveTimer = useRef(null);
+  const drawingRestoreComplete = useRef(false);
+
+  const [pages, setPages] = usePersistentState(
+    "abide-scratch-pages",
+    []
+  );
+
+  const [typedDraft, setTypedDraft] = usePersistentState(
+    "abide-scratch-typed-draft",
+    ""
+  );
+
+  const [editingId, setEditingId] = usePersistentState(
+    "abide-scratch-editing-id",
+    null
+  );
+
+  const SCRATCH_DRAWING_DRAFT_KEY =
+    "abide-scratch-drawing-draft";
+
+  const clearDrawingDraft = () => {
+    try {
+      localStorage.removeItem(
+        SCRATCH_DRAWING_DRAFT_KEY
+      );
+    } catch {}
+  };
+
+  const saveDrawingDraftNow = (
+    editingIdOverride = editingId
+  ) => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    try {
+      const content =
+        canvas.toDataURL("image/png");
+
+      localStorage.setItem(
+        SCRATCH_DRAWING_DRAFT_KEY,
+        JSON.stringify({
+          content,
+          editingId:
+            editingIdOverride || null,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch (error) {
+      console.warn(
+        "Scratchbook drawing autosave failed:",
+        error
+      );
+    }
+  };
+
+  const scheduleDrawingDraftSave = (
+    editingIdOverride = editingId
+  ) => {
+    if (drawingAutosaveTimer.current) {
+      window.clearTimeout(
+        drawingAutosaveTimer.current
+      );
+    }
+
+    drawingAutosaveTimer.current =
+      window.setTimeout(() => {
+        drawingAutosaveTimer.current =
+          null;
+
+        saveDrawingDraftNow(
+          editingIdOverride
+        );
+      }, 350);
+  };
+
+  const restoreDrawingDraft = () => {
+    if (
+      drawingRestoreComplete.current ||
+      !canvasRef.current
+    ) {
+      return;
+    }
+
+    drawingRestoreComplete.current = true;
+
+    let draft = null;
+
+    try {
+      const raw =
+        localStorage.getItem(
+          SCRATCH_DRAWING_DRAFT_KEY
+        );
+
+      draft = raw
+        ? JSON.parse(raw)
+        : null;
+    } catch {}
+
+    if (!draft?.content) return;
+
+    if (draft.editingId) {
+      setEditingId(draft.editingId);
+    }
+
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx =
+        canvas.getContext("2d");
+
+      const {
+        width,
+        height,
+        dpr,
+      } = canvasMetrics.current;
+
+      ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+      );
+
+      ctx.drawImage(
+        img,
+        0,
+        0,
+        width,
+        height
+      );
+    };
+
+    img.src = draft.content;
+  };
 
   const paintPaper = () => {
     const canvas = canvasRef.current;
@@ -5374,11 +5625,34 @@ function ScratchTab() {
   };
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => resizeCanvas(false));
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => resizeCanvas(true)) : null;
-    if (observer && wrapRef.current) observer.observe(wrapRef.current);
+    const frame = requestAnimationFrame(() => {
+      resizeCanvas(false);
+
+      // After the canvas has real dimensions, restore any
+      // drawing that was autosaved before a refresh/update.
+      restoreDrawingDraft();
+    });
+
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() =>
+            resizeCanvas(true)
+          )
+        : null;
+
+    if (observer && wrapRef.current) {
+      observer.observe(wrapRef.current);
+    }
+
     return () => {
       cancelAnimationFrame(frame);
+
+      if (drawingAutosaveTimer.current) {
+        window.clearTimeout(
+          drawingAutosaveTimer.current
+        );
+      }
+
       observer?.disconnect();
     };
   }, []);
@@ -5425,39 +5699,107 @@ function ScratchTab() {
       ctx.stroke();
       lastPoint.current = point;
     });
+
+    // Throttled so Apple Pencil / pointer movement stays smooth.
+    scheduleDrawingDraftSave();
   };
 
   const onUp = (e) => {
     drawing.current = false;
     lastPoint.current = null;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+
+    try {
+      e.currentTarget.releasePointerCapture(
+        e.pointerId
+      );
+    } catch {}
+
+    saveDrawingDraftNow();
   };
 
-  const clearCanvas = () => {
+  const clearCanvas = (
+    removeDraft = true
+  ) => {
     paintPaper();
     drawing.current = false;
     lastPoint.current = null;
+
+    if (removeDraft) {
+      clearDrawingDraft();
+    }
   };
 
   const saveDrawing = () => {
-    const dataUrl = canvasRef.current.toDataURL("image/png");
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dataUrl =
+      canvas.toDataURL("image/png");
+
     if (editingId) {
-      setPages((prev) => prev.map((pg) => pg.id === editingId ? { ...pg, type: "draw", content: dataUrl } : pg));
+      setPages((prev) =>
+        prev.map((pg) =>
+          pg.id === editingId
+            ? {
+                ...pg,
+                type: "draw",
+                content: dataUrl,
+              }
+            : pg
+        )
+      );
+
       setEditingId(null);
     } else {
-      setPages((prev) => [{ id: Date.now(), type: "draw", content: dataUrl, date: "Today" }, ...prev]);
+      setPages((prev) => [
+        {
+          id: Date.now(),
+          type: "draw",
+          content: dataUrl,
+          date: "Today",
+        },
+        ...prev,
+      ]);
     }
-    clearCanvas();
+
+    // The permanent page now owns the drawing.
+    clearDrawingDraft();
+    clearCanvas(false);
   };
 
   const saveTyped = () => {
     if (!htmlToPlainText(typedDraft)) return;
+
     if (editingId) {
-      setPages((prev) => prev.map((pg) => pg.id === editingId ? { ...pg, type: "type", content: typedDraft, contentHtml: typedDraft } : pg));
+      setPages((prev) =>
+        prev.map((pg) =>
+          pg.id === editingId
+            ? {
+                ...pg,
+                type: "type",
+                content: typedDraft,
+                contentHtml: typedDraft,
+              }
+            : pg
+        )
+      );
+
       setEditingId(null);
     } else {
-      setPages((prev) => [{ id: Date.now(), type: "type", content: typedDraft, contentHtml: typedDraft, date: formatDateLabel(REFERENCE_DATE_KEY) }, ...prev]);
+      setPages((prev) => [
+        {
+          id: Date.now(),
+          type: "type",
+          content: typedDraft,
+          contentHtml: typedDraft,
+          date: formatDateLabel(
+            REFERENCE_DATE_KEY
+          ),
+        },
+        ...prev,
+      ]);
     }
+
     setTypedDraft("");
   };
 
@@ -5476,10 +5818,31 @@ function ScratchTab() {
       img.onload = () => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
-        const { width, height, dpr } = canvasMetrics.current;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.drawImage(img, 0, 0, width, height);
+        const { width, height, dpr } =
+          canvasMetrics.current;
+
+        ctx.setTransform(
+          dpr,
+          0,
+          0,
+          dpr,
+          0,
+          0
+        );
+
+        ctx.drawImage(
+          img,
+          0,
+          0,
+          width,
+          height
+        );
+
+        // Entering edit mode itself establishes a recoverable
+        // drawing draft, even before the next Pencil stroke.
+        saveDrawingDraftNow(pg.id);
       };
+
       img.src = pg.content;
     });
   };
@@ -5488,7 +5851,8 @@ function ScratchTab() {
     setPages((prev) => prev.filter((pg) => pg.id !== id));
     if (editingId === id) {
       setEditingId(null);
-      clearCanvas();
+      clearDrawingDraft();
+      clearCanvas(false);
       setTypedDraft("");
     }
   };
@@ -5519,11 +5883,33 @@ function ScratchTab() {
                 onPointerLeave={(e) => { if (drawing.current && e.buttons === 0) onUp(e); }}
               />
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8, display: "flex", alignItems: "center", gap: 5 }}><PenTool size={12} />High-resolution, pressure-sensitive canvas calibrated to the visible page for finger, mouse, or Apple Pencil.</div>
+            <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 8, display: "flex", alignItems: "center", gap: 5 }}><PenTool size={12} />High-resolution, pressure-sensitive canvas calibrated to the visible page for finger, mouse, or Apple Pencil. Drawing autosaves as you work.</div>
           </>
         ) : (
           <>
-            <RichTextEditor value={typedDraft} onChange={setTypedDraft} placeholder="Jot it down…" minHeight={180} />
+            <RichTextEditor
+              value={typedDraft}
+              onChange={setTypedDraft}
+              placeholder="Jot it down…"
+              minHeight={180}
+            />
+
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text3)",
+                marginTop: 7,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <Check size={11} />
+              {htmlToPlainText(typedDraft)
+                ? "Draft autosaved"
+                : "Your note will autosave here"}
+            </div>
+
             <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>Select text to bold, italicize, underline, change font, or highlight it.</div>
             <div className="filter-chip active" style={{ display: "inline-flex", marginTop: 10 }} onClick={saveTyped}><Type size={12} />{editingId ? "Update Note" : "Save Note"}</div>
           </>

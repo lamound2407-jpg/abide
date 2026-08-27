@@ -1,5 +1,10 @@
 import ImportTasksPanel from "./ImportTasksPanel.jsx";
 import {
+  AbideCommandLayer,
+  sendToScratchPadAndOfferOpen,
+  extractAbideReferences,
+} from "./ConnectedSystem.jsx";
+import {
   disableBackgroundPush,
   enableBackgroundPush,
   getBackgroundPushStatus,
@@ -68,17 +73,26 @@ const PRIMARY_NAV_DESTINATIONS = [
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "review", label: "Review", icon: RefreshCw },
   { id: "journal", label: "Journal", icon: BookOpen },
+  { id: "scratch", label: "Scratch Pad", icon: PenTool },
   { id: "goals", label: "Goals", icon: Target },
-  { id: "scratch", label: "Scratchbook", icon: PenTool },
   { id: "reminders", label: "Reminders", icon: Bell },
   { id: "insights", label: "Insights", icon: BarChart3 },
 ];
 
-const DEFAULT_PRIMARY_NAV = ["calendar", "review", "journal"];
+const MAX_PRIMARY_NAV = 7;
+
+const DEFAULT_PRIMARY_NAV = [
+  "calendar",
+  "review",
+  "journal",
+  "scratch",
+];
 
 function normalizePrimaryNav(value) {
   const validIds = new Set(
-    PRIMARY_NAV_DESTINATIONS.map((destination) => destination.id)
+    PRIMARY_NAV_DESTINATIONS.map(
+      (destination) => destination.id
+    )
   );
 
   const next = [];
@@ -89,24 +103,29 @@ function normalizePrimaryNav(value) {
         typeof id === "string" &&
         validIds.has(id) &&
         !next.includes(id) &&
-        next.length < 3
+        next.length < MAX_PRIMARY_NAV
       ) {
         next.push(id);
       }
     });
   }
 
-  for (const id of DEFAULT_PRIMARY_NAV) {
-    if (next.length >= 3) break;
-    if (!next.includes(id)) next.push(id);
+  if (!next.length) {
+    DEFAULT_PRIMARY_NAV.forEach((id) => {
+      if (
+        validIds.has(id) &&
+        !next.includes(id) &&
+        next.length < MAX_PRIMARY_NAV
+      ) {
+        next.push(id);
+      }
+    });
   }
 
-  for (const destination of PRIMARY_NAV_DESTINATIONS) {
-    if (next.length >= 3) break;
-    if (!next.includes(destination.id)) next.push(destination.id);
-  }
-
-  return next.slice(0, 3);
+  return next.slice(
+    0,
+    MAX_PRIMARY_NAV
+  );
 }
 
 const MICROSOFT_CLIENT_ID =
@@ -366,6 +385,87 @@ function PwaUpdateBanner() {
 }
 
 const styles = `
+  /* ABIDE CONNECTED SYSTEM */
+
+  .tabbar {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    justify-content: flex-start !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-item {
+    flex: 0 0 68px !important;
+    min-width: 68px !important;
+  }
+
+  .abide-mention {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border-radius: 6px;
+    padding: 1px 4px;
+    margin: 0 1px;
+    background: rgba(124,147,201,.13);
+    border: 1px solid rgba(124,147,201,.22);
+    color: var(--text);
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .abide-command-overlay {
+    position: fixed;
+    z-index: 30000;
+    max-height: min(52vh, 440px);
+    overflow-y: auto;
+    background: var(--card);
+    border: 1px solid var(--pillBorder);
+    border-radius: 14px;
+    box-shadow: 0 18px 52px rgba(0,0,0,.30);
+    padding: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+      "SF Pro Display", system-ui, sans-serif;
+  }
+
+  .abide-command-result {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    padding: 9px 10px;
+    border-radius: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .abide-command-result:hover,
+  .abide-command-result.active {
+    background: var(--pillBg);
+  }
+
+  .abide-command-result-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .abide-command-result-meta {
+    font-size: 10.5px;
+    color: var(--text3);
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+
+
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   .app { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; background: var(--appBg); color: var(--text); width: 100%; max-width: 430px; margin: 0 auto; height: 100vh; min-height: 100vh; border-radius: 0; overflow: hidden; position: relative; box-shadow: none; display: flex; flex-direction: column; }
   .statusbar { height: calc(30px + env(safe-area-inset-top, 0px)); flex-shrink:0; position:relative; display:flex; align-items:flex-end; justify-content:space-between; padding: env(safe-area-inset-top, 0px) 18px 0; }
@@ -1962,6 +2062,63 @@ function TaskEditor({
             >
               Subtasks are full tasks. Add one to open its complete editor for
               priority, Area, goal, reminder, recurrence, activity, and more.
+            </div>
+
+            <div className="fb-label">Scratch Pad</div>
+
+            <div
+              style={{
+                padding: "10px 11px",
+                borderRadius: 12,
+                background: "var(--subtleBg)",
+                border: "1px solid var(--divider)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12.25,
+                      fontWeight: 700,
+                      color: "var(--text)",
+                    }}
+                  >
+                    Work on this in Scratch Pad
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      lineHeight: 1.4,
+                      color: "var(--text3)",
+                      marginTop: 3,
+                    }}
+                  >
+                    Creates a linked working page without removing or changing
+                    the task.
+                  </div>
+                </div>
+
+                <div
+                  className="filter-chip"
+                  style={{ flexShrink: 0 }}
+                  onClick={() =>
+                    sendToScratchPadAndOfferOpen(
+                      task,
+                      "task"
+                    )
+                  }
+                >
+                  Send to Scratch Pad
+                </div>
+              </div>
             </div>
 
             <div className="fb-label">Activity</div>
@@ -4664,7 +4821,9 @@ function AddSheet({
   };
 
   if (kind === "import") {
-    return <ImportTasksPanel areas={areas} onCreateArea={onCreateArea} onCreateTask={onCreateTask} onClose={onClose} />;
+    return <ImportTasksPanel
+          tasks={tasks}
+          onDeleteTask={onDeleteTask} areas={areas} onCreateArea={onCreateArea} onCreateTask={onCreateTask} onClose={onClose} />;
   }
 
   return (
@@ -4866,6 +5025,63 @@ function EventEditor({ event, areas, onSave, onCancel }) {
                 <QuickAreaPicker areas={areas} value={area} onChange={setArea} />
               </>
             )}
+
+            <div className="fb-label">Scratch Pad</div>
+
+            <div
+              style={{
+                padding: "10px 11px",
+                borderRadius: 12,
+                background: "var(--subtleBg)",
+                border: "1px solid var(--divider)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12.25,
+                      fontWeight: 700,
+                      color: "var(--text)",
+                    }}
+                  >
+                    Work on this in Scratch Pad
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      lineHeight: 1.4,
+                      color: "var(--text3)",
+                      marginTop: 3,
+                    }}
+                  >
+                    Creates linked working notes while leaving the event on
+                    the calendar.
+                  </div>
+                </div>
+
+                <div
+                  className="filter-chip"
+                  style={{ flexShrink: 0 }}
+                  onClick={() =>
+                    sendToScratchPadAndOfferOpen(
+                      event,
+                      "event"
+                    )
+                  }
+                >
+                  Send to Scratch Pad
+                </div>
+              </div>
+            </div>
 
             <div className="fb-label">Activity</div>
             <div className="activity-list">
@@ -7033,7 +7249,7 @@ function legacyCreatedAt(item) {
     return explicit;
   }
 
-  // Most existing Journal/Scratchbook IDs were created
+  // Most existing Journal/Scratch Pad IDs were created
   // with Date.now(), so they can safely provide a useful
   // creation-time fallback for older saved items.
   const idValue = Number(item?.id);
@@ -7348,6 +7564,7 @@ function JournalTab({
         tag,
         note: htmlToPlainText(noteHtml),
         richTextHtml: noteHtml,
+        references: extractAbideReferences(noteHtml),
       },
       ...p,
     ]);
@@ -7392,6 +7609,7 @@ function JournalTab({
               ref: editRef,
               note: htmlToPlainText(editHtml),
               richTextHtml: editHtml,
+              references: extractAbideReferences(editHtml),
               tag: editTag,
             }
           : e
@@ -7723,7 +7941,7 @@ function JournalTab({
 }
 
 /* ---------------------------------------------------------------
-   SCRATCHBOOK — add / edit / delete, typed + Apple Pencil drawing
+   SCRATCH PAD — add / edit / delete, typed + Apple Pencil drawing
 ----------------------------------------------------------------*/
 function ScratchTab() {
   const canvasRef = useRef(null);
@@ -8007,7 +8225,7 @@ function ScratchTab() {
       );
     } catch (error) {
       console.warn(
-        "Scratchbook drawing autosave failed:",
+        "Scratch Pad drawing autosave failed:",
         error
       );
     }
@@ -8389,6 +8607,7 @@ function ScratchTab() {
                 type: "type",
                 content: typedDraft,
                 contentHtml: typedDraft,
+          references: extractAbideReferences(typedDraft),
                 createdAt:
                   savedCreatedAt(pg) ||
                   savedAt,
@@ -8477,7 +8696,7 @@ function ScratchTab() {
 
   return (
     <>
-      <Header eyebrow="Type, or use Apple Pencil on iPad" title="Scratchbook" />
+      <Header eyebrow="Type, or use Apple Pencil on iPad" title="Scratch Pad" />
       <div className="scroll">
         <div className="segmented">
           <div className={`seg-btn ${tool === "draw" ? "active" : ""}`} onClick={() => setTool("draw")}>Draw</div>
@@ -8529,7 +8748,7 @@ function ScratchTab() {
                       color: "var(--text)",
                     }}
                   >
-                    Scratchbook
+                    Scratch Pad
                   </div>
 
                   <div
@@ -8841,8 +9060,8 @@ function ScratchTab() {
                 event.target.value
               )
             }
-            placeholder="Search Scratchbook…"
-            aria-label="Search Scratchbook"
+            placeholder="Search Scratch Pad…"
+            aria-label="Search Scratch Pad"
             style={{
               width: "100%",
               height: 42,
@@ -8863,7 +9082,7 @@ function ScratchTab() {
           {scratchSearch && (
             <button
               type="button"
-              aria-label="Clear Scratchbook search"
+              aria-label="Clear Scratch Pad search"
               onClick={() =>
                 setScratchSearch("")
               }
@@ -8920,7 +9139,7 @@ function ScratchTab() {
                 marginBottom: 10,
               }}
             >
-              No Scratchbook pages match your search.
+              No Scratch Pad pages match your search.
             </div>
           )}
 
@@ -10425,7 +10644,7 @@ const WEEKLY_REVIEW_BLUEPRINT = [
     title: "Choose a small, meaningful week",
     copy: "Name the few outcomes worth protecting. Three is a ceiling, not a quota.",
     checks: [
-      "Choose up to three outcomes that would make this week meaningful",
+      "Choose up to seven outcomes that would make this week meaningful",
       "Make sure each chosen outcome has a concrete next action",
     ],
     noteLabel: "What matters most this week?",
@@ -10488,7 +10707,7 @@ const MONTHLY_REVIEW_BLUEPRINT = [
     title: "Choose the month's few meaningful outcomes",
     copy: "Choose no more than three directional outcomes. They should fit the season and the capacity you actually have.",
     checks: [
-      "Choose up to three outcomes that would make this month meaningful",
+      "Choose up to seven outcomes that would make this month meaningful",
       "Make sure each outcome has a real next action in Abide",
     ],
     noteLabel: "What would make this month meaningful and well-lived?",
@@ -11083,7 +11302,7 @@ function MoreTab({
     { id: "review", label: "Review", copy: "A short weekly reset and monthly preparation", icon: RefreshCw, tint: "#E8B45C" },
     { id: "journal", label: "Journal", copy: "Time with the Lord and reflection history", icon: BookOpen, tint: "#A98BE0" },
     { id: "goals", label: "Goals", copy: "Projects, outcomes, and higher horizons", icon: Target, tint: "#7C93C9" },
-    { id: "scratch", label: "Scratchbook", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
+    { id: "scratch", label: "Scratch Pad", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
     { id: "reminders", label: "Reminders", copy: "Upcoming alerts and notification controls", icon: Bell, tint: "#E8B45C" },
     { id: "insights", label: "Insights", copy: "Patterns and history, not another scoreboard", icon: BarChart3, tint: "#8FA88A" },
   ];
@@ -11861,6 +12080,7 @@ export default function App({ accountSync }) {
   return (
     <div className={`viewport-${viewport}`} style={{ display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch", padding: 0, background: viewport === "phone" ? tk.appBg : tk.pageBg, height: "100vh", minHeight: "100vh", width: "100%", overflow: "hidden", ...vars }}>
       <style>{styles}</style>
+      <AbideCommandLayer />
       <PwaUpdateBanner />
       {viewport === "phone" ? (
         <div className="app">

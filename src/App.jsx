@@ -4644,7 +4644,21 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
         )}
 
         <div className="capture-bar" style={{ cursor: "pointer" }} onClick={() => { setEditingTask(null); setAdding(!adding); }}><Plus size={16} />{adding ? "Close quick add" : "Add a task"}</div>
-        {adding && <AddSheet goals={goals} areas={areas} initialDate={REFERENCE_DATE_KEY} allowEvents={false} onClose={() => setAdding(false)} onCreateTask={onCreateTask} onCreateEvent={async () => {}} googleConnected={false} onCreateArea={onCreateArea} />}
+        {adding && (
+          <AddSheet
+            goals={goals}
+            areas={areas}
+            tasks={tasks}
+            onDeleteTask={onDeleteTask}
+            initialDate={REFERENCE_DATE_KEY}
+            allowEvents={false}
+            onClose={() => setAdding(false)}
+            onCreateTask={onCreateTask}
+            onCreateEvent={async () => {}}
+            googleConnected={false}
+            onCreateArea={onCreateArea}
+          />
+        )}
 
         {editingTask && (
           <TaskEditor
@@ -4766,6 +4780,8 @@ function AddSheet({
   microsoftAccounts = [],
   allowEvents = true,
   onCreateArea,
+  tasks = [],
+  onDeleteTask = null,
 }) {
   const [kind, setKind] = useState("task");
   const [title, setTitle] = useState("");
@@ -6743,6 +6759,8 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         )}
         {adding && (
           <AddSheet
+            tasks={tasks}
+            onDeleteTask={onDeleteTask}
             goals={goals}
             areas={areas}
             initialDate={selectedDateKey}

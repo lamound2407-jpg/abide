@@ -1,4 +1,7 @@
-import React from "react";
+import React, {
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import {
   BLOCK_TYPES,
@@ -10,6 +13,8 @@ function BlockChildren({
   onChange,
   onOpenSlash,
   onOpenMention,
+  onEnter,
+  onBackspaceStart,
 }) {
   if (!blocks.length) {
     return null;
@@ -24,6 +29,8 @@ function BlockChildren({
           onChange={onChange}
           onOpenSlash={onOpenSlash}
           onOpenMention={onOpenMention}
+          onEnter={onEnter}
+          onBackspaceStart={onBackspaceStart}
         />
       ))}
     </div>
@@ -31,104 +38,224 @@ function BlockChildren({
 }
 
 
-function RichText({
+function NativeText({
   block,
-  tag = "div",
   className = "",
+  placeholder =
+    "Type / for commands or @ to mention…",
   onChange,
   onOpenSlash,
   onOpenMention,
+  onEnter,
+  onBackspaceStart,
 }) {
-  const Tag = tag;
-
-  const handleInput = (event) => {
-    const text =
-      event.currentTarget
-        .textContent || "";
-
-    onChange?.({
-      ...block,
-      text,
-      updatedAt:
-        Date.now(),
-    });
-  };
+  const ref =
+    useRef(null);
 
 
-  const handleKeyUp = (
-    event
-  ) => {
-    const text =
-      event.currentTarget
-        .textContent || "";
+  const resize =
+    () => {
+      const element =
+        ref.current;
 
-    const selection =
-      window.getSelection();
+      if (!element) return;
 
-    const caret =
-      selection?.anchorOffset ??
-      text.length;
+      element.style.height =
+        "0px";
 
-    const before =
-      text.slice(
-        0,
-        caret
-      );
+      element.style.height =
+        `${Math.max(
+          26,
+          element.scrollHeight
+        )}px`;
+    };
 
 
-    const slashMatch =
-      before.match(
-        /(?:^|\s)\/([^\s/]*)$/
-      );
+  useLayoutEffect(
+    () => {
+      resize();
+    },
+    [
+      block.text,
+      block.type,
+    ]
+  );
 
-    if (slashMatch) {
-      onOpenSlash?.({
-        block,
-        query:
-          slashMatch[1] ||
-          "",
-        element:
-          event.currentTarget,
-        rect:
-          event.currentTarget
-            .getBoundingClientRect(),
+
+  const inspectTrigger =
+    (element) => {
+      const text =
+        element.value || "";
+
+      const caret =
+        element.selectionStart ??
+        text.length;
+
+      const before =
+        text.slice(
+          0,
+          caret
+        );
+
+
+      const slashMatch =
+        before.match(
+          /(?:^|\s)\/([^\s/]*)$/
+        );
+
+      if (slashMatch) {
+        onOpenSlash?.({
+          block: {
+            ...block,
+            text,
+          },
+
+          query:
+            slashMatch[1] ||
+            "",
+
+          element,
+
+          rect:
+            element
+              .getBoundingClientRect(),
+        });
+
+        return;
+      }
+
+
+      const mentionMatch =
+        before.match(
+          /(?:^|\s)@([^@\n]*)$/
+        );
+
+      if (mentionMatch) {
+        onOpenMention?.({
+          block: {
+            ...block,
+            text,
+          },
+
+          query:
+            mentionMatch[1] ||
+            "",
+
+          element,
+
+          rect:
+            element
+              .getBoundingClientRect(),
+        });
+      }
+    };
+
+
+  const handleChange =
+    (event) => {
+      const text =
+        event.target.value;
+
+      onChange?.({
+        ...block,
+        text,
+        updatedAt:
+          Date.now(),
       });
 
-      return;
-    }
-
-
-    const mentionMatch =
-      before.match(
-        /(?:^|\s)@([^@\n]*)$/
+      requestAnimationFrame(
+        resize
       );
 
-    if (mentionMatch) {
-      onOpenMention?.({
-        block,
-        query:
-          mentionMatch[1] ||
-          "",
-        element:
-          event.currentTarget,
-        rect:
-          event.currentTarget
-            .getBoundingClientRect(),
-      });
-    }
-  };
+      inspectTrigger(
+        event.target
+      );
+    };
+
+
+  const handleKeyDown =
+    (event) => {
+      if (
+        event.defaultPrevented
+      ) {
+        return;
+      }
+
+      const element =
+        event.currentTarget;
+
+      const text =
+        element.value || "";
+
+      const start =
+        element.selectionStart ??
+        text.length;
+
+      const end =
+        element.selectionEnd ??
+        start;
+
+
+      if (
+        event.key ===
+          "Enter" &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+
+        onEnter?.({
+          block: {
+            ...block,
+            text,
+          },
+          caret:
+            start,
+        });
+
+        return;
+      }
+
+
+      if (
+        event.key ===
+          "Backspace" &&
+        start === 0 &&
+        end === 0
+      ) {
+        onBackspaceStart?.({
+          block: {
+            ...block,
+            text,
+          },
+        });
+      }
+    };
 
 
   return (
-    <Tag
-      className={`abide-block-richtext ${className}`}
-      contentEditable
-      suppressContentEditableWarning
-      onInput={handleInput}
-      onKeyUp={handleKeyUp}
-    >
-      {block.text || ""}
-    </Tag>
+    <textarea
+      ref={ref}
+      rows={1}
+      value={
+        block.text || ""
+      }
+      placeholder={
+        placeholder
+      }
+      className={`abide-block-input ${className}`}
+      onChange={
+        handleChange
+      }
+      onKeyDown={
+        handleKeyDown
+      }
+      onKeyUp={(event) =>
+        inspectTrigger(
+          event.currentTarget
+        )
+      }
+      spellCheck
+    />
   );
 }
 
@@ -138,6 +265,8 @@ export default function BlockRenderer({
   onChange,
   onOpenSlash,
   onOpenMention,
+  onEnter,
+  onBackspaceStart,
 }) {
   if (!block) {
     return null;
@@ -149,17 +278,23 @@ export default function BlockRenderer({
     onChange,
     onOpenSlash,
     onOpenMention,
+    onEnter,
+    onBackspaceStart,
   };
 
 
-  switch (block.type) {
+  switch (
+    block.type
+  ) {
     case BLOCK_TYPES.TEXT:
       return (
         <div
           className="abide-block"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <RichText
+          <NativeText
             {...common}
           />
         </div>
@@ -170,7 +305,9 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block abide-block-todo"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
           <input
             type="checkbox"
@@ -191,7 +328,7 @@ export default function BlockRenderer({
             }
           />
 
-          <RichText
+          <NativeText
             {...common}
             className={
               block.checked
@@ -207,13 +344,15 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block abide-block-list"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
           <span className="abide-list-marker">
             •
           </span>
 
-          <RichText
+          <NativeText
             {...common}
           />
         </div>
@@ -224,13 +363,15 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block abide-block-list"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
           <span className="abide-list-marker">
             1.
           </span>
 
-          <RichText
+          <NativeText
             {...common}
           />
         </div>
@@ -241,25 +382,16 @@ export default function BlockRenderer({
       return (
         <details
           className="abide-block abide-block-toggle"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
           open={
             block.open !== false
           }
-          onToggle={(event) =>
-            onChange?.({
-              ...block,
-              open:
-                event.currentTarget
-                  .open,
-              updatedAt:
-                Date.now(),
-            })
-          }
         >
           <summary>
-            <RichText
+            <NativeText
               {...common}
-              tag="span"
             />
           </summary>
 
@@ -268,9 +400,21 @@ export default function BlockRenderer({
               block.children ||
               []
             }
-            onChange={onChange}
-            onOpenSlash={onOpenSlash}
-            onOpenMention={onOpenMention}
+            onChange={
+              onChange
+            }
+            onOpenSlash={
+              onOpenSlash
+            }
+            onOpenMention={
+              onOpenMention
+            }
+            onEnter={
+              onEnter
+            }
+            onBackspaceStart={
+              onBackspaceStart
+            }
           />
         </details>
       );
@@ -280,11 +424,13 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <RichText
+          <NativeText
             {...common}
-            tag="h1"
+            className="abide-block-h1"
           />
         </div>
       );
@@ -294,11 +440,13 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <RichText
+          <NativeText
             {...common}
-            tag="h2"
+            className="abide-block-h2"
           />
         </div>
       );
@@ -308,11 +456,13 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <RichText
+          <NativeText
             {...common}
-            tag="h3"
+            className="abide-block-h3"
           />
         </div>
       );
@@ -322,9 +472,11 @@ export default function BlockRenderer({
       return (
         <blockquote
           className="abide-block abide-block-quote"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <RichText
+          <NativeText
             {...common}
           />
         </blockquote>
@@ -335,8 +487,9 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block abide-block-divider"
-          data-block-id={block.id}
-          contentEditable={false}
+          data-block-id={
+            block.id
+          }
         >
           <hr />
         </div>
@@ -347,16 +500,16 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block abide-block-callout"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <span
-            className="abide-callout-icon"
-            contentEditable={false}
-          >
-            {block.icon || "💡"}
+          <span className="abide-callout-icon">
+            {block.icon ||
+              "💡"}
           </span>
 
-          <RichText
+          <NativeText
             {...common}
           />
         </div>
@@ -367,9 +520,11 @@ export default function BlockRenderer({
       return (
         <div
           className="abide-block"
-          data-block-id={block.id}
+          data-block-id={
+            block.id
+          }
         >
-          <RichText
+          <NativeText
             {...common}
           />
         </div>

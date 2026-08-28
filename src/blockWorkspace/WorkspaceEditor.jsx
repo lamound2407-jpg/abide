@@ -373,6 +373,200 @@ export default function WorkspaceEditor({
     };
 
 
+  const focusBlock =
+    (
+      blockId,
+      position = null
+    ) => {
+      requestAnimationFrame(
+        () => {
+          const input =
+            rootRef.current
+              ?.querySelector(
+                `[data-block-id="${blockId}"] .abide-block-input`
+              );
+
+          if (!input) {
+            return;
+          }
+
+          input.focus();
+
+          const point =
+            position == null
+              ? input.value.length
+              : Math.min(
+                  position,
+                  input.value.length
+                );
+
+          input.setSelectionRange(
+            point,
+            point
+          );
+        }
+      );
+    };
+
+
+  const handleEnter =
+    ({
+      block,
+      caret,
+    }) => {
+      const index =
+        findBlockIndex(
+          blocks,
+          block.id
+        );
+
+      if (index === -1) {
+        return;
+      }
+
+      const text =
+        String(
+          block.text || ""
+        );
+
+      const safeCaret =
+        Math.max(
+          0,
+          Math.min(
+            caret,
+            text.length
+          )
+        );
+
+      const before =
+        text.slice(
+          0,
+          safeCaret
+        );
+
+      const after =
+        text.slice(
+          safeCaret
+        );
+
+      const continuationTypes =
+        new Set([
+          BLOCK_TYPES.TODO,
+          BLOCK_TYPES.BULLETED_LIST,
+          BLOCK_TYPES.NUMBERED_LIST,
+        ]);
+
+      const nextType =
+        continuationTypes.has(
+          block.type
+        )
+          ? block.type
+          : BLOCK_TYPES.TEXT;
+
+      const nextBlock =
+        createBlock({
+          type:
+            nextType,
+          text:
+            after,
+        });
+
+      const next =
+        [...blocks];
+
+      next[index] = {
+        ...block,
+        text:
+          before,
+        updatedAt:
+          Date.now(),
+      };
+
+      next.splice(
+        index + 1,
+        0,
+        nextBlock
+      );
+
+      publish(next);
+
+      focusBlock(
+        nextBlock.id,
+        0
+      );
+    };
+
+
+  const handleBackspaceStart =
+    ({
+      block,
+    }) => {
+      const index =
+        findBlockIndex(
+          blocks,
+          block.id
+        );
+
+      if (
+        index <= 0
+      ) {
+        return;
+      }
+
+      const previous =
+        blocks[
+          index - 1
+        ];
+
+      if (
+        !previous ||
+        previous.type ===
+          BLOCK_TYPES.DIVIDER
+      ) {
+        return;
+      }
+
+      const previousText =
+        String(
+          previous.text || ""
+        );
+
+      const currentText =
+        String(
+          block.text || ""
+        );
+
+      const mergedPrevious = {
+        ...previous,
+        text:
+          previousText +
+          currentText,
+        updatedAt:
+          Date.now(),
+      };
+
+      const next =
+        [...blocks];
+
+      next[
+        index - 1
+      ] =
+        mergedPrevious;
+
+      next.splice(
+        index,
+        1
+      );
+
+      publish(next);
+
+      focusBlock(
+        previous.id,
+        previousText.length
+      );
+    };
+
+
   const openSlash =
     ({
       block,
@@ -939,65 +1133,6 @@ export default function WorkspaceEditor({
               block.id
             }
           >
-            <div
-              className="abide-workspace-block-actions"
-              contentEditable={
-                false
-              }
-            >
-              <button
-                type="button"
-                title="Move up"
-                onClick={() =>
-                  moveBlock(
-                    block.id,
-                    -1
-                  )
-                }
-              >
-                ↑
-              </button>
-
-              <button
-                type="button"
-                title="Move down"
-                onClick={() =>
-                  moveBlock(
-                    block.id,
-                    1
-                  )
-                }
-              >
-                ↓
-              </button>
-
-              <button
-                type="button"
-                title="Add block"
-                onClick={() =>
-                  addAfter(
-                    block.id,
-                    makeStarterBlock()
-                  )
-                }
-              >
-                +
-              </button>
-
-              <button
-                type="button"
-                title="Delete block"
-                onClick={() =>
-                  removeBlock(
-                    block.id
-                  )
-                }
-              >
-                ×
-              </button>
-            </div>
-
-
             <BlockRenderer
               block={
                 block
@@ -1011,24 +1146,16 @@ export default function WorkspaceEditor({
               onOpenMention={
                 openMention
               }
+              onEnter={
+                handleEnter
+              }
+              onBackspaceStart={
+                handleBackspaceStart
+              }
             />
           </div>
         )
       )}
-
-
-      <button
-        type="button"
-        className="abide-add-empty-block"
-        onClick={() =>
-          publish([
-            ...blocks,
-            makeStarterBlock(),
-          ])
-        }
-      >
-        + Add block
-      </button>
 
 
       <CommandMenu

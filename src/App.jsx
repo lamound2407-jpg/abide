@@ -18,6 +18,7 @@ import {
 } from "./pushNotifications.js";
 import { registerSW } from "virtual:pwa-register";
 import packageInfo from "../package.json";
+import ReportBuilder, { JournalFavoriteDock } from "./ReportBuilder.jsx";
 import { auth, db } from "./firebase.js";
 import {
   collection,
@@ -2718,6 +2719,64 @@ function AreaDetailView({
       />
 
       <div className="scroll">
+        {/* ABIDE BUILD REPORT LAUNCHER V1 */}
+        <div
+          className="card"
+          style={{
+            padding: 16,
+            marginBottom: 14,
+            border: "1px solid rgba(232,180,92,.28)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 9.5,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              color: "#E8B45C",
+            }}
+          >
+            Custom Reporting
+          </div>
+
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 15,
+              fontWeight: 760,
+              color: "var(--text)",
+            }}
+          >
+            Build a Report
+          </div>
+
+          <div
+            style={{
+              marginTop: 5,
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: "var(--text3)",
+            }}
+          >
+            Filter by Area, Goal, dates, status, priority,
+            favorites, keywords, and more. Choose your fields,
+            sort and group the results, preview them, and export.
+          </div>
+
+          <div
+            className="filter-chip active"
+            onClick={() =>
+              setReportBuilderOpen(true)
+            }
+            style={{
+              width: "fit-content",
+              marginTop: 12,
+            }}
+          >
+            Build a Report →
+          </div>
+        </div>
+
         <div
           className="filter-chip"
           onClick={onBack}
@@ -14223,6 +14282,26 @@ function ExportCenter({
   journalEntries,
   onBack,
 }) {
+  /* ABIDE REPORT BUILDER CONNECTION V1 */
+  const [
+    reportBuilderOpen,
+    setReportBuilderOpen,
+  ] = useState(false);
+
+  if (reportBuilderOpen) {
+    return (
+      <ReportBuilder
+        tasks={tasks}
+        goals={goals}
+        areas={areas}
+        journalEntries={journalEntries}
+        onBack={() =>
+          setReportBuilderOpen(false)
+        }
+      />
+    );
+  }
+
   const notes =
     abideReadNotes();
 
@@ -16124,12 +16203,20 @@ export default function App({ accountSync }) {
         />
       )}
       {tab === "journal" && (
-        <JournalTab
-          entries={journalEntries}
-          setEntries={setJournalEntries}
-          highlightMeanings={highlightMeanings}
-          setHighlightMeanings={setHighlightMeanings}
-        />
+        <>
+          <JournalTab
+            entries={journalEntries}
+            setEntries={setJournalEntries}
+            highlightMeanings={highlightMeanings}
+            setHighlightMeanings={setHighlightMeanings}
+          />
+
+          {/* ABIDE JOURNAL FAVORITES V1 */}
+          <JournalFavoriteDock
+            entries={journalEntries}
+            setEntries={setJournalEntries}
+          />
+        </>
       )}
       {tab === "scratch" && <ScratchTab />}
       {tab === "reminders" && <RemindersTab tasks={tasks} goals={goals} areas={areas} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}

@@ -12619,9 +12619,7 @@ function SettingsScreen({
               )
             }
           >
-            <div className="nav-row-left">
-              Export Center
-            </div>
+            
 
             <ChevronRight
               size={16}

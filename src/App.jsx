@@ -40,7 +40,7 @@ import {
   Check, Clock, Pencil, Sparkles, Filter, PenTool, Type, Trash2,
   RefreshCw, ShieldCheck, Archive, Bell, SlidersHorizontal, Sun, Moon,
   Dumbbell, Salad, ExternalLink, Search, Settings as SettingsIcon,
-  Maximize2, Minimize2, Undo2, Redo2, LifeBuoy
+  Maximize2, Minimize2, Undo2, Redo2, LifeBuoy, Download
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, PieChart, Pie, Cell, Tooltip

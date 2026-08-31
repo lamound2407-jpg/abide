@@ -1,10 +1,18 @@
 import React, {
+  useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
+
+import ExtendedBlockRenderer from "./ExtendedBlockRenderer.jsx";
 
 import {
   BLOCK_TYPES,
+  formatDate,
+  formatTime,
+  getAbideTask,
+  updateAbideTask,
 } from "./workspaceCore.js";
 
 
@@ -15,6 +23,7 @@ function BlockChildren({
   onOpenMention,
   onEnter,
   onBackspaceStart,
+  onRemove,
 }) {
   if (!blocks.length) {
     return null;
@@ -46,6 +55,7 @@ function NativeText({
   onChange,
   onOpenSlash,
   onOpenMention,
+  onPasteUrl,
   onEnter,
   onBackspaceStart,
 }) {
@@ -172,6 +182,70 @@ function NativeText({
       );
     };
 
+  const handlePaste =
+    (event) => {
+      const clipboardText =
+        event.clipboardData
+          ?.getData(
+            "text/plain"
+          )
+          ?.trim() ||
+        "";
+
+      const isStandaloneUrl =
+        /^https?:\/\/[^\s]+$/i.test(
+          clipboardText
+        );
+
+      /*
+       * Normal text pastes remain completely native.
+       */
+      if (
+        !isStandaloneUrl ||
+        !onPasteUrl
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const element =
+        event.currentTarget;
+
+      const text =
+        element.value ||
+        "";
+
+      const start =
+        element.selectionStart ??
+        text.length;
+
+      const end =
+        element.selectionEnd ??
+        start;
+
+      onPasteUrl({
+        block: {
+          ...block,
+          text,
+        },
+
+        url:
+          clipboardText,
+
+        start,
+
+        end,
+
+        element,
+
+        rect:
+          element.getBoundingClientRect(),
+      });
+    };
+
+
+
 
   const handleKeyDown =
     (event) => {
@@ -246,6 +320,10 @@ function NativeText({
       onChange={
         handleChange
       }
+      onPaste={
+        handlePaste
+      }
+
       onKeyDown={
         handleKeyDown
       }
@@ -260,13 +338,220 @@ function NativeText({
 }
 
 
-export default function BlockRenderer({
+function TodoBlock({
   block,
   onChange,
   onOpenSlash,
   onOpenMention,
   onEnter,
   onBackspaceStart,
+}) {
+  const [
+    linkedTask,
+    setLinkedTask,
+  ] =
+    useState(
+      block.taskId
+        ? getAbideTask(
+            block.taskId
+          )
+        : null
+    );
+
+
+  useEffect(
+    () => {
+      if (!block.taskId) {
+        setLinkedTask(null);
+        return;
+      }
+
+      const refresh =
+        () => {
+          setLinkedTask(
+            getAbideTask(
+              block.taskId
+            )
+          );
+        };
+
+      refresh();
+
+      const handler =
+        (event) => {
+          if (
+            event.detail?.key ===
+            "abide-tasks"
+          ) {
+            refresh();
+          }
+        };
+
+      window.addEventListener(
+        "abide-local-data-changed",
+        handler
+      );
+
+      return () =>
+        window.removeEventListener(
+          "abide-local-data-changed",
+          handler
+        );
+    },
+    [
+      block.taskId,
+    ]
+  );
+
+
+  const isRealTask =
+    Boolean(
+      block.taskId
+    );
+
+  const checked =
+    isRealTask
+      ? Boolean(
+          linkedTask?.done
+        )
+      : Boolean(
+          block.checked
+        );
+
+
+  const toggle =
+    (event) => {
+      const nextChecked =
+        event.target.checked;
+
+      if (
+        isRealTask
+      ) {
+        const updated =
+          updateAbideTask(
+            block.taskId,
+            {
+              done:
+                nextChecked,
+            }
+          );
+
+        setLinkedTask(
+          updated
+        );
+      }
+
+      onChange?.({
+        ...block,
+
+        checked:
+          nextChecked,
+
+        updatedAt:
+          Date.now(),
+      });
+    };
+
+
+  const dueDate =
+    linkedTask?.dueDate ||
+    block.taskDueDate ||
+    "";
+
+  const dueTime =
+    linkedTask?.dueTime ||
+    block.taskDueTime ||
+    "";
+
+
+  return (
+    <div
+      className={`abide-block abide-block-todo ${
+        isRealTask
+          ? "abide-linked-task"
+          : "abide-local-checkbox"
+      }`}
+      data-block-id={
+        block.id
+      }
+    >
+      <input
+        type="checkbox"
+        checked={
+          checked
+        }
+        onChange={
+          toggle
+        }
+      />
+
+      <div className="abide-task-block-body">
+        <NativeText
+          block={{
+            ...block,
+            checked,
+          }}
+          onChange={
+            onChange
+          }
+          onOpenSlash={
+            onOpenSlash
+          }
+          onOpenMention={
+            onOpenMention
+          }
+        onPasteUrl={onPasteUrl}
+          onEnter={
+            onEnter
+          }
+          onBackspaceStart={
+            onBackspaceStart
+          }
+          className={
+            checked
+              ? "completed"
+              : ""
+          }
+        />
+
+        {isRealTask && (
+          <div className="abide-linked-task-meta">
+            <span className="abide-linked-task-chip">
+              Task
+            </span>
+
+            {dueDate && (
+              <span>
+                {formatDate(
+                  dueDate
+                )}
+              </span>
+            )}
+
+            {dueTime && (
+              <span>
+                {formatTime(
+                  dueTime
+                )}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+export default function BlockRenderer({
+  block,
+  onChange,
+  onOpenSlash,
+  onOpenMention,
+  onPasteUrl,
+  onEnter,
+  onBackspaceStart,
+  onRemove,
 }) {
   if (!block) {
     return null;
@@ -278,9 +563,43 @@ export default function BlockRenderer({
     onChange,
     onOpenSlash,
     onOpenMention,
+    onPasteUrl,
     onEnter,
     onBackspaceStart,
   };
+
+
+  const extendedTypes = [
+    BLOCK_TYPES.PAGE_LINK,
+    BLOCK_TYPES.EQUATION,
+    BLOCK_TYPES.CODE,
+    BLOCK_TYPES.IMAGE,
+    BLOCK_TYPES.VIDEO,
+    BLOCK_TYPES.AUDIO,
+    BLOCK_TYPES.FILE,
+    BLOCK_TYPES.PDF,
+    BLOCK_TYPES.BOOKMARK,
+    BLOCK_TYPES.EMBED,
+    BLOCK_TYPES.DATABASE,
+  ];
+
+  if (
+    extendedTypes.includes(
+      block.type
+    )
+  ) {
+    return (
+      <ExtendedBlockRenderer
+        block={block}
+        onChange={onChange}
+        onOpenSlash={onOpenSlash}
+        onOpenMention={onOpenMention}
+        onEnter={onEnter}
+        onBackspaceStart={onBackspaceStart}
+        onRemove={onRemove}
+      />
+    );
+  }
 
 
   switch (
@@ -303,40 +622,9 @@ export default function BlockRenderer({
 
     case BLOCK_TYPES.TODO:
       return (
-        <div
-          className="abide-block abide-block-todo"
-          data-block-id={
-            block.id
-          }
-        >
-          <input
-            type="checkbox"
-            checked={
-              Boolean(
-                block.checked
-              )
-            }
-            onChange={(event) =>
-              onChange?.({
-                ...block,
-                checked:
-                  event.target
-                    .checked,
-                updatedAt:
-                  Date.now(),
-              })
-            }
-          />
-
-          <NativeText
-            {...common}
-            className={
-              block.checked
-                ? "completed"
-                : ""
-            }
-          />
-        </div>
+        <TodoBlock
+          {...common}
+        />
       );
 
 
@@ -380,43 +668,69 @@ export default function BlockRenderer({
 
     case BLOCK_TYPES.TOGGLE:
       return (
-        <details
+        <div
           className="abide-block abide-block-toggle"
-          data-block-id={
-            block.id
-          }
-          open={
-            block.open !== false
-          }
+          data-block-id={block.id}
         >
-          <summary>
-            <NativeText
-              {...common}
-            />
-          </summary>
+          <div className="abide-toggle-row">
+            <button
+              type="button"
+              className="abide-toggle-button"
+              aria-label={
+                block.open === false
+                  ? "Open toggle"
+                  : "Close toggle"
+              }
+              onPointerDown={(event) =>
+                event.preventDefault()
+              }
+              onClick={() =>
+                onChange?.({
+                  ...block,
+                  open:
+                    block.open === false,
+                  updatedAt:
+                    Date.now(),
+                })
+              }
+            >
+              <span
+                className={`abide-toggle-chevron ${
+                  block.open === false
+                    ? ""
+                    : "open"
+                }`}
+              >
+                ›
+              </span>
+            </button>
 
-          <BlockChildren
-            blocks={
-              block.children ||
-              []
-            }
-            onChange={
-              onChange
-            }
-            onOpenSlash={
-              onOpenSlash
-            }
-            onOpenMention={
-              onOpenMention
-            }
-            onEnter={
-              onEnter
-            }
-            onBackspaceStart={
-              onBackspaceStart
-            }
-          />
-        </details>
+            <div className="abide-toggle-title">
+              <NativeText
+                {...common}
+              />
+            </div>
+          </div>
+
+          {block.open !== false && (
+            <div className="abide-toggle-content">
+              <BlockChildren
+                blocks={
+                  block.children || []
+                }
+                onChange={
+                  onChange
+                }
+                onOpenSlash={
+                  onOpenSlash
+                }
+                onOpenMention={
+                  onOpenMention
+                }
+              />
+            </div>
+          )}
+        </div>
       );
 
 

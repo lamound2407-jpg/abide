@@ -8,7 +8,7 @@ import {
 } from "./blockWorkspace/contentBridge.js";
 import {
   AbideCommandLayer,
-  sendToScratchPadAndOfferOpen,
+  sendToNotesAndOfferOpen,
   extractAbideReferences,
 } from "./ConnectedSystem.jsx";
 import {
@@ -18,7 +18,18 @@ import {
 } from "./pushNotifications.js";
 import { registerSW } from "virtual:pwa-register";
 import packageInfo from "../package.json";
-import { auth } from "./firebase.js";
+import { auth, db } from "./firebase.js";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  setDoc,
+} from "firebase/firestore";
+import {
+  onAuthStateChanged,
+} from "firebase/auth";
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
@@ -80,7 +91,7 @@ const PRIMARY_NAV_DESTINATIONS = [
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "review", label: "Review", icon: RefreshCw },
   { id: "journal", label: "Journal", icon: BookOpen },
-  { id: "scratch", label: "Scratch Pad", icon: PenTool },
+  { id: "scratch", label: "Notes", icon: PenTool },
   { id: "goals", label: "Goals", icon: Target },
   { id: "reminders", label: "Reminders", icon: Bell },
   { id: "insights", label: "Insights", icon: BarChart3 },
@@ -603,7 +614,53 @@ const styles = `
   .field-value { color: var(--text); font-weight: 500; display:flex; align-items:center; gap:5px; }
   .notes-box { width: 100%; background: var(--inputBg); border: 1px solid var(--inputBorder); border-radius: 10px; padding: 10px; color: var(--text); font-size: 13.5px; margin-top: 8px; font-family: inherit; resize: none; }
 
-  .tabbar { position: relative; z-index: 80; flex-shrink: 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom, 0px)); padding: 10px 0 env(safe-area-inset-bottom, 0px); background: var(--tabbarBg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--divider); display: flex; align-items: flex-start; }
+  .tabbar {
+    position: relative;
+
+    z-index: 80;
+
+    flex: 0 0 auto;
+    flex-shrink: 0;
+
+    width: 100%;
+
+    height:
+      calc(
+        64px +
+        env(
+          safe-area-inset-bottom,
+          0px
+        )
+      );
+
+    padding:
+      9px 0
+      env(
+        safe-area-inset-bottom,
+        0px
+      );
+
+    background:
+      var(--appBg);
+
+    border: 0;
+
+    border-top:
+      1px solid
+      var(--divider);
+
+    border-radius: 0;
+
+    box-shadow: none;
+
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+
+    display: flex;
+
+    align-items:
+      flex-start;
+  }
   .tab { cursor:pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text3); }
   .tab.active { color: #E8B45C; }
   .tab span { font-size: 9.5px; font-weight: 600; }
@@ -975,39 +1032,651 @@ function usePersistentState(key, initialValue) {
   return [value, setValue];
 }
 
-const MORE_TAB_IDS = new Set(["goals", "scratch", "reminders", "insights"]);
+const MORE_TAB_IDS = new Set(["goals", "reminders"]);
 
 function navTabIsActive(currentTab, itemId) {
   return currentTab === itemId || (itemId === "more" && MORE_TAB_IDS.has(currentTab));
 }
 
-function Sidebar({ tabs, tab, setTab, viewport, theme, setTheme }) {
-  const compact = viewport === "tablet";
-  return (
-    <div className={`sidebar ${compact ? "sidebar-compact" : "sidebar-wide"}`}>
-      <div className="sidebar-brand">
-        <img className="sidebar-brand-logo" src="/abide-logo.png" alt="Abide" />
-        <span className="sidebar-brand-word">ABIDE</span>
-      </div>
-      <div className="sidebar-nav">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const active = navTabIsActive(tab, t.id);
-          return (
-            <div key={t.id} className={`sidebar-item ${active ? "active" : ""}`} onClick={() => setTab(t.id)}>
-              <Icon size={19} strokeWidth={active ? 2.3 : 1.8} />
-              <span>{t.label}</span>
-            </div>
+function PhoneQuickAccess({
+  tab,
+  setTab,
+}) {
+  const [
+    open,
+    setOpen,
+  ] =
+    useState(false);
+
+  const [
+    position,
+    setPosition,
+  ] =
+    useState(() => {
+      try {
+        const saved =
+          JSON.parse(
+            localStorage.getItem(
+              "abide-phone-quick-position"
+            ) || "null"
           );
-        })}
+
+        if (
+          saved &&
+          Number.isFinite(saved.x) &&
+          Number.isFinite(saved.y)
+        ) {
+          return saved;
+        }
+      } catch {}
+
+      return {
+        x:
+          typeof window !==
+          "undefined"
+            ? window.innerWidth - 66
+            : 320,
+
+        y:
+          typeof window !==
+          "undefined"
+            ? window.innerHeight - 185
+            : 600,
+      };
+    });
+
+
+  const dragRef =
+    useRef(null);
+
+
+  const clampPosition =
+    (x, y) => {
+      const width =
+        window.innerWidth;
+
+      const height =
+        window.innerHeight;
+
+      return {
+        x:
+          Math.max(
+            12,
+            Math.min(
+              width - 58,
+              x
+            )
+          ),
+
+        y:
+          Math.max(
+            90,
+            Math.min(
+              height - 145,
+              y
+            )
+          ),
+      };
+    };
+
+
+  useEffect(
+    () => {
+      const handleResize =
+        () => {
+          setPosition(
+            (current) =>
+              clampPosition(
+                current.x,
+                current.y
+              )
+          );
+        };
+
+      window.addEventListener(
+        "resize",
+        handleResize
+      );
+
+      return () =>
+        window.removeEventListener(
+          "resize",
+          handleResize
+        );
+    },
+    []
+  );
+
+
+  const handlePointerDown =
+    (event) => {
+      const point = {
+        id:
+          event.pointerId,
+
+        startX:
+          event.clientX,
+
+        startY:
+          event.clientY,
+
+        originX:
+          position.x,
+
+        originY:
+          position.y,
+
+        moved:
+          false,
+      };
+
+      dragRef.current =
+        point;
+
+      event.currentTarget
+        .setPointerCapture?.(
+          event.pointerId
+        );
+    };
+
+
+  const handlePointerMove =
+    (event) => {
+      const drag =
+        dragRef.current;
+
+      if (
+        !drag ||
+        drag.id !==
+          event.pointerId
+      ) {
+        return;
+      }
+
+      const dx =
+        event.clientX -
+        drag.startX;
+
+      const dy =
+        event.clientY -
+        drag.startY;
+
+      if (
+        Math.abs(dx) > 4 ||
+        Math.abs(dy) > 4
+      ) {
+        drag.moved =
+          true;
+      }
+
+      setPosition(
+        clampPosition(
+          drag.originX + dx,
+          drag.originY + dy
+        )
+      );
+    };
+
+
+  const handlePointerUp =
+    (event) => {
+      const drag =
+        dragRef.current;
+
+      if (!drag) {
+        return;
+      }
+
+      dragRef.current =
+        null;
+
+      const next =
+        clampPosition(
+          position.x,
+          position.y
+        );
+
+      setPosition(next);
+
+      try {
+        localStorage.setItem(
+          "abide-phone-quick-position",
+          JSON.stringify(next)
+        );
+      } catch {}
+
+
+      if (!drag.moved) {
+        setOpen(
+          (value) =>
+            !value
+        );
+      }
+    };
+
+
+  const openDestination =
+    (id) => {
+      setTab(id);
+      setOpen(false);
+    };
+
+
+  return (
+    <div
+      className={[
+        "phone-quick-launcher",
+        open
+          ? "open"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        left:
+          `${position.x}px`,
+
+        top:
+          `${position.y}px`,
+      }}
+    >
+      {open && (
+        <div className="phone-quick-popover">
+          <button
+            type="button"
+            className={
+              tab === "scratch"
+                ? "active scratch"
+                : "scratch"
+            }
+            onClick={() =>
+              openDestination(
+                "scratch"
+              )
+            }
+          >
+            <PenTool
+              size={17}
+              strokeWidth={2.1}
+            />
+
+            <span>
+              Notes
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className={
+              tab === "insights"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              openDestination(
+                "insights"
+              )
+            }
+          >
+            <BarChart3
+              size={17}
+              strokeWidth={2.1}
+            />
+
+            <span>
+              Insights
+            </span>
+          </button>
+        </div>
+      )}
+
+
+      <button
+        type="button"
+        className="phone-quick-orb"
+        aria-label={
+          open
+            ? "Close Quick Access"
+            : "Open Quick Access"
+        }
+        onPointerDown={
+          handlePointerDown
+        }
+        onPointerMove={
+          handlePointerMove
+        }
+        onPointerUp={
+          handlePointerUp
+        }
+        onPointerCancel={() => {
+          dragRef.current =
+            null;
+        }}
+      >
+        <PenTool
+          size={19}
+          strokeWidth={2.2}
+        />
+      </button>
+    </div>
+  );
+}
+
+
+function Sidebar({
+  tabs,
+  tab,
+  setTab,
+  viewport,
+  theme,
+  setTheme,
+}) {
+  const compact =
+    viewport === "tablet";
+
+
+  /*
+   * Notes and Insights are important enough
+   * to remain permanently discoverable without
+   * overcrowding the main navigation.
+   */
+  const quickAccess =
+    [
+      PRIMARY_NAV_DESTINATIONS.find(
+        (item) =>
+          item.id ===
+          "scratch"
+      ),
+
+      PRIMARY_NAV_DESTINATIONS.find(
+        (item) =>
+          item.id ===
+          "insights"
+      ),
+    ].filter(Boolean);
+
+
+  const mainTabs =
+    tabs.filter(
+      (item) =>
+        item.id !== "scratch" &&
+        item.id !== "insights"
+    );
+
+
+  const renderItem =
+    (
+      item,
+      extraClass = ""
+    ) => {
+      const Icon =
+        item.icon;
+
+      const active =
+        navTabIsActive(
+          tab,
+          item.id
+        );
+
+      return (
+        <div
+          key={item.id}
+          className={[
+            "sidebar-item",
+            extraClass,
+            active
+              ? "active"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onClick={() =>
+            setTab(
+              item.id
+            )
+          }
+        >
+          <Icon
+            size={
+              extraClass
+                ? 18
+                : 19
+            }
+            strokeWidth={
+              active
+                ? 2.35
+                : 1.8
+            }
+          />
+
+          <span>
+            {item.label}
+          </span>
+
+          {item.id ===
+            "scratch" && (
+            <span className="sidebar-quick-badge">
+              Write
+            </span>
+          )}
+
+          {item.id ===
+            "insights" && (
+            <span className="sidebar-quick-dot" />
+          )}
+        </div>
+      );
+    };
+
+
+  return (
+    <div
+      className={`sidebar ${
+        compact
+          ? "sidebar-compact"
+          : "sidebar-wide"
+      }`}
+    >
+      <div className="sidebar-brand">
+        <img
+          className="sidebar-brand-logo"
+          src="/abide-logo.png"
+          alt="Abide"
+        />
+
+        <span className="sidebar-brand-word">
+          ABIDE
+        </span>
       </div>
-      <div className="sidebar-footer" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-        {theme === "dark" ? <Moon size={16} color="#E8B45C" /> : <Sun size={16} color="#D69A3A" />}
-        <span>{theme === "dark" ? "Dark" : "Light"} Mode</span>
+
+
+      <div className="sidebar-nav">
+        {mainTabs.map(
+          (item) =>
+            renderItem(
+              item
+            )
+        )}
+
+
+        <div className="sidebar-quick-section">
+          {!compact && (
+            <div className="sidebar-quick-label">
+              Quick Access
+            </div>
+          )}
+
+          {quickAccess.map(
+            (item) =>
+              renderItem(
+                item,
+                item.id ===
+                  "scratch"
+                  ? "sidebar-quick-item sidebar-scratch-item"
+                  : "sidebar-quick-item sidebar-insights-item"
+              )
+          )}
+        </div>
+      </div>
+
+
+      <div
+        className="sidebar-footer"
+        onClick={() =>
+          setTheme(
+            theme === "dark"
+              ? "light"
+              : "dark"
+          )
+        }
+      >
+        {theme === "dark"
+          ? (
+            <Moon
+              size={16}
+              color="#E8B45C"
+            />
+          )
+          : (
+            <Sun
+              size={16}
+              color="#D69A3A"
+            />
+          )}
+
+        <span>
+          {theme === "dark"
+            ? "Dark"
+            : "Light"} Mode
+        </span>
       </div>
     </div>
   );
 }
+
+
+/* =========================================================
+   AREA QUICK NAV V1
+   Reusable Area launcher for Today + Calendar.
+   ========================================================= */
+
+function AreaQuickNav({
+  areas,
+  label = "Areas",
+}) {
+  const entries =
+    Object.entries(areas || {});
+
+  if (!entries.length) {
+    return null;
+  }
+
+  const openArea = (areaId) => {
+    window.dispatchEvent(
+      new CustomEvent(
+        "abide:open-area",
+        {
+          detail: {
+            areaId,
+          },
+        }
+      )
+    );
+  };
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+      }}
+    >
+      <div
+        className="section-label"
+        style={{
+          marginTop: 0,
+        }}
+      >
+        <span>
+          {label}
+        </span>
+
+        <span
+          style={{
+            fontWeight: 500,
+            color: "var(--text3)",
+          }}
+        >
+          Browse
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          overflowX: "auto",
+          paddingBottom: 3,
+          scrollbarWidth: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {entries.map(
+          ([id, area]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() =>
+                openArea(id)
+              }
+              style={{
+                appearance: "none",
+                border:
+                  "1px solid var(--pillBorder)",
+                background:
+                  "var(--pillBg)",
+                color:
+                  "var(--text)",
+                borderRadius: 999,
+                padding:
+                  "8px 11px",
+                display: "flex",
+                alignItems:
+                  "center",
+                gap: 7,
+                flexShrink: 0,
+                cursor: "pointer",
+                font: "inherit",
+                fontSize: 11.5,
+                fontWeight: 650,
+                lineHeight: 1,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background:
+                    area.color ||
+                    "#9AA2B1",
+                  boxShadow:
+                    `0 0 0 3px ${
+                      area.color ||
+                      "#9AA2B1"
+                    }18`,
+                  flexShrink: 0,
+                }}
+              />
+
+              {area.name}
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 function TaskRow({
   task,
@@ -1037,7 +1706,43 @@ function TaskRow({
           <div className="task-meta">
             <span
               className="chip"
-              style={{ background: area.color + "26", color: area.color }}
+              onClick={(event) => {
+                event.stopPropagation();
+
+                if (
+                  task.area &&
+                  areas[task.area]
+                ) {
+                  window.dispatchEvent(
+                    new CustomEvent(
+                      "abide:open-area",
+                      {
+                        detail: {
+                          areaId:
+                            task.area,
+                        },
+                      }
+                    )
+                  );
+                }
+              }}
+              title={
+                task.area &&
+                areas[task.area]
+                  ? `Open ${area.name}`
+                  : undefined
+              }
+              style={{
+                background:
+                  area.color + "26",
+                color:
+                  area.color,
+                cursor:
+                  task.area &&
+                  areas[task.area]
+                    ? "pointer"
+                    : "default",
+              }}
             >
               {area.name}
             </span>
@@ -1814,6 +2519,602 @@ function activityTimeLabel(value) {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+
+/* =========================================================
+   AREA DETAIL VIEW V1
+   Shows every task associated with one Area in one place.
+   Reuses Abide's existing TaskRow and TaskEditor.
+   ========================================================= */
+
+function AreaDetailView({
+  areaId,
+  areas,
+  tasks,
+  goals,
+  onBack,
+  onToggleDone,
+  onUpdateTask,
+  onDeleteTask,
+  onCreateTask,
+  onCreateArea,
+}) {
+  const area = areas?.[areaId];
+
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
+
+  if (!area) return null;
+
+  const areaTasks = tasks
+    .filter((task) => task.area === areaId);
+
+  /* ABIDE TASK HEALTH V1 */
+  const topLevelTasks = areaTasks
+    .filter((task) => !task.parentTaskId);
+
+  const subtaskTasks = areaTasks
+    .filter((task) => Boolean(task.parentTaskId));
+
+  const activeTopLevelCount = topLevelTasks
+    .filter((task) => !task.done)
+    .length;
+
+  const overdueTopLevelCount = topLevelTasks
+    .filter(
+      (task) =>
+        !task.done &&
+        taskOffsetDays(task) < 0
+    )
+    .length;
+
+  const completedTopLevelCount = topLevelTasks
+    .filter((task) => task.done)
+    .length;
+
+  const activeCount = areaTasks
+    .filter((task) => !task.done)
+    .length;
+
+  const overdueCount = areaTasks
+    .filter(
+      (task) =>
+        !task.done &&
+        taskOffsetDays(task) < 0
+    )
+    .length;
+
+  const completedCount = areaTasks
+    .filter((task) => task.done)
+    .length;
+
+  const query = search
+    .trim()
+    .toLowerCase();
+
+  const filteredTasks = areaTasks
+    .filter((task) => {
+      if (
+        query &&
+        !String(task.title || "")
+          .toLowerCase()
+          .includes(query) &&
+        !String(task.notes || "")
+          .toLowerCase()
+          .includes(query)
+      ) {
+        return false;
+      }
+
+      if (filter === "active") {
+        return !task.done;
+      }
+
+      if (filter === "overdue") {
+        return (
+          !task.done &&
+          taskOffsetDays(task) < 0
+        );
+      }
+
+      if (filter === "completed") {
+        return Boolean(task.done);
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      // Active tasks before completed tasks.
+      if (a.done !== b.done) {
+        return a.done ? 1 : -1;
+      }
+
+      const aDate =
+        taskDateKey(a) || "9999-12-31";
+
+      const bDate =
+        taskDateKey(b) || "9999-12-31";
+
+      const dateResult =
+        aDate.localeCompare(bDate);
+
+      if (dateResult !== 0) {
+        return dateResult;
+      }
+
+      const weights = {
+        high: 0,
+        med: 1,
+        low: 2,
+      };
+
+      return (
+        (weights[a.priority] ?? 9) -
+        (weights[b.priority] ?? 9)
+      );
+    });
+
+  const openNewTask = () => {
+    setEditingTask({
+      id: `area_draft_${Date.now()}`,
+      _areaDetailDraft: true,
+      title: "",
+      dueDate: REFERENCE_DATE_KEY,
+      dueTime: null,
+      targetDate: null,
+      priority: "med",
+      progress: "not_started",
+      status: "next",
+      done: false,
+      area: areaId,
+      goal: null,
+      notes: "",
+      activities: [],
+      reminder: "None",
+      reminderAt: null,
+    });
+  };
+
+  const saveTask = (updatedTask) => {
+    if (editingTask?._areaDetailDraft) {
+      const {
+        id,
+        _areaDetailDraft,
+        ...cleanTask
+      } = updatedTask;
+
+      onCreateTask({
+        ...cleanTask,
+        area: areaId,
+      });
+    } else {
+      onUpdateTask(updatedTask);
+    }
+
+    setEditingTask(null);
+  };
+
+  const deleteEditingTask = (taskId) => {
+    if (!editingTask?._areaDetailDraft) {
+      onDeleteTask(taskId);
+    }
+
+    setEditingTask(null);
+  };
+
+  const stats = [
+    ["Tasks", topLevelTasks.length],
+    ["Active", activeTopLevelCount],
+    ["Overdue", overdueTopLevelCount],
+    ["Completed", completedTopLevelCount],
+  ];
+
+  return (
+    <>
+      <Header
+        eyebrow="Area"
+        title={area.name}
+      />
+
+      <div className="scroll">
+        <div
+          className="filter-chip"
+          onClick={onBack}
+          style={{
+            width: "fit-content",
+            marginBottom: 14,
+            cursor: "pointer",
+          }}
+        >
+          <ChevronLeft size={13} />
+          Areas
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 13.5,
+                  fontWeight: 750,
+                  color: "var(--text)",
+                }}
+              >
+                Task Health
+              </div>
+
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                  color: "var(--text3)",
+                }}
+              >
+                {topLevelTasks.length} independent task
+                {topLevelTasks.length === 1 ? "" : "s"}
+                {" · "}
+                {subtaskTasks.length} subtask
+                {subtaskTasks.length === 1 ? "" : "s"}
+                {" · "}
+                {areaTasks.length} total stored record
+                {areaTasks.length === 1 ? "" : "s"}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 7,
+              marginTop: 11,
+            }}
+          >
+            <div className="filter-chip">
+              {activeTopLevelCount} open
+            </div>
+
+            <div className="filter-chip">
+              {overdueTopLevelCount} overdue
+            </div>
+
+            <div className="filter-chip">
+              {completedTopLevelCount} completed
+            </div>
+          </div>
+
+          {subtaskTasks.length > topLevelTasks.length && (
+            <div
+              style={{
+                marginTop: 11,
+                padding: "9px 10px",
+                borderRadius: 10,
+                background: "rgba(232,180,92,.08)",
+                border: "1px solid rgba(232,180,92,.17)",
+                fontSize: 10.5,
+                lineHeight: 1.45,
+                color: "var(--text2)",
+              }}
+            >
+              Most stored records in this Area are subtasks.
+              The independent-task count is the better measure
+              of your actual workload.
+            </div>
+          )}
+        </div>
+
+        <div
+          className="card"
+          style={{
+            overflow: "hidden",
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              height: 4,
+              background: area.color,
+            }}
+          />
+
+          <div
+            style={{
+              padding: "18px 18px 16px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <span
+                style={{
+                  width: 13,
+                  height: 13,
+                  borderRadius: 999,
+                  background: area.color,
+                  boxShadow:
+                    `0 0 0 5px ${area.color}18`,
+                  flexShrink: 0,
+                }}
+              />
+
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 780,
+                    color: "var(--text)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {area.name}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 3,
+                    fontSize: 11.5,
+                    color: "var(--text3)",
+                  }}
+                >
+                  Every task connected to this area.
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(4, minmax(0, 1fr))",
+                gap: 7,
+                marginTop: 18,
+              }}
+            >
+              {stats.map(([label, value]) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: "10px 5px",
+                    textAlign: "center",
+                    borderRadius: 11,
+                    background: "var(--subtleBg)",
+                    border:
+                      "1px solid var(--divider)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      color:
+                        label === "Overdue" &&
+                        value > 0
+                          ? "#E68080"
+                          : "var(--text)",
+                    }}
+                  >
+                    {value}
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 9.5,
+                      marginTop: 2,
+                      color: "var(--text3)",
+                    }}
+                  >
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 10,
+          }}
+        >
+          <input
+            className="input-line"
+            value={search}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
+            placeholder={`Search ${area.name} tasks…`}
+            style={{
+              margin: 0,
+              flex: 1,
+              minWidth: 0,
+            }}
+          />
+
+          <div
+            className="filter-chip active"
+            onClick={openNewTask}
+            style={{
+              flexShrink: 0,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={12} />
+            Add Task
+          </div>
+        </div>
+
+        <div
+          className="filter-row"
+          style={{
+            padding: "0 0 12px 0",
+          }}
+        >
+          {[
+            ["all", `All ${areaTasks.length}`],
+            ["active", `Active ${activeCount}`],
+            ["overdue", `Overdue ${overdueCount}`],
+            [
+              "completed",
+              `Completed ${completedCount}`,
+            ],
+          ].map(([key, label]) => (
+            <div
+              key={key}
+              className={`filter-chip ${
+                filter === key ? "active" : ""
+              }`}
+              onClick={() => setFilter(key)}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+
+        <div className="section-label">
+          <span>Tasks</span>
+
+          <span
+            style={{
+              color: "var(--text3)",
+              fontWeight: 500,
+            }}
+          >
+            {filteredTasks.length} shown
+          </span>
+        </div>
+
+        <div
+          className="card"
+          style={{
+            overflow: "hidden",
+          }}
+        >
+          {filteredTasks.length ? (
+            filteredTasks.map((task) => {
+              const parentTask =
+                task.parentTaskId
+                  ? tasks.find(
+                      (candidate) =>
+                        candidate.id ===
+                        task.parentTaskId
+                    ) || null
+                  : null;
+
+              const children = tasks.filter(
+                (candidate) =>
+                  candidate.parentTaskId ===
+                  task.id
+              );
+
+              return (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  expanded={
+                    expandedId === task.id
+                  }
+                  onToggleExpand={(id) =>
+                    setExpandedId((current) =>
+                      current === id ? null : id
+                    )
+                  }
+                  onToggleDone={onToggleDone}
+                  goals={goals}
+                  areas={areas}
+                  onEdit={setEditingTask}
+                  parentTask={parentTask}
+                  childTasks={children}
+                />
+              );
+            })
+          ) : (
+            <div
+              style={{
+                padding: "30px 18px",
+                textAlign: "center",
+                color: "var(--text3)",
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              {areaTasks.length === 0
+                ? `No tasks are assigned to ${area.name} yet.`
+                : "No tasks match this filter."}
+
+              {areaTasks.length === 0 && (
+                <div
+                  className="filter-chip active"
+                  onClick={openNewTask}
+                  style={{
+                    width: "fit-content",
+                    margin: "12px auto 0",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={12} />
+                  Add first task
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={{ height: 100 }} />
+      </div>
+
+      {editingTask && (
+        <TaskEditor
+          key={editingTask.id}
+          task={editingTask}
+          goals={goals}
+          areas={areas}
+          onSave={saveTask}
+          onCancel={() =>
+            setEditingTask(null)
+          }
+          onDelete={deleteEditingTask}
+          onCreateArea={onCreateArea}
+          childTasks={
+            editingTask._areaDetailDraft
+              ? []
+              : tasks.filter(
+                  (task) =>
+                    task.parentTaskId ===
+                    editingTask.id
+                )
+          }
+          onOpenChildTask={setEditingTask}
+        />
+      )}
+    </>
+  );
+}
+
+
 function TaskEditor({
   task,
   goals,
@@ -1910,7 +3211,7 @@ function TaskEditor({
       recurrence,
       reminder,
       reminderAt: reminder === "Custom" ? reminderAt || null : null,
-      notes: "",
+      notes: task.notes || "",
       activities,
     });
   };
@@ -2105,7 +3406,7 @@ function TaskEditor({
               priority, Area, goal, reminder, recurrence, activity, and more.
             </div>
 
-            <div className="fb-label">Scratch Pad</div>
+            <div className="fb-label">Notes</div>
 
             <div
               style={{
@@ -2131,7 +3432,7 @@ function TaskEditor({
                       color: "var(--text)",
                     }}
                   >
-                    Work on this in Scratch Pad
+                    Work on this in Notes
                   </div>
 
                   <div
@@ -2151,13 +3452,13 @@ function TaskEditor({
                   className="filter-chip"
                   style={{ flexShrink: 0 }}
                   onClick={() =>
-                    sendToScratchPadAndOfferOpen(
+                    sendToNotesAndOfferOpen(
                       task,
                       "task"
                     )
                   }
                 >
-                  Send to Scratch Pad
+                  Send to Notes
                 </div>
               </div>
             </div>
@@ -3051,6 +4352,12 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     <>
       <Header eyebrow={todayLabel} title="Today" actions={[{ icon: Bell, onClick: () => setAlertsOpen(!alertsOpen), badge: upcomingReminders.length > 0 }]} />
       <div className="scroll">
+
+        <AreaQuickNav
+          areas={areas}
+          label="Areas"
+        />
+
         <div
           className="card"
           style={{ marginBottom: 14, overflow: "hidden" }}
@@ -5083,7 +6390,7 @@ function EventEditor({ event, areas, onSave, onCancel }) {
               </>
             )}
 
-            <div className="fb-label">Scratch Pad</div>
+            <div className="fb-label">Notes</div>
 
             <div
               style={{
@@ -5109,7 +6416,7 @@ function EventEditor({ event, areas, onSave, onCancel }) {
                       color: "var(--text)",
                     }}
                   >
-                    Work on this in Scratch Pad
+                    Work on this in Notes
                   </div>
 
                   <div
@@ -5129,13 +6436,13 @@ function EventEditor({ event, areas, onSave, onCancel }) {
                   className="filter-chip"
                   style={{ flexShrink: 0 }}
                   onClick={() =>
-                    sendToScratchPadAndOfferOpen(
+                    sendToNotesAndOfferOpen(
                       event,
                       "event"
                     )
                   }
                 >
-                  Send to Scratch Pad
+                  Send to Notes
                 </div>
               </div>
             </div>
@@ -6625,6 +7932,12 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
         ]}
       />
       <div className="scroll">
+
+        <AreaQuickNav
+          areas={areas}
+          label="Areas"
+        />
+
         {searchOpen && (
           <div style={{ marginBottom: 14 }}>
             <div className="capture-bar" style={{ marginTop: 0 }}>
@@ -7308,7 +8621,7 @@ function legacyCreatedAt(item) {
     return explicit;
   }
 
-  // Most existing Journal/Scratch Pad IDs were created
+  // Most existing Journal/Notes IDs were created
   // with Date.now(), so they can safely provide a useful
   // creation-time fallback for older saved items.
   const idValue = Number(item?.id);
@@ -7914,8 +9227,40 @@ function JournalTab({
         )}
 
         <div className="card journal-compose">
-          <input type="date" className="input-line" style={{ marginTop: 0 }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
-          <input placeholder="Scripture reference (e.g. Psalm 23:1)" style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontSize: 14.5, fontWeight: 600, outline: "none", marginTop: 10 }} value={ref} onChange={(e) => setRef(e.target.value)} />
+          <div className="journal-compose-meta">
+            <label className="journal-compose-field journal-date-field">
+              <span className="journal-compose-field-label">
+                Date
+              </span>
+
+              <input
+                type="date"
+                value={entryDate}
+                onChange={(e) =>
+                  setEntryDate(
+                    e.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label className="journal-compose-field journal-scripture-field">
+              <span className="journal-compose-field-label">
+                Scripture
+              </span>
+
+              <input
+                type="text"
+                placeholder="Psalm 23:1"
+                value={ref}
+                onChange={(e) =>
+                  setRef(
+                    e.target.value
+                  )
+                }
+              />
+            </label>
+          </div>
           <div style={{ marginTop: 10 }}>
             <WorkspaceEditor
               initialBlocks={normalizeWorkspaceBlocks(
@@ -8066,7 +9411,37 @@ function JournalTab({
 
         <div className="card">
           {filteredJournalEntries.length ? filteredJournalEntries.map((entry) => <div key={entry.id} className="journal-entry">
-            {editingId === entry.id ? <><input type="date" className="input-line" style={{ marginTop: 0 }} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} /><input className="input-line" value={editRef} onChange={(ev) => setEditRef(ev.target.value)} placeholder="Scripture reference" /><div style={{ marginTop: 8 }}>
+            {editingId === entry.id ? <><div className="journal-compose-meta journal-edit-meta">
+                <label className="journal-compose-field journal-date-field">
+                  <span className="journal-compose-field-label">
+                    Date
+                  </span>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(ev) =>
+                      setEditDate(
+                        ev.target.value
+                      )
+                    }
+                  />
+                </label>
+
+                <label className="journal-compose-field journal-scripture-field">
+                  <span className="journal-compose-field-label">
+                    Scripture
+                  </span>
+                  <input
+                    value={editRef}
+                    onChange={(ev) =>
+                      setEditRef(
+                        ev.target.value
+                      )
+                    }
+                    placeholder="Psalm 23:1"
+                  />
+                </label>
+              </div><div style={{ marginTop: 8 }}>
               <WorkspaceEditor
                 initialBlocks={normalizeWorkspaceBlocks(
                   editBlocks,
@@ -8142,6 +9517,526 @@ function ScratchTab() {
 
   const [scratchSearch, setScratchSearch] =
     useState("");
+
+  /* =======================================================
+     NOTES CLOUD SYNC
+     Firestore = shared source of truth
+     localStorage = offline/device cache
+
+     Typed notes sync now.
+     Drawing pages remain local until Storage migration.
+     ======================================================= */
+
+  const notesCloudUserRef =
+    useRef(null);
+
+
+  const normalizeCloudNote =
+    (page) => {
+      if (
+        !page ||
+        page.type !== "type"
+      ) {
+        return null;
+      }
+
+      return {
+        ...page,
+
+        id:
+          page.id,
+
+        type:
+          "type",
+
+        createdAt:
+          Number(
+            page.createdAt ||
+            page.id ||
+            Date.now()
+          ),
+
+        updatedAt:
+          Number(
+            page.updatedAt ||
+            page.createdAt ||
+            page.id ||
+            Date.now()
+          ),
+      };
+    };
+
+
+  const mergeNoteCollections =
+    (
+      localPages,
+      cloudPages
+    ) => {
+      const merged =
+        new Map();
+
+
+      [
+        ...(localPages || []),
+        ...(cloudPages || []),
+      ].forEach(
+        (page) => {
+          if (
+            !page ||
+            page.id == null
+          ) {
+            return;
+          }
+
+
+          const key =
+            String(
+              page.id
+            );
+
+
+          const existing =
+            merged.get(
+              key
+            );
+
+
+          if (
+            !existing
+          ) {
+            merged.set(
+              key,
+              page
+            );
+
+            return;
+          }
+
+
+          const existingUpdated =
+            Number(
+              existing.updatedAt ||
+              existing.createdAt ||
+              existing.id ||
+              0
+            );
+
+
+          const candidateUpdated =
+            Number(
+              page.updatedAt ||
+              page.createdAt ||
+              page.id ||
+              0
+            );
+
+
+          if (
+            candidateUpdated >=
+            existingUpdated
+          ) {
+            merged.set(
+              key,
+              page
+            );
+          }
+        }
+      );
+
+
+      return Array.from(
+        merged.values()
+      ).sort(
+        (a, b) =>
+          Number(
+            b.updatedAt ||
+            b.createdAt ||
+            b.id ||
+            0
+          ) -
+          Number(
+            a.updatedAt ||
+            a.createdAt ||
+            a.id ||
+            0
+          )
+      );
+    };
+
+
+  const saveNoteToCloud =
+    async (
+      page
+    ) => {
+      const user =
+        auth.currentUser;
+
+
+      if (
+        !user ||
+        !page ||
+        page.type !== "type"
+      ) {
+        return;
+      }
+
+
+      const normalized =
+        normalizeCloudNote(
+          page
+        );
+
+
+      if (
+        !normalized
+      ) {
+        return;
+      }
+
+
+      try {
+        await setDoc(
+          doc(
+            db,
+            "users",
+            user.uid,
+            "notes",
+            String(
+              normalized.id
+            )
+          ),
+
+          normalized,
+
+          {
+            merge:
+              true,
+          }
+        );
+      } catch (
+        error
+      ) {
+        console.warn(
+          "Notes cloud save failed:",
+          error
+        );
+      }
+    };
+
+
+  const deleteNoteFromCloud =
+    async (
+      id
+    ) => {
+      const user =
+        auth.currentUser;
+
+
+      if (
+        !user ||
+        id == null
+      ) {
+        return;
+      }
+
+
+      try {
+        await deleteDoc(
+          doc(
+            db,
+            "users",
+            user.uid,
+            "notes",
+            String(id)
+          )
+        );
+      } catch (
+        error
+      ) {
+        console.warn(
+          "Notes cloud delete failed:",
+          error
+        );
+      }
+    };
+
+
+  useEffect(() => {
+    let stopSnapshot =
+      null;
+
+    let cancelled =
+      false;
+
+
+    const stopAuth =
+      onAuthStateChanged(
+        auth,
+
+        async (
+          user
+        ) => {
+          if (
+            stopSnapshot
+          ) {
+            stopSnapshot();
+
+            stopSnapshot =
+              null;
+          }
+
+
+          notesCloudUserRef.current =
+            user?.uid ||
+            null;
+
+
+          if (
+            !user ||
+            cancelled
+          ) {
+            return;
+          }
+
+
+          const notesRef =
+            collection(
+              db,
+              "users",
+              user.uid,
+              "notes"
+            );
+
+
+          /*
+           * STEP 1:
+           * Read whatever is already in Firestore.
+           */
+          let existingCloud =
+            [];
+
+
+          try {
+            const snapshot =
+              await getDocs(
+                notesRef
+              );
+
+
+            existingCloud =
+              snapshot.docs.map(
+                (
+                  item
+                ) => ({
+                  id:
+                    item.id,
+
+                  ...item.data(),
+                })
+              );
+          } catch (
+            error
+          ) {
+            console.warn(
+              "Notes initial cloud read failed:",
+              error
+            );
+          }
+
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+
+          /*
+           * STEP 2:
+           * Merge local typed Notes with cloud Notes.
+           *
+           * Drawing pages stay local.
+           */
+          setPages(
+            (
+              current
+            ) => {
+              const localTyped =
+                (
+                  current ||
+                  []
+                ).filter(
+                  (
+                    page
+                  ) =>
+                    page.type ===
+                    "type"
+                );
+
+
+              const localDrawings =
+                (
+                  current ||
+                  []
+                ).filter(
+                  (
+                    page
+                  ) =>
+                    page.type !==
+                    "type"
+                );
+
+
+              const cloudTyped =
+                existingCloud.filter(
+                  (
+                    page
+                  ) =>
+                    page.type ===
+                    "type"
+                );
+
+
+              const mergedTyped =
+                mergeNoteCollections(
+                  localTyped,
+                  cloudTyped
+                );
+
+
+              /*
+               * STEP 3:
+               * Migration upload.
+               *
+               * This is what carries phone-only Notes
+               * into Firestore on first launch.
+               */
+              Promise.all(
+                mergedTyped.map(
+                  (
+                    page
+                  ) =>
+                    saveNoteToCloud(
+                      page
+                    )
+                )
+              ).catch(
+                (
+                  error
+                ) => {
+                  console.warn(
+                    "Notes migration upload failed:",
+                    error
+                  );
+                }
+              );
+
+
+              return [
+                ...mergedTyped,
+                ...localDrawings,
+              ];
+            }
+          );
+
+
+          /*
+           * STEP 4:
+           * Real-time subscription.
+           */
+          stopSnapshot =
+            onSnapshot(
+              notesRef,
+
+              (
+                snapshot
+              ) => {
+                if (
+                  cancelled
+                ) {
+                  return;
+                }
+
+
+                const cloudTyped =
+                  snapshot.docs.map(
+                    (
+                      item
+                    ) => ({
+                      id:
+                        item.id,
+
+                      ...item.data(),
+                    })
+                  );
+
+
+                setPages(
+                  (
+                    current
+                  ) => {
+                    const localTyped =
+                      (
+                        current ||
+                        []
+                      ).filter(
+                        (
+                          page
+                        ) =>
+                          page.type ===
+                          "type"
+                      );
+
+
+                    const localDrawings =
+                      (
+                        current ||
+                        []
+                      ).filter(
+                        (
+                          page
+                        ) =>
+                          page.type !==
+                          "type"
+                      );
+
+
+                    return [
+                      ...mergeNoteCollections(
+                        localTyped,
+                        cloudTyped
+                      ),
+
+                      ...localDrawings,
+                    ];
+                  }
+                );
+              },
+
+              (
+                error
+              ) => {
+                console.warn(
+                  "Notes realtime sync failed:",
+                  error
+                );
+              }
+            );
+        }
+      );
+
+
+    return () => {
+      cancelled =
+        true;
+
+      stopSnapshot?.();
+
+      stopAuth?.();
+    };
+  }, []);
+
+
 
   const [isDrawingFullscreen, setIsDrawingFullscreen] =
     useState(false);
@@ -8384,7 +10279,7 @@ function ScratchTab() {
       );
     } catch (error) {
       console.warn(
-        "Scratch Pad drawing autosave failed:",
+        "Notes drawing autosave failed:",
         error
       );
     }
@@ -8775,48 +10670,96 @@ function ScratchTab() {
 
     if (editingId) {
       setPages((prev) =>
-        prev.map((pg) =>
-          pg.id === editingId
-            ? {
-                ...pg,
-                type: "type",
-                content: html,
-                contentHtml: html,
-                workspaceBlocks: effectiveBlocks,
-                references:
-                  workspaceBlockReferences(
-                    effectiveBlocks
-                  ),
-                createdAt:
-                  savedCreatedAt(pg) ||
-                  savedAt,
-                updatedAt: savedAt,
-              }
-            : pg
-        )
+        prev.map((pg) => {
+          if (
+            pg.id !== editingId
+          ) {
+            return pg;
+          }
+
+          const updatedPage = {
+            ...pg,
+
+            type:
+              "type",
+
+            content:
+              html,
+
+            contentHtml:
+              html,
+
+            workspaceBlocks:
+              effectiveBlocks,
+
+            references:
+              workspaceBlockReferences(
+                effectiveBlocks
+              ),
+
+            createdAt:
+              savedCreatedAt(pg) ||
+              savedAt,
+
+            updatedAt:
+              savedAt,
+          };
+
+          saveNoteToCloud(
+            updatedPage
+          );
+
+          return updatedPage;
+        })
       );
 
       setEditingId(null);
     } else {
-      setPages((prev) => [
-        {
-          id: savedAt,
-          type: "type",
-          content: html,
-          contentHtml: html,
-          workspaceBlocks: effectiveBlocks,
-          references:
-            workspaceBlockReferences(
-              effectiveBlocks
-            ),
-          date: formatDateLabel(
+      const newPage = {
+        id:
+          savedAt,
+
+        type:
+          "type",
+
+        content:
+          html,
+
+        contentHtml:
+          html,
+
+        workspaceBlocks:
+          effectiveBlocks,
+
+        references:
+          workspaceBlockReferences(
+            effectiveBlocks
+          ),
+
+        date:
+          formatDateLabel(
             REFERENCE_DATE_KEY
           ),
-          createdAt: savedAt,
-          updatedAt: savedAt,
-        },
-        ...prev,
-      ]);
+
+        createdAt:
+          savedAt,
+
+        updatedAt:
+          savedAt,
+      };
+
+      setPages(
+        (
+          prev
+        ) => [
+          newPage,
+          ...prev,
+        ]
+      );
+
+      saveNoteToCloud(
+        newPage
+      );
     }
 
     setTypedDraft("");
@@ -8894,8 +10837,32 @@ function ScratchTab() {
   };
 
   const deletePage = (id) => {
-    setPages((prev) => prev.filter((pg) => pg.id !== id));
-    if (editingId === id) {
+    const pageToDelete =
+      pages.find(
+        (page) =>
+          page.id === id
+      );
+
+    setPages(
+      (prev) =>
+        prev.filter(
+          (pg) =>
+            pg.id !== id
+        )
+    );
+
+    if (
+      pageToDelete?.type ===
+      "type"
+    ) {
+      deleteNoteFromCloud(
+        id
+      );
+    }
+
+    if (
+      editingId === id
+    ) {
       setEditingId(null);
       clearDrawingDraft();
       clearCanvas(false);
@@ -8906,7 +10873,7 @@ function ScratchTab() {
 
   return (
     <>
-      <Header eyebrow="Type, or use Apple Pencil on iPad" title="Scratch Pad" />
+      <Header eyebrow="Type, or use Apple Pencil on iPad" title="Notes" />
       <div className="scroll">
         <div className="segmented">
           <div className={`seg-btn ${tool === "draw" ? "active" : ""}`} onClick={() => setTool("draw")}>Draw</div>
@@ -8958,7 +10925,7 @@ function ScratchTab() {
                       color: "var(--text)",
                     }}
                   >
-                    Scratch Pad
+                    Notes
                   </div>
 
                   <div
@@ -9217,6 +11184,7 @@ function ScratchTab() {
         ) : (
           <>
             <WorkspaceEditor
+              key={`notes-${editingId || "new"}`}
               initialBlocks={normalizeWorkspaceBlocks(
                 typedBlocks,
                 typedDraft
@@ -9280,8 +11248,8 @@ function ScratchTab() {
                 event.target.value
               )
             }
-            placeholder="Search Scratch Pad…"
-            aria-label="Search Scratch Pad"
+            placeholder="Search Notes…"
+            aria-label="Search Notes"
             style={{
               width: "100%",
               height: 42,
@@ -9302,7 +11270,7 @@ function ScratchTab() {
           {scratchSearch && (
             <button
               type="button"
-              aria-label="Clear Scratch Pad search"
+              aria-label="Clear Notes search"
               onClick={() =>
                 setScratchSearch("")
               }
@@ -9359,18 +11327,106 @@ function ScratchTab() {
                 marginBottom: 10,
               }}
             >
-              No Scratch Pad pages match your search.
+              No Notes pages match your search.
             </div>
           )}
 
         <div className="scratch-grid">
           {filteredScratchPages.map((pg) => (
-            <div key={pg.id} className="scratch-item card">
-              {pg.type === "draw" ? <img src={pg.content} className="scratch-thumb" alt="scratch page" /> : <div style={{ padding: 10, fontSize: 12.5, color: "var(--body2)", minHeight: 70, lineHeight: 1.45 }} dangerouslySetInnerHTML={{ __html: pg.contentHtml || (String(pg.content || "").includes("<") ? pg.content : plainTextToHtml(pg.content || "")) }} />}
-              <div style={{ padding: "0 10px 8px" }}>
-                <SavedTimestampLine item={pg} />
+            <div
+              key={pg.id}
+              className="scratch-item card"
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                editPage(pg)
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" ||
+                  event.key === " "
+                ) {
+                  event.preventDefault();
+                  editPage(pg);
+                }
+              }}
+              style={{
+                cursor:
+                  "pointer",
+              }}
+            >
+              {pg.type === "draw" ? (
+                <img
+                  src={pg.content}
+                  className="scratch-thumb"
+                  alt="scratch page"
+                />
+              ) : (
+                <div
+                  style={{
+                    padding:
+                      10,
+                    fontSize:
+                      12.5,
+                    color:
+                      "var(--body2)",
+                    minHeight:
+                      70,
+                    lineHeight:
+                      1.45,
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      pg.contentHtml ||
+                      (
+                        String(
+                          pg.content ||
+                          ""
+                        ).includes("<")
+                          ? pg.content
+                          : plainTextToHtml(
+                              pg.content ||
+                              ""
+                            )
+                      ),
+                  }}
+                />
+              )}
+
+              <div
+                style={{
+                  padding:
+                    "0 10px 8px",
+                }}
+              >
+                <SavedTimestampLine
+                  item={pg}
+                />
               </div>
-              <div className="cap"><span>{pg.date}</span><span className="cap-icons"><Pencil size={12} onClick={() => editPage(pg)} /><Trash2 size={12} onClick={() => deletePage(pg.id)} /></span></div>
+
+              <div className="cap">
+                <span>
+                  {pg.date}
+                </span>
+
+                <span className="cap-icons">
+                  <Pencil
+                    size={12}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      editPage(pg);
+                    }}
+                  />
+
+                  <Trash2
+                    size={12}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deletePage(pg.id);
+                    }}
+                  />
+                </span>
+              </div>
             </div>
           ))}
         </div>
@@ -10372,7 +12428,41 @@ function SettingsScreen({
             ) : (
               <div
                 key={id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent(
+                      "abide:open-area",
+                      {
+                        detail: {
+                          areaId: id,
+                        },
+                      }
+                    )
+                  );
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                  ) {
+                    event.preventDefault();
+
+                    window.dispatchEvent(
+                      new CustomEvent(
+                        "abide:open-area",
+                        {
+                          detail: {
+                            areaId: id,
+                          },
+                        }
+                      )
+                    );
+                  }
+                }}
                 style={{
+                  cursor: "pointer",
                   minHeight: 52,
                   display: "flex",
                   alignItems: "center",
@@ -10425,7 +12515,10 @@ function SettingsScreen({
                   }}
                 >
                   <div
-                    onClick={() => setAreaComposer(id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setAreaComposer(id);
+                    }}
                     aria-label={`Edit ${area.name}`}
                     style={{
                       width: 30,
@@ -10443,7 +12536,9 @@ function SettingsScreen({
                   </div>
 
                   <div
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
+
                       if (
                         window.confirm(
                           `Delete the "${area.name}" area? Tasks and goals using it will become unassigned.`
@@ -10498,7 +12593,43 @@ function SettingsScreen({
         <div className="section-label">Connected Calendars</div>
         <div className="card"><div className="nav-row" onClick={onOpenCalendar}><div className="nav-row-left"><CalendarDays size={16} color="#8FA88A" />Manage calendars in Calendar</div><ChevronRight size={16} color="var(--text3)" /></div></div>
 
-        <div className="section-label">Abide</div>
+        
+        {/* ABIDE WEEK SETTINGS V1 */}
+        <div className="section-label">
+          Calendar & Week
+        </div>
+
+        <WeekStartSetting />
+
+
+        {/* ABIDE EXPORT SETTINGS V1 */}
+        <div className="section-label">
+          Data & Backup
+        </div>
+
+        <div className="card">
+          <div
+            className="nav-row"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent(
+                  "abide:open-export-center"
+                )
+              )
+            }
+          >
+            <div className="nav-row-left">
+              Export Center
+            </div>
+
+            <ChevronRight
+              size={16}
+              color="var(--text3)"
+            />
+          </div>
+        </div>
+
+<div className="section-label">Abide</div>
 
         <div
           className="card"
@@ -10997,7 +13128,7 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
       .slice(0, 2),
   ].slice(0, 4);
 
-  const weekKeys = buildWeekKeys(REFERENCE_DATE_KEY);
+  const weekKeys = buildPreferenceWeekKeys(REFERENCE_DATE_KEY);
   const weekEnd = weekKeys[weekKeys.length - 1];
 
   const nextMonthDate = new Date(dateFromKey(REFERENCE_DATE_KEY));
@@ -11522,7 +13653,7 @@ function MoreTab({
     { id: "review", label: "Review", copy: "A short weekly reset and monthly preparation", icon: RefreshCw, tint: "#E8B45C" },
     { id: "journal", label: "Journal", copy: "Time with the Lord and reflection history", icon: BookOpen, tint: "#A98BE0" },
     { id: "goals", label: "Goals", copy: "Projects, outcomes, and higher horizons", icon: Target, tint: "#7C93C9" },
-    { id: "scratch", label: "Scratch Pad", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
+    { id: "scratch", label: "Notes", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
     { id: "reminders", label: "Reminders", copy: "Upcoming alerts and notification controls", icon: Bell, tint: "#E8B45C" },
     { id: "insights", label: "Insights", copy: "Patterns and history, not another scoreboard", icon: BarChart3, tint: "#8FA88A" },
   ];
@@ -11619,7 +13750,7 @@ function InsightsTab({
   const unassignedCount = tasks.filter((t) => !t.area).length;
   const stalledGoals = goals.filter((g) => !g.progress).length;
 
-  const weekKeys = buildWeekKeys(REFERENCE_DATE_KEY);
+  const weekKeys = buildPreferenceWeekKeys(REFERENCE_DATE_KEY);
   const weekBars = weekKeys.map((key) => ({ d: dateFromKey(key).toLocaleDateString("en-US", { weekday: "narrow" }), done: tasks.filter((t) => t.done && taskDateKey(t) === key).length }));
   const areaSplit = Object.entries(areas).map(([id, area]) => ({ name: area.name, value: tasks.filter((t) => t.area === id).length, color: area.color })).filter((a) => a.value > 0);
   const heatKeys = lastNDateKeys(30);
@@ -11680,6 +13811,1678 @@ function InsightsTab({
 /* ---------------------------------------------------------------
    ROOT APP
 ----------------------------------------------------------------*/
+
+/* =========================================================
+   ABIDE WEEK START V1
+   ========================================================= */
+
+function getAbideWeekStart() {
+  try {
+    const raw =
+      window.localStorage.getItem(
+        "abide-week-start"
+      );
+
+    if (!raw) return "sunday";
+
+    const value = JSON.parse(raw);
+
+    return value === "monday"
+      ? "monday"
+      : "sunday";
+  } catch {
+    return "sunday";
+  }
+}
+
+
+function abideDateKey(date) {
+  const year =
+    date.getFullYear();
+
+  const month =
+    String(
+      date.getMonth() + 1
+    ).padStart(2, "0");
+
+  const day =
+    String(
+      date.getDate()
+    ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+
+function buildPreferenceWeekKeys(dateKey) {
+  const anchor =
+    dateFromKey(dateKey);
+
+  const startDay =
+    getAbideWeekStart() === "monday"
+      ? 1
+      : 0;
+
+  const offset =
+    (
+      anchor.getDay()
+      - startDay
+      + 7
+    ) % 7;
+
+  const start =
+    new Date(anchor);
+
+  start.setHours(12, 0, 0, 0);
+
+  start.setDate(
+    start.getDate() - offset
+  );
+
+  return Array.from(
+    { length: 7 },
+    (_, index) => {
+      const day =
+        new Date(start);
+
+      day.setDate(
+        start.getDate() + index
+      );
+
+      return abideDateKey(day);
+    }
+  );
+}
+
+
+function WeekStartSetting() {
+  const [
+    weekStart,
+    setWeekStart,
+  ] = usePersistentState(
+    "abide-week-start",
+    "sunday"
+  );
+
+  return (
+    <div
+      className="card"
+      style={{
+        padding: 14,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 13.5,
+          fontWeight: 700,
+          color: "var(--text)",
+        }}
+      >
+        Start of week
+      </div>
+
+      <div
+        style={{
+          marginTop: 4,
+          fontSize: 11,
+          lineHeight: 1.45,
+          color: "var(--text3)",
+        }}
+      >
+        Choose when Abide considers a new week
+        to begin.
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginTop: 12,
+        }}
+      >
+        <div
+          className={`filter-chip ${
+            weekStart === "sunday"
+              ? "active"
+              : ""
+          }`}
+          onClick={() =>
+            setWeekStart("sunday")
+          }
+        >
+          Sunday
+        </div>
+
+        <div
+          className={`filter-chip ${
+            weekStart === "monday"
+              ? "active"
+              : ""
+          }`}
+          onClick={() =>
+            setWeekStart("monday")
+          }
+        >
+          Monday
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+/* =========================================================
+   ABIDE EXPORT CENTER V4
+   CSV · EXCEL · WORD · PDF · ZIP
+   ========================================================= */
+
+function abideDownload(
+  filename,
+  content,
+  mime = "application/octet-stream"
+) {
+  const blob =
+    content instanceof Blob
+      ? content
+      : new Blob(
+          [content],
+          {
+            type:
+              `${mime};charset=utf-8`,
+          }
+        );
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const link =
+    document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(
+    () =>
+      URL.revokeObjectURL(url),
+    1200
+  );
+}
+
+
+function abideCsvValue(value) {
+  if (value == null) return "";
+
+  const text =
+    typeof value === "object"
+      ? JSON.stringify(value)
+      : String(value);
+
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+
+function abideCsv(
+  rows,
+  columns
+) {
+  return [
+    columns
+      .map(
+        ([key, label]) =>
+          abideCsvValue(label || key)
+      )
+      .join(","),
+
+    ...rows.map(
+      (row) =>
+        columns
+          .map(
+            ([key]) =>
+              abideCsvValue(row?.[key])
+          )
+          .join(",")
+    ),
+  ].join("\n");
+}
+
+
+function abideNoteText(note) {
+  if (
+    Array.isArray(note?.blocks)
+  ) {
+    return note.blocks
+      .map((block) => {
+        if (
+          typeof block === "string"
+        ) {
+          return block;
+        }
+
+        if (
+          typeof block?.text === "string"
+        ) {
+          return block.text;
+        }
+
+        if (
+          typeof block?.content === "string"
+        ) {
+          return block.content;
+        }
+
+        if (
+          Array.isArray(block?.content)
+        ) {
+          return block.content
+            .map(
+              (part) =>
+                typeof part === "string"
+                  ? part
+                  : part?.text || ""
+            )
+            .join("");
+        }
+
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  return String(
+    note?.content ||
+    note?.body ||
+    note?.text ||
+    ""
+  );
+}
+
+
+function abideReadNotes() {
+  const found = [];
+  const seen = new Set();
+
+  if (
+    typeof window === "undefined"
+  ) {
+    return found;
+  }
+
+  const visit = (
+    value,
+    storageKey
+  ) => {
+    if (!value) return;
+
+    if (Array.isArray(value)) {
+      value.forEach(
+        (item) =>
+          visit(
+            item,
+            storageKey
+          )
+      );
+
+      return;
+    }
+
+    if (
+      typeof value !== "object"
+    ) {
+      return;
+    }
+
+    const looksLikeNote =
+      value.title ||
+      value.blocks ||
+      value.content ||
+      value.body ||
+      value.text;
+
+    if (looksLikeNote) {
+      const id =
+        String(
+          value.id ||
+          value.noteId ||
+          value.title ||
+          JSON.stringify(
+            value.blocks ||
+            value.content ||
+            value.body ||
+            value.text ||
+            ""
+          )
+        );
+
+      if (!seen.has(id)) {
+        seen.add(id);
+
+        found.push({
+          ...value,
+          _storageKey:
+            storageKey,
+        });
+      }
+
+      return;
+    }
+
+    Object.values(value)
+      .forEach(
+        (child) =>
+          visit(
+            child,
+            storageKey
+          )
+      );
+  };
+
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i += 1
+  ) {
+    const key =
+      localStorage.key(i);
+
+    if (!key) continue;
+
+    const lower =
+      key.toLowerCase();
+
+    if (
+      !lower.includes("note") &&
+      !lower.includes("scratch")
+    ) {
+      continue;
+    }
+
+    try {
+      visit(
+        JSON.parse(
+          localStorage.getItem(key)
+        ),
+        key
+      );
+    } catch {}
+  }
+
+  return found;
+}
+
+
+function ExportCenter({
+  tasks,
+  goals,
+  areas,
+  journalEntries,
+  onBack,
+}) {
+  const notes =
+    abideReadNotes();
+
+  const stamp =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
+
+
+  const taskRows =
+    tasks.map(
+      (task) => ({
+        id:
+          task.id || "",
+
+        title:
+          task.title || "",
+
+        kind:
+          task.kind || "task",
+
+        parentTaskId:
+          task.parentTaskId || "",
+
+        area:
+          task.area &&
+          areas?.[task.area]
+            ? areas[
+                task.area
+              ].name
+            : "",
+
+        areaId:
+          task.area || "",
+
+        goalId:
+          task.goal || "",
+
+        dueDate:
+          taskDateKey(task) || "",
+
+        dueTime:
+          task.dueTime || "",
+
+        finishBy:
+          task.targetDate || "",
+
+        priority:
+          task.priority || "",
+
+        progress:
+          taskProgress(task),
+
+        completed:
+          Boolean(task.done),
+
+        completedAt:
+          task.completedAt || "",
+
+        reminder:
+          task.reminder || "",
+
+        notes:
+          task.notes || "",
+      })
+    );
+
+
+  const goalRows =
+    goals.map(
+      (goal) => ({
+        id:
+          goal.id || "",
+
+        goal:
+          goal.name || "",
+
+        area:
+          goal.area &&
+          areas?.[goal.area]
+            ? areas[
+                goal.area
+              ].name
+            : "",
+
+        areaId:
+          goal.area || "",
+
+        targetDate:
+          goal.targetDate || "",
+
+        progress:
+          goal.progress ?? "",
+
+        notes:
+          goal.notes || "",
+
+        linkedTasks:
+          tasks.filter(
+            (task) =>
+              String(
+                task.goal || ""
+              ) ===
+              String(
+                goal.id || ""
+              )
+          ).length,
+      })
+    );
+
+
+  const topLevel =
+    tasks.filter(
+      (task) =>
+        !task.parentTaskId
+    );
+
+  const subtasks =
+    tasks.filter(
+      (task) =>
+        Boolean(
+          task.parentTaskId
+        )
+    );
+
+  const open =
+    tasks.filter(
+      (task) => !task.done
+    );
+
+  const completed =
+    tasks.filter(
+      (task) => task.done
+    );
+
+  const overdue =
+    tasks.filter(
+      (task) =>
+        !task.done &&
+        taskDateKey(task) <
+          REFERENCE_DATE_KEY
+    );
+
+
+  const insightRows = [
+    {
+      metric:
+        "Total task records",
+      value:
+        tasks.length,
+    },
+
+    {
+      metric:
+        "Top-level tasks",
+      value:
+        topLevel.length,
+    },
+
+    {
+      metric:
+        "Subtasks",
+      value:
+        subtasks.length,
+    },
+
+    {
+      metric:
+        "Open records",
+      value:
+        open.length,
+    },
+
+    {
+      metric:
+        "Completed records",
+      value:
+        completed.length,
+    },
+
+    {
+      metric:
+        "Overdue records",
+      value:
+        overdue.length,
+    },
+
+    {
+      metric:
+        "Completion rate",
+      value:
+        tasks.length
+          ? `${Math.round(
+              completed.length /
+              tasks.length *
+              100
+            )}%`
+          : "0%",
+    },
+
+    {
+      metric:
+        "Goals",
+      value:
+        goals.length,
+    },
+
+    {
+      metric:
+        "Journal entries",
+      value:
+        journalEntries.length,
+    },
+
+    {
+      metric:
+        "Week starts on",
+      value:
+        getAbideWeekStart(),
+    },
+  ];
+
+
+  const taskColumns = [
+    ["id", "ID"],
+    ["title", "Title"],
+    ["kind", "Kind"],
+    [
+      "parentTaskId",
+      "Parent Task ID",
+    ],
+    ["area", "Area"],
+    ["areaId", "Area ID"],
+    ["goalId", "Goal ID"],
+    ["dueDate", "Due Date"],
+    ["dueTime", "Due Time"],
+    ["finishBy", "Finish By"],
+    ["priority", "Priority"],
+    ["progress", "Progress"],
+    ["completed", "Completed"],
+    [
+      "completedAt",
+      "Completed At",
+    ],
+    ["reminder", "Reminder"],
+    ["notes", "Notes"],
+  ];
+
+
+  const goalColumns = [
+    ["id", "ID"],
+    ["goal", "Goal"],
+    ["area", "Area"],
+    ["areaId", "Area ID"],
+    [
+      "targetDate",
+      "Target Date",
+    ],
+    ["progress", "Progress"],
+    ["notes", "Notes"],
+    [
+      "linkedTasks",
+      "Linked Tasks",
+    ],
+  ];
+
+
+  const insightColumns = [
+    ["metric", "Metric"],
+    ["value", "Value"],
+  ];
+
+
+  const exportCsv =
+    (type) => {
+      if (type === "tasks") {
+        abideDownload(
+          `abide-tasks-${stamp}.csv`,
+          abideCsv(
+            taskRows,
+            taskColumns
+          ),
+          "text/csv"
+        );
+      }
+
+      if (type === "goals") {
+        abideDownload(
+          `abide-goals-${stamp}.csv`,
+          abideCsv(
+            goalRows,
+            goalColumns
+          ),
+          "text/csv"
+        );
+      }
+
+      if (
+        type === "insights"
+      ) {
+        abideDownload(
+          `abide-insights-${stamp}.csv`,
+          abideCsv(
+            insightRows,
+            insightColumns
+          ),
+          "text/csv"
+        );
+      }
+    };
+
+
+  const exportExcel =
+    async (
+      scope = "everything"
+    ) => {
+      const XLSX =
+        await import("xlsx");
+
+      const workbook =
+        XLSX.utils.book_new();
+
+
+      if (
+        scope === "everything" ||
+        scope === "tasks"
+      ) {
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.json_to_sheet(
+            taskRows
+          ),
+          "Tasks"
+        );
+      }
+
+
+      if (
+        scope === "everything" ||
+        scope === "goals"
+      ) {
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.json_to_sheet(
+            goalRows
+          ),
+          "Goals"
+        );
+      }
+
+
+      if (
+        scope === "everything" ||
+        scope === "insights"
+      ) {
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.json_to_sheet(
+            insightRows
+          ),
+          "Insights"
+        );
+      }
+
+
+      if (
+        scope === "everything"
+      ) {
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.json_to_sheet(
+            Object.entries(
+              areas
+            ).map(
+              ([id, area]) => ({
+                id,
+                name:
+                  area.name,
+                color:
+                  area.color,
+              })
+            )
+          ),
+          "Areas"
+        );
+
+
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.json_to_sheet(
+            journalEntries
+          ),
+          "Journal"
+        );
+
+
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.json_to_sheet(
+            notes.map(
+              (note, index) => ({
+                title:
+                  note.title ||
+                  note.name ||
+                  `Note ${index + 1}`,
+
+                text:
+                  abideNoteText(
+                    note
+                  ),
+
+                updatedAt:
+                  note.updatedAt ||
+                  "",
+              })
+            )
+          ),
+          "Notes"
+        );
+      }
+
+
+      XLSX.writeFile(
+        workbook,
+
+        scope === "everything"
+          ? `abide-export-${stamp}.xlsx`
+          : `abide-${scope}-${stamp}.xlsx`
+      );
+    };
+
+
+  const exportPdf =
+    async (
+      title,
+      sections,
+      filename
+    ) => {
+      const {
+        jsPDF,
+      } =
+        await import("jspdf");
+
+      const doc =
+        new jsPDF();
+
+      const pageHeight =
+        doc.internal.pageSize
+          .getHeight();
+
+      let y = 18;
+
+      const ensureSpace =
+        (height = 10) => {
+          if (
+            y + height >
+            pageHeight - 15
+          ) {
+            doc.addPage();
+            y = 18;
+          }
+        };
+
+
+      doc.setFontSize(18);
+      doc.text(title, 18, y);
+      y += 10;
+
+      doc.setFontSize(8);
+
+      doc.text(
+        `Exported ${new Date().toLocaleString()}`,
+        18,
+        y
+      );
+
+      y += 10;
+
+
+      for (
+        const section of sections
+      ) {
+        ensureSpace(12);
+
+        doc.setFontSize(13);
+
+        doc.text(
+          section.heading,
+          18,
+          y
+        );
+
+        y += 7;
+
+        doc.setFontSize(9);
+
+
+        for (
+          const value of section.lines
+        ) {
+          const lines =
+            doc.splitTextToSize(
+              String(value || ""),
+              175
+            );
+
+          ensureSpace(
+            lines.length * 4.5 + 3
+          );
+
+          doc.text(
+            lines,
+            18,
+            y
+          );
+
+          y +=
+            lines.length * 4.5 +
+            2;
+        }
+
+        y += 3;
+      }
+
+
+      doc.save(filename);
+    };
+
+
+  const exportWord =
+    async (
+      title,
+      sections,
+      filename
+    ) => {
+      const {
+        Document,
+        Packer,
+        Paragraph,
+        HeadingLevel,
+      } =
+        await import("docx");
+
+      const children = [
+        new Paragraph({
+          text: title,
+
+          heading:
+            HeadingLevel.HEADING_1,
+        }),
+
+        new Paragraph({
+          text:
+            `Exported ${new Date().toLocaleString()}`,
+        }),
+      ];
+
+
+      sections.forEach(
+        (section) => {
+          children.push(
+            new Paragraph({
+              text:
+                section.heading,
+
+              heading:
+                HeadingLevel.HEADING_2,
+            })
+          );
+
+          section.lines
+            .forEach(
+              (line) =>
+                children.push(
+                  new Paragraph({
+                    text:
+                      String(
+                        line || ""
+                      ),
+                  })
+                )
+            );
+        }
+      );
+
+
+      const document =
+        new Document({
+          sections: [
+            { children },
+          ],
+        });
+
+
+      const blob =
+        await Packer.toBlob(
+          document
+        );
+
+
+      abideDownload(
+        filename,
+        blob,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+    };
+
+
+  const journalSections =
+    journalEntries.map(
+      (entry) => ({
+        heading:
+          `${entry.dateKey || entry.date || "Undated"}${
+            entry.ref
+              ? ` — ${entry.ref}`
+              : ""
+          }`,
+
+        lines: [
+          entry.note || "",
+        ],
+      })
+    );
+
+
+  const noteSections =
+    notes.map(
+      (note, index) => ({
+        heading:
+          note.title ||
+          note.name ||
+          `Note ${index + 1}`,
+
+        lines: [
+          abideNoteText(note),
+        ],
+      })
+    );
+
+
+  const tasksPdf =
+    () =>
+      exportPdf(
+        "Abide Tasks",
+        [
+          {
+            heading:
+              "Summary",
+
+            lines: [
+              `${topLevel.length} top-level tasks`,
+              `${subtasks.length} subtasks`,
+              `${open.length} open records`,
+              `${completed.length} completed records`,
+            ],
+          },
+
+          {
+            heading:
+              "Tasks",
+
+            lines:
+              taskRows.map(
+                (task) =>
+                  `${task.completed ? "Completed" : "Open"} | ${task.title} | ${task.area || "No Area"} | Due ${task.dueDate || "No date"}`
+              ),
+          },
+        ],
+        `abide-tasks-${stamp}.pdf`
+      );
+
+
+  const goalsPdf =
+    () =>
+      exportPdf(
+        "Abide Goals",
+        [
+          {
+            heading: "Goals",
+
+            lines:
+              goalRows.map(
+                (goal) =>
+                  `${goal.goal} | ${goal.area || "No Area"} | Target ${goal.targetDate || "None"}`
+              ),
+          },
+        ],
+        `abide-goals-${stamp}.pdf`
+      );
+
+
+  const insightsPdf =
+    () =>
+      exportPdf(
+        "Abide Insights",
+        [
+          {
+            heading:
+              "Current Snapshot",
+
+            lines:
+              insightRows.map(
+                (row) =>
+                  `${row.metric}: ${row.value}`
+              ),
+          },
+        ],
+        `abide-insights-${stamp}.pdf`
+      );
+
+
+  const journalPdf =
+    () =>
+      exportPdf(
+        "Abide Journal",
+        journalSections,
+        `abide-journal-${stamp}.pdf`
+      );
+
+
+  const notesPdf =
+    () =>
+      exportPdf(
+        "Abide Notes",
+        noteSections,
+        `abide-notes-${stamp}.pdf`
+      );
+
+
+  const journalWord =
+    () =>
+      exportWord(
+        "Abide Journal",
+        journalSections,
+        `abide-journal-${stamp}.docx`
+      );
+
+
+  const notesWord =
+    () =>
+      exportWord(
+        "Abide Notes",
+        noteSections,
+        `abide-notes-${stamp}.docx`
+      );
+
+
+  const fullSections = [
+    {
+      heading: "Insights",
+
+      lines:
+        insightRows.map(
+          (row) =>
+            `${row.metric}: ${row.value}`
+        ),
+    },
+
+    {
+      heading: "Goals",
+
+      lines:
+        goalRows.map(
+          (goal) =>
+            `${goal.goal} — ${goal.area || "No Area"}`
+        ),
+    },
+
+    {
+      heading: "Tasks",
+
+      lines:
+        taskRows.map(
+          (task) =>
+            `${task.completed ? "Completed" : "Open"} — ${task.title} — ${task.area || "No Area"}`
+        ),
+    },
+
+    ...journalSections.map(
+      (section) => ({
+        heading:
+          `Journal — ${section.heading}`,
+
+        lines:
+          section.lines,
+      })
+    ),
+
+    ...noteSections.map(
+      (section) => ({
+        heading:
+          `Note — ${section.heading}`,
+
+        lines:
+          section.lines,
+      })
+    ),
+  ];
+
+
+  const fullPdf =
+    () =>
+      exportPdf(
+        "Abide Export",
+        fullSections,
+        `abide-export-${stamp}.pdf`
+      );
+
+
+  const fullWord =
+    () =>
+      exportWord(
+        "Abide Export",
+        fullSections,
+        `abide-export-${stamp}.docx`
+      );
+
+
+  const exportZip =
+    async () => {
+      const JSZipModule =
+        await import("jszip");
+
+      const JSZip =
+        JSZipModule.default ||
+        JSZipModule;
+
+      const zip =
+        new JSZip();
+
+
+      zip.file(
+        "Tasks.csv",
+        abideCsv(
+          taskRows,
+          taskColumns
+        )
+      );
+
+
+      zip.file(
+        "Goals.csv",
+        abideCsv(
+          goalRows,
+          goalColumns
+        )
+      );
+
+
+      zip.file(
+        "Insights.csv",
+        abideCsv(
+          insightRows,
+          insightColumns
+        )
+      );
+
+
+      zip.file(
+        "Journal.md",
+        journalEntries
+          .map(
+            (entry) => [
+              `# ${entry.dateKey || entry.date || "Undated"}`,
+              entry.ref
+                ? `\n${entry.ref}\n`
+                : "",
+              entry.note || "",
+            ].join("\n")
+          )
+          .join("\n\n---\n\n")
+      );
+
+
+      zip.file(
+        "Notes.md",
+        notes
+          .map(
+            (note, index) => [
+              `# ${
+                note.title ||
+                note.name ||
+                `Note ${index + 1}`
+              }`,
+              "",
+              abideNoteText(note),
+            ].join("\n")
+          )
+          .join("\n\n---\n\n")
+      );
+
+
+      zip.file(
+        "Abide Backup.json",
+        JSON.stringify(
+          {
+            format:
+              "abide-full-backup",
+
+            version: 2,
+
+            exportedAt:
+              new Date()
+                .toISOString(),
+
+            preferences: {
+              weekStartsOn:
+                getAbideWeekStart(),
+            },
+
+            tasks,
+            goals,
+            areas,
+            journalEntries,
+            notes,
+          },
+          null,
+          2
+        )
+      );
+
+
+      const blob =
+        await zip.generateAsync({
+          type: "blob",
+        });
+
+
+      abideDownload(
+        `abide-export-${stamp}.zip`,
+        blob,
+        "application/zip"
+      );
+    };
+
+
+  return (
+    <>
+      <Header
+        eyebrow="Your data belongs to you"
+        title="Export Center"
+      />
+
+      <div className="scroll">
+        <div
+          className="filter-chip"
+          onClick={onBack}
+          style={{
+            width: "fit-content",
+            marginBottom: 14,
+          }}
+        >
+          ← Back
+        </div>
+
+
+        <div
+          className="card"
+          style={{
+            padding: 16,
+            marginBottom: 15,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 750,
+              color: "var(--text)",
+            }}
+          >
+            Export Everything
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: "var(--text3)",
+              marginTop: 5,
+            }}
+          >
+            Tasks, Goals, Insights, Areas,
+            Journal, and Notes.
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginTop: 12,
+            }}
+          >
+            <div
+              className="filter-chip active"
+              onClick={() =>
+                exportExcel(
+                  "everything"
+                )
+              }
+            >
+              Excel
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={fullWord}
+            >
+              Word
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={fullPdf}
+            >
+              PDF
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={exportZip}
+            >
+              ZIP Bundle
+            </div>
+          </div>
+        </div>
+
+
+        <div className="section-label">
+          Tasks
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text3)",
+              marginBottom: 9,
+            }}
+          >
+            {topLevel.length} top-level ·{" "}
+            {subtasks.length} subtasks ·{" "}
+            {tasks.length} stored records
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 7,
+            }}
+          >
+            <div
+              className="filter-chip"
+              onClick={() =>
+                exportCsv("tasks")
+              }
+            >
+              CSV
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={() =>
+                exportExcel("tasks")
+              }
+            >
+              Excel
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={tasksPdf}
+            >
+              PDF
+            </div>
+          </div>
+        </div>
+
+
+        <div className="section-label">
+          Goals
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 7,
+            }}
+          >
+            <div
+              className="filter-chip"
+              onClick={() =>
+                exportCsv("goals")
+              }
+            >
+              CSV
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={() =>
+                exportExcel("goals")
+              }
+            >
+              Excel
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={goalsPdf}
+            >
+              PDF
+            </div>
+          </div>
+        </div>
+
+
+        <div className="section-label">
+          Insights
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 7,
+            }}
+          >
+            <div
+              className="filter-chip"
+              onClick={() =>
+                exportCsv(
+                  "insights"
+                )
+              }
+            >
+              CSV
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={() =>
+                exportExcel(
+                  "insights"
+                )
+              }
+            >
+              Excel
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={
+                insightsPdf
+              }
+            >
+              PDF
+            </div>
+          </div>
+        </div>
+
+
+        <div className="section-label">
+          Journal
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 7,
+            }}
+          >
+            <div
+              className="filter-chip"
+              onClick={journalWord}
+            >
+              Word
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={journalPdf}
+            >
+              PDF
+            </div>
+          </div>
+        </div>
+
+
+        <div className="section-label">
+          Notes
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 7,
+            }}
+          >
+            <div
+              className="filter-chip"
+              onClick={notesWord}
+            >
+              Word
+            </div>
+
+            <div
+              className="filter-chip"
+              onClick={notesPdf}
+            >
+              PDF
+            </div>
+          </div>
+        </div>
+
+
+        <div style={{ height: 100 }} />
+      </div>
+    </>
+  );
+}
+
+
 function getViewport(w) {
   if (w < 760) return "phone";
   if (w < 1120) return "tablet";
@@ -11715,6 +15518,43 @@ export default function App({ accountSync }) {
     DEFAULT_HIGHLIGHT_MEANINGS
   );
   const [expandedId, setExpandedId] = useState(null);
+
+  const [
+    selectedAreaId,
+    setSelectedAreaId,
+  ] = useState(null);
+
+  useEffect(() => {
+    const openArea = (event) => {
+      const areaId =
+        event?.detail?.areaId;
+
+      if (
+        areaId &&
+        areas[areaId]
+      ) {
+        setSelectedAreaId(areaId);
+      }
+    };
+
+    window.addEventListener(
+      "abide:open-area",
+      openArea
+    );
+
+    return () => {
+      window.removeEventListener(
+        "abide:open-area",
+        openArea
+      );
+    };
+  }, [areas]);
+
+  useEffect(() => {
+    setSelectedAreaId(null);
+  }, [tab]);
+
+
   const [theme, setTheme] = usePersistentState("abide-theme", "dark");
   const [primaryNavigation, setPrimaryNavigation] = usePersistentState(
     "abide-primary-navigation",
@@ -11727,6 +15567,29 @@ export default function App({ accountSync }) {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [quickAddSignal, setQuickAddSignal] = useState(0);
+
+  /* ABIDE EXPORT ROOT V1 */
+  const [
+    exportCenterOpen,
+    setExportCenterOpen,
+  ] = useState(false);
+
+  useEffect(() => {
+    const handler = () =>
+      setExportCenterOpen(true);
+
+    window.addEventListener(
+      "abide:open-export-center",
+      handler
+    );
+
+    return () =>
+      window.removeEventListener(
+        "abide:open-export-center",
+        handler
+      );
+  }, []);
+
   const [viewport, setViewport] = useState(() => (typeof window !== "undefined" ? getViewport(window.innerWidth) : "phone"));
   const tk = THEME[theme] || THEME.dark;
 
@@ -12224,7 +16087,26 @@ export default function App({ accountSync }) {
     "--segActive": tk.segActive, "--protectedText": tk.protectedText, "--emptyHeat": tk.emptyHeat,
   };
 
-  const activeTab = (
+  const activeTab =
+    selectedAreaId &&
+    areas[selectedAreaId]
+      ? (
+        <AreaDetailView
+          areaId={selectedAreaId}
+          areas={areas}
+          tasks={tasks}
+          goals={goals}
+          onBack={() =>
+            setSelectedAreaId(null)
+          }
+          onToggleDone={toggleDone}
+          onUpdateTask={updateTask}
+          onDeleteTask={deleteTask}
+          onCreateTask={createTask}
+          onCreateArea={createArea}
+        />
+      )
+      : (
     <>
       {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} onCreateArea={createArea} />}
       {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} openAddSignal={quickAddSignal} onCreateArea={createArea} />}
@@ -12300,17 +16182,49 @@ export default function App({ accountSync }) {
   return (
     <div className={`viewport-${viewport}`} style={{ display: "flex", justifyContent: viewport === "phone" ? "center" : "stretch", padding: 0, background: viewport === "phone" ? tk.appBg : tk.pageBg, height: "100vh", minHeight: "100vh", width: "100%", overflow: "hidden", ...vars }}>
       <style>{styles}</style>
-      <AbideCommandLayer />
+      {!["journal", "scratch"].includes(tab) && (
+        <AbideCommandLayer />
+      )}
       <PwaUpdateBanner />
       {viewport === "phone" ? (
         <div className="app">
           <div className="statusbar"><span className="brand"><img className="brand-mark" src="/abide-logo.png" alt="" /><span className="brand-word">{APP_NAME.toUpperCase()}</span></span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>
-          <div className="phone-content">{activeTab}</div>
+          <div className="phone-content">
+            {exportCenterOpen ? (
+              <ExportCenter
+                tasks={tasks}
+                goals={goals}
+                areas={areas}
+                journalEntries={journalEntries}
+                onBack={() =>
+                  setExportCenterOpen(false)
+                }
+              />
+            ) : activeTab}
+          </div>
+
+          <PhoneQuickAccess
+            tab={tab}
+            setTab={setTab}
+          />
+
           <button className="fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button>
           <div className="tabbar">{tabs.map((t) => { const Icon = t.icon; const active = navTabIsActive(tab, t.id); return <div key={t.id} className={`tab ${active ? "active" : ""}`} style={{ cursor: "pointer" }} onClick={() => setTab(t.id)}><Icon size={20} strokeWidth={active ? 2.3 : 1.8} /><span>{t.label}</span></div>; })}</div>
         </div>
       ) : (
-        <div className="shell"><Sidebar tabs={tabs} tab={tab} setTab={setTab} viewport={viewport} theme={theme} setTheme={setTheme} /><div className="shell-main">{activeTab}<button className="fab shell-fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button></div></div>
+        <div className="shell"><Sidebar tabs={tabs} tab={tab} setTab={setTab} viewport={viewport} theme={theme} setTheme={setTheme} /><div className="shell-main">
+          {exportCenterOpen ? (
+            <ExportCenter
+              tasks={tasks}
+              goals={goals}
+              areas={areas}
+              journalEntries={journalEntries}
+              onBack={() =>
+                setExportCenterOpen(false)
+              }
+            />
+          ) : activeTab}
+          <button className="fab shell-fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button></div></div>
       )}
     </div>
   );

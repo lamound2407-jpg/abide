@@ -1889,7 +1889,7 @@ export function getAbideReferenceCatalog() {
 
 
   // ----------------------------------------------------------
-  // Scratch Pad
+  // Notes
   // ----------------------------------------------------------
 
   normalizeCollection(
@@ -1931,7 +1931,7 @@ export function getAbideReferenceCatalog() {
               ? `Drawing ${
                   index + 1
                 }`
-              : `Scratch Pad ${
+              : `Notes ${
                   index + 1
                 }`
           ),
@@ -1939,8 +1939,8 @@ export function getAbideReferenceCatalog() {
         meta:
           page.type ===
             "draw"
-            ? "Scratch Pad drawing"
-            : "Scratch Pad note",
+            ? "Notes drawing"
+            : "Notes note",
       });
     }
   );
@@ -2321,7 +2321,7 @@ function formatEventScratchHtml(
 }
 
 
-export function sendToScratchPad(
+export function sendToNotes(
   item,
   kind
 ) {
@@ -2423,12 +2423,12 @@ export function sendToScratchPad(
 }
 
 
-export function sendToScratchPadAndOfferOpen(
+export function sendToNotesAndOfferOpen(
   item,
   kind
 ) {
   const page =
-    sendToScratchPad(
+    sendToNotes(
       item,
       kind
     );
@@ -2436,7 +2436,7 @@ export function sendToScratchPadAndOfferOpen(
 
   const open =
     window.confirm(
-      `Sent "${page.title}" to Scratch Pad.\n\nOpen Scratch Pad now?`
+      `Sent "${page.title}" to Notes.\n\nOpen Notes now?`
     );
 
 
@@ -2793,9 +2793,9 @@ function baseCommandCatalog() {
       id:
         "scratch",
       label:
-        "Open Scratch Pad",
+        "Open Notes",
       description:
-        "Go to Scratch Pad",
+        "Go to Notes",
       action:
         () =>
           navigateToAbideItem(

@@ -11,14 +11,20 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^5.19.0",
+    "docx": "^9.7.1",
     "firebase": "^10.13.0",
+    "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
+    "katex": "^0.18.4",
     "lucide-react": "^0.383.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
+    "firebase-tools": "^15.28.2",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5"
   }

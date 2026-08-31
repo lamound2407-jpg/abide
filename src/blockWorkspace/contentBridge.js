@@ -192,6 +192,126 @@ function blockTextHtml(
         <div>${text}</div>
       </div>`;
 
+    case BLOCK_TYPES.PAGE_LINK:
+      return `<div class="abide-saved-page-link"
+        data-abide-page-id="${escapeHtml(
+          block.pageId || ""
+        )}">
+        ${text || "Untitled page"}
+      </div>`;
+
+    case BLOCK_TYPES.EQUATION:
+      return `<div class="abide-saved-equation">
+        ${text}
+      </div>`;
+
+    case BLOCK_TYPES.CODE:
+      return `<pre><code>${text}</code></pre>`;
+
+    case BLOCK_TYPES.IMAGE:
+      return block.url
+        ? `<figure>
+            <img src="${escapeHtml(
+              block.url
+            )}" alt="${escapeHtml(
+              block.fileName ||
+              block.text ||
+              ""
+            )}">
+            ${
+              text
+                ? `<figcaption>${text}</figcaption>`
+                : ""
+            }
+          </figure>`
+        : `<div>${escapeHtml(
+            block.fileName ||
+            "Image"
+          )}</div>`;
+
+    case BLOCK_TYPES.VIDEO:
+      return block.url
+        ? `<div>
+            <a href="${escapeHtml(
+              block.url
+            )}">Video: ${escapeHtml(
+              block.fileName ||
+              block.text ||
+              "Open video"
+            )}</a>
+          </div>`
+        : `<div>${escapeHtml(
+            block.fileName ||
+            "Video"
+          )}</div>`;
+
+    case BLOCK_TYPES.AUDIO:
+      return block.url
+        ? `<div>
+            <a href="${escapeHtml(
+              block.url
+            )}">Audio: ${escapeHtml(
+              block.fileName ||
+              block.text ||
+              "Open audio"
+            )}</a>
+          </div>`
+        : `<div>${escapeHtml(
+            block.fileName ||
+            "Audio"
+          )}</div>`;
+
+    case BLOCK_TYPES.FILE:
+      return block.url
+        ? `<div>
+            <a href="${escapeHtml(
+              block.url
+            )}">${escapeHtml(
+              block.fileName ||
+              "Attached file"
+            )}</a>
+          </div>`
+        : `<div>${escapeHtml(
+            block.fileName ||
+            "Attached file"
+          )}</div>`;
+
+    case BLOCK_TYPES.PDF:
+      return block.url
+        ? `<div>
+            <a href="${escapeHtml(
+              block.url
+            )}">PDF: ${escapeHtml(
+              block.fileName ||
+              "Open PDF"
+            )}</a>
+          </div>`
+        : `<div>${escapeHtml(
+            block.fileName ||
+            "PDF"
+          )}</div>`;
+
+    case BLOCK_TYPES.BOOKMARK:
+      return block.url
+        ? `<div>
+            <a href="${escapeHtml(
+              block.url
+            )}">${text ||
+              escapeHtml(
+                block.url
+              )}</a>
+          </div>`
+        : `<div>${text}</div>`;
+
+    case BLOCK_TYPES.EMBED:
+      return block.url
+        ? `<div>
+            <a href="${escapeHtml(
+              block.url
+            )}">Embedded content</a>
+          </div>`
+        : `<div>${text}</div>`;
+
     case BLOCK_TYPES.TEXT:
     default:
       return `<div>${text || "<br>"}</div>`;
@@ -244,6 +364,74 @@ function blockToPlainText(
 
     case BLOCK_TYPES.CALLOUT:
       return `${block.icon || "💡"} ${text}`;
+
+    case BLOCK_TYPES.PAGE_LINK:
+      return `Page: ${text || "Untitled"}`;
+
+    case BLOCK_TYPES.EQUATION:
+      return `Equation: ${text}`;
+
+    case BLOCK_TYPES.CODE:
+      return text;
+
+    case BLOCK_TYPES.IMAGE:
+      return [
+        block.fileName || "Image",
+        text,
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+    case BLOCK_TYPES.VIDEO:
+      return [
+        block.fileName || "Video",
+        text,
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+    case BLOCK_TYPES.AUDIO:
+      return [
+        block.fileName || "Audio",
+        text,
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+    case BLOCK_TYPES.FILE:
+      return [
+        block.fileName || "File",
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+    case BLOCK_TYPES.PDF:
+      return [
+        block.fileName || "PDF",
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+    case BLOCK_TYPES.BOOKMARK:
+      return [
+        text,
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+    case BLOCK_TYPES.EMBED:
+      return [
+        "Embed",
+        block.url,
+      ]
+        .filter(Boolean)
+        .join(" — ");
 
     case BLOCK_TYPES.TOGGLE: {
       const children =

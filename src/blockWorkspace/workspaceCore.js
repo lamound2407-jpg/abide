@@ -33,6 +33,9 @@ export const SYNCED_KEY =
 export const INLINE_REMINDER_KEY =
   "abide-inline-reminders";
 
+export const TASKS_KEY =
+  "abide-tasks";
+
 
 export function safeParse(
   value,
@@ -86,6 +89,117 @@ export function writeLocal(
       }
     )
   );
+}
+
+
+export function getAbideTasks() {
+  const tasks =
+    readLocal(
+      TASKS_KEY,
+      []
+    );
+
+  return Array.isArray(tasks)
+    ? tasks
+    : [];
+}
+
+
+export function getAbideTask(
+  id
+) {
+  return (
+    getAbideTasks().find(
+      (task) =>
+        String(task.id) ===
+        String(id)
+    ) || null
+  );
+}
+
+
+export function createAbideTask({
+  title = "",
+  dueDate = "",
+  dueTime = "",
+} = {}) {
+  const cleanTitle =
+    String(title || "")
+      .trim() ||
+    "Untitled task";
+
+  const now =
+    Date.now();
+
+  const task = {
+    id:
+      makeId("task"),
+
+    title:
+      cleanTitle,
+
+    done:
+      false,
+
+    dueDate:
+      dueDate || "",
+
+    dueTime:
+      dueTime || "",
+
+    createdAt:
+      now,
+
+    updatedAt:
+      now,
+  };
+
+  writeLocal(
+    TASKS_KEY,
+    [
+      task,
+      ...getAbideTasks(),
+    ]
+  );
+
+  return task;
+}
+
+
+export function updateAbideTask(
+  id,
+  updates = {}
+) {
+  let updatedTask =
+    null;
+
+  const next =
+    getAbideTasks().map(
+      (task) => {
+        if (
+          String(task.id) !==
+          String(id)
+        ) {
+          return task;
+        }
+
+        updatedTask = {
+          ...task,
+          ...updates,
+          updatedAt:
+            Date.now(),
+        };
+
+        return updatedTask;
+      }
+    );
+
+  writeLocal(
+    TASKS_KEY,
+    next
+  );
+
+  return updatedTask;
 }
 
 
@@ -584,14 +698,72 @@ export function getCollection(
 export function createCollection(
   name
 ) {
+  const now =
+    Date.now();
+
   const collection = {
     id:
       makeId("collection"),
 
     name:
       name ||
-      "Untitled Collection",
+      "Untitled database",
 
+    databaseVersion:
+      2,
+
+    properties: [
+      {
+        id: "title",
+        name: "Name",
+        type: "title",
+        description: "",
+        createdAt:
+          new Date().toISOString(),
+      },
+
+      {
+        id: "status",
+        name: "Status",
+        type: "status",
+        description: "",
+
+        options: [
+          {
+            id: "status-not-started",
+            name: "Not started",
+            color: "gray",
+          },
+          {
+            id: "status-in-progress",
+            name: "In progress",
+            color: "blue",
+          },
+          {
+            id: "status-complete",
+            name: "Complete",
+            color: "green",
+          },
+        ],
+
+        createdAt:
+          new Date().toISOString(),
+      },
+
+      {
+        id: "date",
+        name: "Date",
+        type: "date",
+        description: "",
+        createdAt:
+          new Date().toISOString(),
+      },
+    ],
+
+    /*
+     * Keep legacy columns during V2 transition.
+     * Old clients / cloud copies will not crash.
+     */
     columns: [
       {
         id: "name",
@@ -609,11 +781,75 @@ export function createCollection(
 
     rows: [],
 
+    views: [
+      {
+        id:
+          makeId("view"),
+
+        name:
+          "Table",
+
+        type:
+          "table",
+
+        filters:
+          [],
+
+        filterLogic:
+          "and",
+
+        sorts:
+          [],
+
+        groupBy:
+          "",
+
+        subGroupBy:
+          "",
+
+        visibleProperties: [
+          "title",
+          "status",
+          "date",
+        ],
+
+        calendarBy:
+          "date",
+
+        timelineStart:
+          "date",
+
+        timelineEnd:
+          "",
+
+        chartGroupBy:
+          "status",
+
+        chartValue:
+          "",
+
+        chartAggregate:
+          "count",
+
+        wrapCells:
+          false,
+
+        frozenColumns:
+          1,
+
+        openPagesIn:
+          "peek",
+      },
+    ],
+
+    titlePropertyId:
+      "title",
+
     createdAt:
-      Date.now(),
+      now,
 
     updatedAt:
-      Date.now(),
+      now,
   };
 
   writeLocal(
@@ -901,6 +1137,18 @@ export const BLOCK_TYPES = Object.freeze({
   QUOTE: "quote",
   DIVIDER: "divider",
   CALLOUT: "callout",
+
+  PAGE_LINK: "page_link",
+  EQUATION: "equation",
+  CODE: "code",
+  IMAGE: "image",
+  VIDEO: "video",
+  AUDIO: "audio",
+  FILE: "file",
+  PDF: "pdf",
+  BOOKMARK: "bookmark",
+  EMBED: "embed",
+  DATABASE: "database",
 });
 
 export const CORE_BLOCK_TYPES = Object.freeze([
@@ -915,6 +1163,18 @@ export const CORE_BLOCK_TYPES = Object.freeze([
   BLOCK_TYPES.QUOTE,
   BLOCK_TYPES.DIVIDER,
   BLOCK_TYPES.CALLOUT,
+
+  BLOCK_TYPES.PAGE_LINK,
+  BLOCK_TYPES.EQUATION,
+  BLOCK_TYPES.CODE,
+  BLOCK_TYPES.IMAGE,
+  BLOCK_TYPES.VIDEO,
+  BLOCK_TYPES.AUDIO,
+  BLOCK_TYPES.FILE,
+  BLOCK_TYPES.PDF,
+  BLOCK_TYPES.BOOKMARK,
+  BLOCK_TYPES.EMBED,
+  BLOCK_TYPES.DATABASE,
 ]);
 
 export const SLASH_COMMANDS = Object.freeze([
@@ -926,10 +1186,28 @@ export const SLASH_COMMANDS = Object.freeze([
     blockType: BLOCK_TYPES.TEXT,
   },
   {
-    id: "todo",
-    label: "To-do list",
-    description: "Track a task with a checkbox.",
-    aliases: ["todo", "to-do", "checkbox", "task"],
+    id: "checkbox",
+    label: "Checkbox",
+    description: "A simple checkbox that only lives in this note.",
+    aliases: [
+      "checkbox",
+      "check",
+      "checklist",
+      "todo",
+      "to-do"
+    ],
+    blockType: BLOCK_TYPES.TODO,
+  },
+  {
+    id: "task",
+    label: "Task",
+    description: "Create a real task tracked throughout Abide.",
+    aliases: [
+      "task",
+      "real task",
+      "action",
+      "action item"
+    ],
     blockType: BLOCK_TYPES.TODO,
   },
   {
@@ -995,6 +1273,267 @@ export const SLASH_COMMANDS = Object.freeze([
     aliases: ["callout", "notice", "highlight"],
     blockType: BLOCK_TYPES.CALLOUT,
   },
+
+  {
+    id: "page",
+    label: "Page",
+    description: "Create a new Abide page.",
+    aliases: [
+      "page",
+      "new page"
+    ],
+  },
+
+  {
+    id: "link-to-page",
+    label: "Link to page",
+    description: "Link this block to an existing Abide page.",
+    aliases: [
+      "link",
+      "link page",
+      "link to page"
+    ],
+  },
+
+  {
+    id: "mention-person",
+    label: "Mention a person",
+    description: "Mention a person from Abide.",
+    aliases: [
+      "person",
+      "mention person"
+    ],
+  },
+
+  {
+    id: "mention-page",
+    label: "Mention a page",
+    description: "Mention an existing Abide page.",
+    aliases: [
+      "mention",
+      "mention page"
+    ],
+  },
+
+  {
+    id: "date",
+    label: "Date",
+    description: "Insert a real date or date and time.",
+    aliases: [
+      "date",
+      "datetime"
+    ],
+  },
+
+  {
+    id: "reminder",
+    label: "Reminder",
+    description: "Create a real Abide reminder.",
+    aliases: [
+      "reminder",
+      "remind"
+    ],
+  },
+
+  {
+    id: "equation",
+    label: "Equation",
+    description: "Insert an equation block.",
+    aliases: [
+      "equation",
+      "math"
+    ],
+    blockType:
+      BLOCK_TYPES.EQUATION,
+  },
+
+  {
+    id: "emoji",
+    label: "Emoji",
+    description: "Insert an emoji into your writing.",
+    aliases: [
+      "emoji",
+      "icon"
+    ],
+  },
+
+  {
+    id: "image",
+    label: "Image",
+    description: "Upload and display an image.",
+    aliases: [
+      "image",
+      "photo",
+      "picture"
+    ],
+    blockType:
+      BLOCK_TYPES.IMAGE,
+  },
+
+  {
+    id: "video",
+    label: "Video",
+    description: "Upload and play a video.",
+    aliases: [
+      "video",
+      "movie"
+    ],
+    blockType:
+      BLOCK_TYPES.VIDEO,
+  },
+
+  {
+    id: "audio",
+    label: "Audio",
+    description: "Upload and play an audio file.",
+    aliases: [
+      "audio",
+      "sound"
+    ],
+    blockType:
+      BLOCK_TYPES.AUDIO,
+  },
+
+  {
+    id: "file",
+    label: "File",
+    description: "Upload and attach a file.",
+    aliases: [
+      "file",
+      "attachment"
+    ],
+    blockType:
+      BLOCK_TYPES.FILE,
+  },
+
+  {
+    id: "pdf",
+    label: "PDF",
+    description: "Upload and display a PDF.",
+    aliases: [
+      "pdf"
+    ],
+    blockType:
+      BLOCK_TYPES.PDF,
+  },
+
+  {
+    id: "bookmark",
+    label: "Web bookmark",
+    description: "Save a web link as a bookmark.",
+    aliases: [
+      "bookmark",
+      "book",
+      "web"
+    ],
+    blockType:
+      BLOCK_TYPES.BOOKMARK,
+  },
+
+  {
+    id: "embed",
+    label: "Embed",
+    description: "Embed content from a web address.",
+    aliases: [
+      "embed",
+      "iframe"
+    ],
+    blockType:
+      BLOCK_TYPES.EMBED,
+  },
+
+  {
+    id: "code",
+    label: "Code block",
+    description: "Write or paste formatted code.",
+    aliases: [
+      "code",
+      "code block"
+    ],
+    blockType:
+      BLOCK_TYPES.CODE,
+  },
+
+  {
+    id: "table",
+    label: "Table database",
+    description: "Create a database in table view.",
+    aliases: [
+      "table",
+      "database table"
+    ],
+  },
+
+  {
+    id: "board",
+    label: "Board database",
+    description: "Create a database in board view.",
+    aliases: [
+      "board",
+      "kanban"
+    ],
+  },
+
+  {
+    id: "gallery",
+    label: "Gallery database",
+    description: "Create a database in gallery view.",
+    aliases: [
+      "gallery",
+      "cards"
+    ],
+  },
+
+  {
+    id: "list-database",
+    label: "List database",
+    description: "Create a compact database list.",
+    aliases: [
+      "list database",
+      "database list"
+    ],
+  },
+
+  {
+    id: "calendar-database",
+    label: "Calendar database",
+    description: "Create a date-based database view.",
+    aliases: [
+      "calendar",
+      "calendar database"
+    ],
+  },
+
+  {
+    id: "timeline",
+    label: "Timeline database",
+    description: "Create a timeline database view.",
+    aliases: [
+      "timeline",
+      "timeline database"
+    ],
+  },
+
+  {
+    id: "chart",
+    label: "Chart",
+    description: "Visualize records from a database.",
+    aliases: [
+      "chart",
+      "database chart"
+    ],
+  },
+
+  {
+    id: "linked-database",
+    label: "Linked database",
+    description: "Display an existing database here.",
+    aliases: [
+      "linked database",
+      "linked view",
+      "linked"
+    ],
+  },
 ]);
 
 function normalizeBlockType(type) {
@@ -1007,43 +1546,115 @@ export function createBlock({
   id = makeId("block"),
   type = BLOCK_TYPES.TEXT,
   content = "",
+  text,
   properties = {},
   parentId = null,
   order = 0,
+  ...extra
 } = {}) {
-  const now = Date.now();
-  const normalizedType = normalizeBlockType(type);
+  const now =
+    Date.now();
+
+  const normalizedType =
+    normalizeBlockType(type);
+
+  const resolvedText =
+    normalizedType ===
+    BLOCK_TYPES.DIVIDER
+      ? ""
+      : String(
+          text !== undefined
+            ? text
+            : content ?? ""
+        );
 
   const defaultProperties = {
     [BLOCK_TYPES.TODO]: {
       checked: false,
     },
+
     [BLOCK_TYPES.TOGGLE]: {
       open: false,
     },
+
     [BLOCK_TYPES.CALLOUT]: {
       icon: "💡",
     },
   };
 
+  const mergedProperties = {
+    ...(defaultProperties[
+      normalizedType
+    ] || {}),
+
+    ...(properties || {}),
+  };
+
   return {
+    ...extra,
+
     id,
-    type: normalizedType,
+    type:
+      normalizedType,
+
+    /*
+     * `text` is the live workspace field.
+     * `content` remains synchronized for
+     * compatibility with the older block core.
+     */
+    text:
+      resolvedText,
+
     content:
-      normalizedType === BLOCK_TYPES.DIVIDER
-        ? ""
-        : String(content ?? ""),
-    properties: {
-      ...(defaultProperties[normalizedType] || {}),
-      ...(properties || {}),
-    },
+      resolvedText,
+
+    properties:
+      mergedProperties,
+
     parentId,
+
     order:
-      Number.isFinite(Number(order))
+      Number.isFinite(
+        Number(order)
+      )
         ? Number(order)
         : 0,
-    createdAt: now,
-    updatedAt: now,
+
+    checked:
+      normalizedType ===
+      BLOCK_TYPES.TODO
+        ? Boolean(
+            extra.checked ??
+            mergedProperties.checked
+          )
+        : extra.checked,
+
+    open:
+      normalizedType ===
+      BLOCK_TYPES.TOGGLE
+        ? (
+            extra.open ??
+            mergedProperties.open ??
+            false
+          )
+        : extra.open,
+
+    icon:
+      normalizedType ===
+      BLOCK_TYPES.CALLOUT
+        ? (
+            extra.icon ??
+            mergedProperties.icon ??
+            "💡"
+          )
+        : extra.icon,
+
+    createdAt:
+      extra.createdAt ??
+      now,
+
+    updatedAt:
+      now,
   };
 }
 

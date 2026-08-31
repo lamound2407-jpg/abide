@@ -1,4 +1,5 @@
 import React, {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -943,6 +944,199 @@ Use this current context when I ask you to reorganize, replace, reschedule, or r
 }
 
 
+
+const ABIDE_IMPORT_HISTORY_KEY =
+  "abide-import-history";
+
+
+function readImportHistory() {
+  try {
+    const saved =
+      JSON.parse(
+        localStorage.getItem(
+          ABIDE_IMPORT_HISTORY_KEY
+        ) || "[]"
+      );
+
+    return Array.isArray(saved)
+      ? saved
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+
+function writeImportHistory(
+  history
+) {
+  try {
+    localStorage.setItem(
+      ABIDE_IMPORT_HISTORY_KEY,
+      JSON.stringify(
+        history
+      )
+    );
+  } catch {}
+}
+
+
+function importDateTimeLabel(
+  value
+) {
+  const date =
+    new Date(
+      Number(value) ||
+      value
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return date.toLocaleString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  );
+}
+
+
+function taskCreationTime(
+  task
+) {
+  const match =
+    String(
+      task?.id || ""
+    ).match(
+      /^task_(\d+)_/
+    );
+
+  if (!match) {
+    return 0;
+  }
+
+  const value =
+    Number(
+      match[1]
+    );
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : 0;
+}
+
+
+/*
+ * Before Import History existed, an import left
+ * no receipt. Imported tasks are created in one
+ * rapid synchronous batch, though, and task IDs
+ * contain their creation timestamp.
+ *
+ * A cluster of 5+ tasks created within five
+ * seconds is therefore a useful recovery candidate.
+ */
+function detectRecentImportBatch(
+  tasks
+) {
+  const dated =
+    (
+      Array.isArray(tasks)
+        ? tasks
+        : []
+    )
+      .map(
+        (task) => ({
+          task,
+          createdAt:
+            taskCreationTime(
+              task
+            ),
+        })
+      )
+      .filter(
+        (item) =>
+          item.createdAt > 0
+      )
+      .sort(
+        (a, b) =>
+          b.createdAt -
+          a.createdAt
+      );
+
+  if (
+    dated.length < 5
+  ) {
+    return null;
+  }
+
+  /*
+   * Scan the entire task history rather than
+   * only looking around the newest task.
+   *
+   * This lets Abide recover an older import
+   * even if normal tasks were created afterward.
+   */
+  let bestBatch =
+    null;
+
+  for (
+    let index = 0;
+    index < dated.length;
+    index += 1
+  ) {
+    const anchor =
+      dated[index]
+        .createdAt;
+
+    const batch =
+      dated.filter(
+        (item) =>
+          item.createdAt <=
+            anchor &&
+          anchor -
+            item.createdAt <=
+            5000
+      );
+
+    if (
+      batch.length < 5
+    ) {
+      continue;
+    }
+
+    if (
+      !bestBatch ||
+      anchor >
+        bestBatch.createdAt
+    ) {
+      bestBatch = {
+        createdAt:
+          anchor,
+
+        tasks:
+          batch.map(
+            (item) =>
+              item.task
+          ),
+      };
+    }
+  }
+
+  return bestBatch;
+}
+
 export default function ImportTasksPanel({
   areas,
   tasks = [],
@@ -1013,6 +1207,47 @@ export default function ImportTasksPanel({
 
   const fileRef =
     useRef(null);
+
+  const [
+    importHistory,
+    setImportHistory,
+  ] =
+    useState(
+      readImportHistory
+    );
+
+  const [
+    importReceipt,
+    setImportReceipt,
+  ] =
+    useState(null);
+
+  const [
+    expandedImportId,
+    setExpandedImportId,
+  ] =
+    useState(null);
+
+  const [
+    recoveredImportCandidate,
+    setRecoveredImportCandidate,
+  ] =
+    useState(
+      () =>
+        detectRecentImportBatch(
+          tasks
+        )
+    );
+
+
+  useEffect(() => {
+    writeImportHistory(
+      importHistory
+    );
+  }, [
+    importHistory,
+  ]);
+
 
 
   const parsed =
@@ -1414,6 +1649,12 @@ export default function ImportTasksPanel({
       const createdAreas =
         {};
 
+      const importedTaskIds =
+        [];
+
+      const importedTaskSnapshots =
+        [];
+
 
       parsed.tasks.forEach(
         (item) => {
@@ -1455,7 +1696,8 @@ export default function ImportTasksPanel({
           }
 
 
-          onCreateTask({
+          const createdTaskId =
+            onCreateTask({
             title:
               item.title,
 
@@ -1528,12 +1770,389 @@ export default function ImportTasksPanel({
 
             bypassProtected:
               false,
+            });
+
+          importedTaskIds.push(
+            createdTaskId
+          );
+
+          importedTaskSnapshots.push({
+            id:
+              createdTaskId,
+
+            title:
+              item.title,
+
+            dueDate:
+              item.dueDate,
+
+            dueTime:
+              item.dueTime ||
+              null,
+
+            targetDate:
+              item.targetDate ||
+              null,
+
+            priority:
+              item.priority,
+
+            area:
+              item.areaName ||
+              "",
+
+            notes:
+              item.notes ||
+              "",
+
+            reminder:
+              item.reminder ||
+              "None",
+
+            status:
+              item.status ||
+              "next",
           });
         }
       );
 
 
-      onClose();
+      const importedAt =
+        Date.now();
+
+      const historyEntry = {
+        id:
+          `import_${importedAt}_${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        importedAt,
+
+        source:
+          mode === "file"
+            ? (
+                fileName ||
+                `${kind.toUpperCase()} file`
+              )
+            : `Pasted ${kind.toUpperCase()}`,
+
+        fileName:
+          fileName ||
+          "",
+
+        kind,
+
+        mode:
+          importMode,
+
+        count:
+          importedTaskIds.length,
+
+        replacedCount:
+          replacements.length,
+
+        areas:
+          areaNames,
+
+        startDate:
+          dates[0] ||
+          "",
+
+        endDate:
+          dates[
+            dates.length - 1
+          ] || "",
+
+        taskIds:
+          importedTaskIds,
+
+        tasks:
+          importedTaskSnapshots,
+
+        originalPayload:
+          rawText,
+
+        undoneAt:
+          null,
+
+        recovered:
+          false,
+      };
+
+      setImportHistory(
+        (previous) => [
+          historyEntry,
+          ...previous,
+        ].slice(
+          0,
+          50
+        )
+      );
+
+      setImportReceipt(
+        historyEntry
+      );
+
+      setExpandedImportId(
+        historyEntry.id
+      );
+
+      setMessage(
+        `Import complete: ${importedTaskIds.length} task${
+          importedTaskIds.length === 1
+            ? ""
+            : "s"
+        } created.`
+      );
+    };
+
+
+
+  const undoImport =
+    (entry) => {
+      if (
+        !entry ||
+        entry.undoneAt ||
+        entry.mode !== "add"
+      ) {
+        return;
+      }
+
+      const existingIds =
+        new Set(
+          (
+            Array.isArray(tasks)
+              ? tasks
+              : []
+          ).map(
+            (task) =>
+              String(
+                task.id
+              )
+          )
+        );
+
+      const idsToDelete =
+        (
+          entry.taskIds ||
+          []
+        ).filter(
+          (id) =>
+            existingIds.has(
+              String(id)
+            )
+        );
+
+      if (
+        !window.confirm(
+          `Undo this import?\n\n${idsToDelete.length} imported task${
+            idsToDelete.length === 1
+              ? ""
+              : "s"
+          } currently remain and will be deleted.`
+        )
+      ) {
+        return;
+      }
+
+      idsToDelete.forEach(
+        (id) =>
+          onDeleteTask?.(
+            id
+          )
+      );
+
+      const undoneAt =
+        Date.now();
+
+      setImportHistory(
+        (previous) =>
+          previous.map(
+            (item) =>
+              item.id ===
+              entry.id
+                ? {
+                    ...item,
+                    undoneAt,
+                  }
+                : item
+          )
+      );
+
+      setImportReceipt(
+        (current) =>
+          current?.id ===
+          entry.id
+            ? {
+                ...current,
+                undoneAt,
+              }
+            : current
+      );
+    };
+
+
+  const recoverRecentImport =
+    () => {
+      const candidate =
+        recoveredImportCandidate;
+
+      if (
+        !candidate ||
+        !candidate.tasks
+          ?.length
+      ) {
+        return;
+      }
+
+      const recoveredAt =
+        Date.now();
+
+      const recoveredTasks =
+        candidate.tasks.map(
+          (task) => ({
+            id:
+              task.id,
+
+            title:
+              task.title ||
+              "Untitled task",
+
+            dueDate:
+              task.dueDate ||
+              "",
+
+            dueTime:
+              task.dueTime ||
+              null,
+
+            targetDate:
+              task.targetDate ||
+              null,
+
+            priority:
+              task.priority ||
+              "med",
+
+            area:
+              areaNameForTask(
+                task,
+                areas
+              ),
+
+            notes:
+              task.notes ||
+              "",
+
+            reminder:
+              task.reminder ||
+              "None",
+
+            status:
+              task.status ||
+              "next",
+          })
+        );
+
+      const recoveredDates =
+        recoveredTasks
+          .map(
+            (task) =>
+              task.dueDate
+          )
+          .filter(Boolean)
+          .sort();
+
+      const recoveredAreas =
+        [
+          ...new Set(
+            recoveredTasks
+              .map(
+                (task) =>
+                  task.area
+              )
+              .filter(Boolean)
+          ),
+        ];
+
+      const entry = {
+        id:
+          `recovered_import_${recoveredAt}`,
+
+        importedAt:
+          candidate.createdAt,
+
+        source:
+          "Recovered recent task batch",
+
+        fileName:
+          "",
+
+        kind:
+          "unknown",
+
+        mode:
+          "recovered",
+
+        count:
+          recoveredTasks.length,
+
+        replacedCount:
+          0,
+
+        areas:
+          recoveredAreas,
+
+        startDate:
+          recoveredDates[0] ||
+          "",
+
+        endDate:
+          recoveredDates[
+            recoveredDates.length -
+            1
+          ] || "",
+
+        taskIds:
+          recoveredTasks.map(
+            (task) =>
+              task.id
+          ),
+
+        tasks:
+          recoveredTasks,
+
+        originalPayload:
+          "",
+
+        undoneAt:
+          null,
+
+        recovered:
+          true,
+      };
+
+      setImportHistory(
+        (previous) => [
+          entry,
+          ...previous,
+        ].slice(
+          0,
+          50
+        )
+      );
+
+      setExpandedImportId(
+        entry.id
+      );
+
+      setRecoveredImportCandidate(
+        null
+      );
+
+      setMessage(
+        `Recovered a likely batch of ${recoveredTasks.length} recently created tasks.`
+      );
     };
 
 
@@ -1568,6 +2187,480 @@ export default function ImportTasksPanel({
 
   return (
     <div className="card composer-card">
+
+      {importReceipt && (
+        <div
+          className="import-summary"
+          style={{
+            marginTop: 0,
+            marginBottom: 12,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 800,
+              color: "var(--text)",
+            }}
+          >
+            Import Complete
+          </div>
+
+          <div
+            style={{
+              fontSize: 11.5,
+              color: "var(--text3)",
+              marginTop: 4,
+            }}
+          >
+            {importReceipt.count} task
+            {importReceipt.count === 1
+              ? ""
+              : "s"}{" "}
+            created ·{" "}
+            {importDateTimeLabel(
+              importReceipt.importedAt
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 7,
+              flexWrap: "wrap",
+              marginTop: 9,
+            }}
+          >
+            <div
+              className="filter-chip active"
+              onClick={() =>
+                setExpandedImportId(
+                  importReceipt.id
+                )
+              }
+            >
+              View Imported Tasks
+            </div>
+
+            {importReceipt.mode === "add" &&
+              !importReceipt.undoneAt && (
+                <div
+                  className="filter-chip"
+                  onClick={() =>
+                    undoImport(
+                      importReceipt
+                    )
+                  }
+                >
+                  Undo Import
+                </div>
+              )}
+
+            <div
+              className="filter-chip"
+              onClick={() =>
+                setImportReceipt(null)
+              }
+            >
+              Dismiss
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {!importReceipt &&
+        recoveredImportCandidate && (
+          <div
+            className="import-summary"
+            style={{
+              marginTop: 0,
+              marginBottom: 12,
+              borderColor:
+                "rgba(232,180,92,.34)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 800,
+                color: "var(--text)",
+              }}
+            >
+              Possible Recent Import
+            </div>
+
+            <div
+              style={{
+                fontSize: 11.25,
+                lineHeight: 1.5,
+                color: "var(--text3)",
+                marginTop: 4,
+              }}
+            >
+              Abide found{" "}
+              {
+                recoveredImportCandidate
+                  .tasks.length
+              }{" "}
+              tasks created within a few
+              seconds of each other at{" "}
+              {importDateTimeLabel(
+                recoveredImportCandidate
+                  .createdAt
+              )}.
+              This may be the import that
+              happened before history was
+              enabled.
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 7,
+                flexWrap: "wrap",
+                marginTop: 9,
+              }}
+            >
+              <div
+                className="filter-chip active"
+                onClick={
+                  recoverRecentImport
+                }
+              >
+                Recover to History
+              </div>
+
+              <div
+                className="filter-chip"
+                onClick={() =>
+                  setRecoveredImportCandidate(
+                    null
+                  )
+                }
+              >
+                Not My Import
+              </div>
+            </div>
+          </div>
+        )}
+
+
+      <div
+        className="import-summary"
+        style={{
+          marginTop: 0,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 800,
+                color: "var(--text)",
+              }}
+            >
+              Import History
+            </div>
+
+            <div
+              style={{
+                fontSize: 10.75,
+                color: "var(--text3)",
+                marginTop: 2,
+              }}
+            >
+              See exactly what Abide imported.
+            </div>
+          </div>
+
+          <span className="chip">
+            {importHistory.length}
+          </span>
+        </div>
+
+        {!importHistory.length && (
+          <div
+            style={{
+              fontSize: 11.25,
+              color: "var(--text3)",
+              marginTop: 9,
+            }}
+          >
+            No recorded imports yet.
+            New imports will appear here.
+          </div>
+        )}
+
+        {importHistory
+          .slice(0, 12)
+          .map((entry) => {
+            const expanded =
+              expandedImportId ===
+              entry.id;
+
+            const existingIds =
+              new Set(
+                (
+                  Array.isArray(tasks)
+                    ? tasks
+                    : []
+                ).map(
+                  (task) =>
+                    String(task.id)
+                )
+              );
+
+            const remaining =
+              (
+                entry.taskIds || []
+              ).filter(
+                (id) =>
+                  existingIds.has(
+                    String(id)
+                  )
+              ).length;
+
+            return (
+              <div
+                key={entry.id}
+                style={{
+                  marginTop: 9,
+                  paddingTop: 9,
+                  borderTop:
+                    "1px solid var(--divider)",
+                }}
+              >
+                <div
+                  onClick={() =>
+                    setExpandedImportId(
+                      expanded
+                        ? null
+                        : entry.id
+                    )
+                  }
+                  style={{
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      gap: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 750,
+                        color:
+                          "var(--text)",
+                      }}
+                    >
+                      {entry.count} task
+                      {entry.count === 1
+                        ? ""
+                        : "s"}
+                      {entry.recovered
+                        ? " · Recovered"
+                        : ""}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 10.25,
+                        color:
+                          "var(--text3)",
+                        textAlign: "right",
+                      }}
+                    >
+                      {importDateTimeLabel(
+                        entry.importedAt
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10.75,
+                      color:
+                        "var(--text3)",
+                      marginTop: 3,
+                    }}
+                  >
+                    {entry.source ||
+                      "Import"}
+                    {" · "}
+                    {remaining}/
+                    {entry.count} still
+                    present
+                    {entry.undoneAt
+                      ? " · Undone"
+                      : ""}
+                  </div>
+
+                  {(entry.startDate ||
+                    entry.endDate ||
+                    entry.areas
+                      ?.length) && (
+                    <div
+                      style={{
+                        fontSize: 10.25,
+                        color:
+                          "var(--text3)",
+                        marginTop: 3,
+                      }}
+                    >
+                      {entry.startDate
+                        ? formatDate(
+                            entry.startDate
+                          )
+                        : ""}
+
+                      {entry.startDate &&
+                      entry.endDate
+                        ? " → "
+                        : ""}
+
+                      {entry.endDate
+                        ? formatDate(
+                            entry.endDate
+                          )
+                        : ""}
+
+                      {entry.areas
+                        ?.length
+                        ? ` · ${entry.areas.join(
+                            ", "
+                          )}`
+                        : ""}
+                    </div>
+                  )}
+                </div>
+
+                {expanded && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                    }}
+                  >
+                    {(entry.tasks || [])
+                      .map(
+                        (
+                          task,
+                          index
+                        ) => (
+                          <div
+                            key={
+                              task.id ||
+                              index
+                            }
+                            style={{
+                              padding:
+                                "6px 0",
+                              borderTop:
+                                index
+                                  ? "1px solid var(--divider)"
+                                  : "none",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 11.5,
+                                fontWeight: 650,
+                                color:
+                                  "var(--text)",
+                              }}
+                            >
+                              {task.title}
+                            </div>
+
+                            <div
+                              style={{
+                                fontSize: 10.25,
+                                color:
+                                  "var(--text3)",
+                                marginTop: 2,
+                              }}
+                            >
+                              {task.dueDate ||
+                                "No date"}
+
+                              {task.area
+                                ? ` · ${task.area}`
+                                : ""}
+
+                              {existingIds.has(
+                                String(
+                                  task.id
+                                )
+                              )
+                                ? " · In Abide"
+                                : " · No longer present"}
+                            </div>
+                          </div>
+                        )
+                      )}
+
+                    {entry.mode ===
+                      "add" &&
+                      !entry.undoneAt && (
+                        <div
+                          className="filter-chip"
+                          style={{
+                            marginTop: 8,
+                            color:
+                              "#E68080",
+                          }}
+                          onClick={() =>
+                            undoImport(
+                              entry
+                            )
+                          }
+                        >
+                          Undo This Import
+                        </div>
+                      )}
+
+                    {entry.mode !==
+                      "add" &&
+                      !entry.recovered && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 10.5,
+                            lineHeight: 1.45,
+                            color:
+                              "var(--text3)",
+                          }}
+                        >
+                          Undo is disabled for
+                          replacement imports
+                          because that operation
+                          may also have removed
+                          older tasks.
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
+
+
       <div
         style={{
           padding:

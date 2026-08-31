@@ -13655,6 +13655,7 @@ function MoreTab({
     { id: "scratch", label: "Notes", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
     { id: "reminders", label: "Reminders", copy: "Upcoming alerts and notification controls", icon: Bell, tint: "#E8B45C" },
     { id: "insights", label: "Insights", copy: "Patterns and history, not another scoreboard", icon: BarChart3, tint: "#8FA88A" },
+    { id: "export-center", label: "Export Center", copy: "Reports, exports, backups, and custom data views", icon: Download, tint: "#E8B45C" },
   ];
 
   return (
@@ -13665,70 +13666,26 @@ function MoreTab({
           <div className="review-kicker">Out of the way, still available</div>
           <div className="review-hero-title">Keep the main navigation quiet.</div>
           
-        {/* ABIDE MORE HUB EXPORT CENTER V1 */}
-        <div
-          className="card"
-          role="button"
-          tabIndex={0}
-          onClick={() =>
-            window.dispatchEvent(
-              new Event("abide:open-export-center")
-            )
-          }
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" ||
-              event.key === " "
-            ) {
-              event.preventDefault();
-
-              window.dispatchEvent(
-                new Event("abide:open-export-center")
-              );
-            }
-          }}
-          style={{
-            cursor: "pointer",
-          }}
-        >
-          <div
-            style={{
-              color: "#E8B45C",
-              marginBottom: 14,
-            }}
-          >
-            <Download size={18} />
-          </div>
-
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "var(--text)",
-            }}
-          >
-            Export Center
-          </div>
-
-          <div
-            style={{
-              fontSize: 11.5,
-              color: "var(--text3)",
-              marginTop: 4,
-              lineHeight: 1.4,
-            }}
-          >
-            Reports, exports, backups, and custom data views
-          </div>
-        </div>
-
-<div className="review-hero-copy">These tools matter, but they do not need to compete with Today, Calendar, Review, and Journal every time you open Abide.</div>
+        <div className="review-hero-copy">These tools matter, but they do not need to compete with Today, Calendar, Review, and Journal every time you open Abide.</div>
         </div>
         <div className="more-grid">
           {cards.map((item) => {
             const Icon = item.icon;
             return (
-              <div className="card more-card" key={item.id} onClick={() => onOpen(item.id)}>
+              <div
+                className="card more-card"
+                key={item.id}
+                onClick={() => {
+                  if (item.id === "export-center") {
+                    window.dispatchEvent(
+                      new Event("abide:open-export-center")
+                    );
+                    return;
+                  }
+
+                  onOpen(item.id);
+                }}
+              >
                 <Icon size={20} color={item.tint} />
                 <div>
                   <div className="more-card-title">{item.label}</div>

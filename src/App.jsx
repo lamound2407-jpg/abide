@@ -13803,7 +13803,32 @@ function InsightsTab({
         <div className="card insight-line" style={{ marginBottom: 14, padding: 14 }}>{tasks.length >= 10 ? "As you build real task history, Abide will use completion timestamps to surface patterns here." : "No pattern generated yet. This section will stay empty until there is enough real task history to support a useful observation."}</div>
 
         <div className="section-label">More</div>
-        <div className="card"><div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div><div className="nav-row" onClick={() => setScreen("settings")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#8FA88A22" }}><SettingsIcon size={16} color="#8FA88A" /></div>Settings</div><ChevronRight size={16} color="var(--text3)" /></div></div>
+        <div className="card"><div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div>{/* ABIDE MORE EXPORT CENTER V1 */}
+<div
+  className="nav-row"
+  onClick={() =>
+    window.dispatchEvent(
+      new Event("abide:open-export-center")
+    )
+  }
+>
+  <div className="nav-row-left">
+    <div
+      className="nav-icon"
+      style={{
+        background: "#E8B45C22",
+        color: "#E8B45C",
+        fontSize: 16,
+        fontWeight: 800,
+      }}
+    >
+      ↓
+    </div>
+    Export Center
+  </div>
+  <ChevronRight size={16} color="var(--text3)" />
+</div>
+<div className="nav-row" onClick={() => setScreen("settings")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#8FA88A22" }}><SettingsIcon size={16} color="#8FA88A" /></div>Settings</div><ChevronRight size={16} color="var(--text3)" /></div></div>
       </div>
     </>
   );

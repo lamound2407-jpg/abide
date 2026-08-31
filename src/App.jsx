@@ -1478,7 +1478,24 @@ function Sidebar({
           : "sidebar-wide"
       }`}
     >
-      <div className="sidebar-brand">
+      <div className="sidebar-brand"
+  /* ABIDE SIDEBAR HOME LOGO V1 */
+  role="button"
+  tabIndex={0}
+  aria-label="Go to Today"
+  title="Go to Today"
+  onClick={() => setTab("today")}
+  onKeyDown={(event) => {
+    if (
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
+      event.preventDefault();
+      setTab("today");
+    }
+  }}
+  style={{ cursor: "pointer" }}
+>
         <img
           className="sidebar-brand-logo"
           src="/abide-logo.png"
@@ -15685,6 +15702,31 @@ export default function App({ accountSync }) {
       );
   }, []);
 
+  /* ABIDE CENTRAL NAVIGATION V1 */
+  const navigateToTab = (nextTab) => {
+    setExportCenterOpen(false);
+    setSelectedAreaId(null);
+    setTab(nextTab);
+  };
+
+  useEffect(() => {
+    const goToday = () => {
+      navigateToTab("today");
+    };
+
+    window.addEventListener(
+      "abide:go-today",
+      goToday
+    );
+
+    return () => {
+      window.removeEventListener(
+        "abide:go-today",
+        goToday
+      );
+    };
+  }, []);
+
   const [viewport, setViewport] = useState(() => (typeof window !== "undefined" ? getViewport(window.innerWidth) : "phone"));
   const tk = THEME[theme] || THEME.dark;
 
@@ -16205,7 +16247,7 @@ export default function App({ accountSync }) {
     <>
       {tab === "today" && <TodayTab tasks={tasks} goals={goals} areas={areas} expandedId={expandedId} setExpandedId={setExpandedId} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} onCreateArea={createArea} />}
       {tab === "calendar" && <CalendarTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} toggleDone={toggleDone} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateTask={createTask} openAddSignal={quickAddSignal} onCreateArea={createArea} />}
-      {tab === "review" && <ReviewTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} onOpen={setTab} onOpenAdd={openGlobalAdd} onCreateTask={createTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
+      {tab === "review" && <ReviewTab tasks={tasks} goals={goals} protectedBlocks={protectedBlocks} areas={areas} onOpen={navigateToTab} onOpenAdd={openGlobalAdd} onCreateTask={createTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} onCreateArea={createArea} />}
       {tab === "goals" && (
         <GoalsTab
           goals={goals}
@@ -16249,8 +16291,8 @@ export default function App({ accountSync }) {
           goals={goals}
           journalEntries={journalEntries}
           setJournalEntries={setJournalEntries}
-          onOpenJournal={() => setTab("journal")}
-          onOpenCalendar={() => setTab("calendar")}
+          onOpenJournal={() => navigateToTab("journal")}
+          onOpenCalendar={() => navigateToTab("calendar")}
           accountSync={accountSync}
           onOpenHowAbideWorks={openHowAbideWorks}
           primaryNavigation={safePrimaryNavigation}
@@ -16262,7 +16304,7 @@ export default function App({ accountSync }) {
 
       {tab === "more" && (
         <MoreTab
-          onOpen={setTab}
+          onOpen={navigateToTab}
           theme={theme}
           setTheme={setTheme}
           protectedBlocks={protectedBlocks}
@@ -16270,7 +16312,7 @@ export default function App({ accountSync }) {
           areas={areas}
           setAreas={setAreas}
           onDeleteArea={deleteArea}
-          onOpenCalendar={() => setTab("calendar")}
+          onOpenCalendar={() => navigateToTab("calendar")}
           accountSync={accountSync}
           onOpenHowAbideWorks={openHowAbideWorks}
           primaryNavigation={safePrimaryNavigation}
@@ -16291,7 +16333,35 @@ export default function App({ accountSync }) {
       <PwaUpdateBanner />
       {viewport === "phone" ? (
         <div className="app">
-          <div className="statusbar"><span className="brand"><img className="brand-mark" src="/abide-logo.png" alt="" /><span className="brand-word">{APP_NAME.toUpperCase()}</span></span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>
+          <div className="statusbar"><span
+              className="brand"
+              role="button"
+              tabIndex={0}
+              aria-label="Go to Today"
+              title="Go to Today"
+              onClick={() =>
+                navigateToTab("today")
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" ||
+                  event.key === " "
+                ) {
+                  event.preventDefault();
+                  navigateToTab("today");
+                }
+              }}
+              style={{ cursor: "pointer" }}
+            >
+              <img
+                className="brand-mark"
+                src="/abide-logo.png"
+                alt=""
+              />
+              <span className="brand-word">
+                {APP_NAME.toUpperCase()}
+              </span>
+            </span><div className="theme-toggle" style={{ cursor: "pointer" }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Moon size={15} color="#E8B45C" /> : <Sun size={15} color="#D69A3A" />}</div></div>
           <div className="phone-content">
             {exportCenterOpen ? (
               <ExportCenter
@@ -16308,14 +16378,21 @@ export default function App({ accountSync }) {
 
           <PhoneQuickAccess
             tab={tab}
-            setTab={setTab}
+            setTab={navigateToTab}
           />
 
           <button className="fab" onClick={openGlobalAdd} aria-label="Add task or event"><Plus size={24} strokeWidth={2.5} /></button>
-          <div className="tabbar">{tabs.map((t) => { const Icon = t.icon; const active = navTabIsActive(tab, t.id); return <div key={t.id} className={`tab ${active ? "active" : ""}`} style={{ cursor: "pointer" }} onClick={() => setTab(t.id)}><Icon size={20} strokeWidth={active ? 2.3 : 1.8} /><span>{t.label}</span></div>; })}</div>
+          <div className="tabbar">{tabs.map((t) => { const Icon = t.icon; const active = navTabIsActive(tab, t.id); return <div key={t.id} className={`tab ${active ? "active" : ""}`} style={{ cursor: "pointer" }} onClick={() => navigateToTab(t.id)}><Icon size={20} strokeWidth={active ? 2.3 : 1.8} /><span>{t.label}</span></div>; })}</div>
         </div>
       ) : (
-        <div className="shell"><Sidebar tabs={tabs} tab={tab} setTab={setTab} viewport={viewport} theme={theme} setTheme={setTheme} /><div className="shell-main">
+        <div className="shell"><Sidebar
+            tabs={tabs}
+            tab={tab}
+            setTab={navigateToTab}
+            viewport={viewport}
+            theme={theme}
+            setTheme={setTheme}
+          /><div className="shell-main">
           {exportCenterOpen ? (
             <ExportCenter
               tasks={tasks}

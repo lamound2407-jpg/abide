@@ -13664,7 +13664,65 @@ function MoreTab({
         <div className="card review-hero">
           <div className="review-kicker">Out of the way, still available</div>
           <div className="review-hero-title">Keep the main navigation quiet.</div>
-          <div className="review-hero-copy">These tools matter, but they do not need to compete with Today, Calendar, Review, and Journal every time you open Abide.</div>
+          
+        {/* ABIDE MORE HUB EXPORT CENTER V1 */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() =>
+            window.dispatchEvent(
+              new Event("abide:open-export-center")
+            )
+          }
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" ||
+              event.key === " "
+            ) {
+              event.preventDefault();
+
+              window.dispatchEvent(
+                new Event("abide:open-export-center")
+              );
+            }
+          }}
+          style={{
+            cursor: "pointer",
+          }}
+        >
+          <div
+            style={{
+              color: "#E8B45C",
+              marginBottom: 14,
+            }}
+          >
+            <Download size={18} />
+          </div>
+
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "var(--text)",
+            }}
+          >
+            Export Center
+          </div>
+
+          <div
+            style={{
+              fontSize: 11.5,
+              color: "var(--text3)",
+              marginTop: 4,
+              lineHeight: 1.4,
+            }}
+          >
+            Reports, exports, backups, and custom data views
+          </div>
+        </div>
+
+<div className="review-hero-copy">These tools matter, but they do not need to compete with Today, Calendar, Review, and Journal every time you open Abide.</div>
         </div>
         <div className="more-grid">
           {cards.map((item) => {
@@ -13801,31 +13859,7 @@ function InsightsTab({
         <div className="card insight-line" style={{ marginBottom: 14, padding: 14 }}>{tasks.length >= 10 ? "As you build real task history, Abide will use completion timestamps to surface patterns here." : "No pattern generated yet. This section will stay empty until there is enough real task history to support a useful observation."}</div>
 
         <div className="section-label">More</div>
-        <div className="card"><div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div>{/* ABIDE MORE EXPORT CENTER V1 */}
-<div
-  className="nav-row"
-  onClick={() =>
-    window.dispatchEvent(
-      new Event("abide:open-export-center")
-    )
-  }
->
-  <div className="nav-row-left">
-    <div
-      className="nav-icon"
-      style={{
-        background: "#E8B45C22",
-        color: "#E8B45C",
-        fontSize: 16,
-        fontWeight: 800,
-      }}
-    >
-      ↓
-    </div>
-    Export Center
-  </div>
-  <ChevronRight size={16} color="var(--text3)" />
-</div>
+        <div className="card"><div className="nav-row" onClick={() => setScreen("notifications")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#E8B45C22" }}><Bell size={16} color="#E8B45C" /></div>Notification Center</div><ChevronRight size={16} color="var(--text3)" /></div>
 <div className="nav-row" onClick={() => setScreen("settings")}><div className="nav-row-left"><div className="nav-icon" style={{ background: "#8FA88A22" }}><SettingsIcon size={16} color="#8FA88A" /></div>Settings</div><ChevronRight size={16} color="var(--text3)" /></div></div>
       </div>
     </>

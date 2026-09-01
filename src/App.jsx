@@ -1998,35 +1998,21 @@ function inferTaskTime(task) {
 
 /* ABIDE GLOBAL WEEK START V2 */
 function getWeekStartPreference() {
-  try {
-    const saved =
-      localStorage.getItem(
-        "abide-week-start"
-      );
-
-    return saved === "monday"
-      ? "monday"
-      : "sunday";
-  } catch {
-    return "sunday";
-  }
+  return getAbideWeekStart();
 }
 
 function buildWeekKeys(
-  anchorKey = REFERENCE_DATE_KEY
+  anchorKey = REFERENCE_DATE_KEY,
+  weekStart = getAbideWeekStart()
 ) {
-  const date =
-    dateFromKey(anchorKey);
-
-  const weekStart =
-    getWeekStartPreference();
+  const date = dateFromKey(anchorKey);
 
   const startOffset =
     weekStart === "monday"
       ? (date.getDay() + 6) % 7
       : date.getDay();
 
-  const start =
+  const startKey =
     shiftDateKey(
       anchorKey,
       -startOffset
@@ -2036,33 +2022,18 @@ function buildWeekKeys(
     { length: 7 },
     (_, index) =>
       shiftDateKey(
-        start,
+        startKey,
         index
       )
   );
 }
 
-function weekDayLabels() {
-  return getWeekStartPreference() ===
-    "monday"
-    ? [
-        "Mon",
-        "Tue",
-        "Wed",
-        "Thu",
-        "Fri",
-        "Sat",
-        "Sun",
-      ]
-    : [
-        "Sun",
-        "Mon",
-        "Tue",
-        "Wed",
-        "Thu",
-        "Fri",
-        "Sat",
-      ];
+function weekDayLabels(
+  weekStart = getAbideWeekStart()
+) {
+  return weekStart === "monday"
+    ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 }
 
 function lastNDateKeys(count, anchorKey = REFERENCE_DATE_KEY) {
@@ -7213,6 +7184,8 @@ function MicrosoftCalendarsPanel({ accounts, onConnect, onDisconnect, onToggleCa
 
 function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdateTask, onDeleteTask, onCreateTask, openAddSignal, onCreateArea }) {
   const [mode, setMode] = useState("week");
+  const weekStart =
+    useAbideWeekStart();
   const [selectedDateKey, setSelectedDateKey] = useState(REFERENCE_DATE_KEY);
   const [adding, setAdding] = useState(false);
   const [calsOpen, setCalsOpen] = useState(false);
@@ -7362,7 +7335,7 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const googleConfigured = Boolean(googleClientId);
   const googleConnected = googleAccounts.some((a) => Boolean(a.token));
-  const weekKeys = buildWeekKeys(selectedDateKey);
+  const weekKeys = buildWeekKeys(selectedDateKey, weekStart);
 
   /* ABIDE CALENDAR WEEK NAVIGATION V1 */
   const weekStartDate =
@@ -13903,6 +13876,16 @@ const MONTHLY_REVIEW_BLUEPRINT = [
 
 function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, onCreateTask, onUpdateTask, onDeleteTask, onCreateArea }) {
   const [cadence, setCadence] = usePersistentState("abide-review-cadence", "weekly");
+
+  /* ABIDE FLEXIBLE WEEKLY REVIEW V2 */
+  const weekStart =
+    useAbideWeekStart();
+
+  const [
+    reviewPlanStartOverride,
+    setReviewPlanStartOverride,
+  ] = useState("");
+
   const [workspace, setWorkspace] = usePersistentState("abide-review-workspace-v2", {
     weekly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""], linkedTaskIdsByStep: {} },
     monthly: { step: 0, checked: {}, notes: {}, focus: ["", "", ""], linkedTaskIdsByStep: {} },
@@ -13952,8 +13935,72 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
       .slice(0, 2),
   ].slice(0, 4);
 
-  const weekKeys = buildPreferenceWeekKeys(REFERENCE_DATE_KEY);
-  const weekEnd = weekKeys[weekKeys.length - 1];
+  const officialWeekKeys =
+    buildWeekKeys(
+      REFERENCE_DATE_KEY,
+      weekStart
+    );
+
+  const officialWeekStart =
+    officialWeekKeys[0];
+
+  const todayWeekIndex =
+    officialWeekKeys.indexOf(
+      REFERENCE_DATE_KEY
+    );
+
+  const automaticReviewStart =
+    todayWeekIndex === 6
+      ? shiftDateKey(
+          officialWeekStart,
+          7
+        )
+      : REFERENCE_DATE_KEY;
+
+  const reviewPlanningStart =
+    reviewPlanStartOverride ||
+    automaticReviewStart;
+
+  const planningOfficialWeek =
+    buildWeekKeys(
+      reviewPlanningStart,
+      weekStart
+    );
+
+  const reviewPlanningEnd =
+    planningOfficialWeek[
+      planningOfficialWeek.length - 1
+    ];
+
+  const weekKeys =
+    Array.from(
+      { length: 7 },
+      (_, index) =>
+        shiftDateKey(
+          reviewPlanningStart,
+          index
+        )
+    ).filter(
+      (key) =>
+        key <= reviewPlanningEnd
+    );
+
+  const weekEnd =
+    reviewPlanningEnd;
+
+  const reviewTimingLabel =
+    !reviewPlanStartOverride &&
+    todayWeekIndex === 6
+      ? "Reviewing early · preparing the upcoming week"
+      : reviewPlanningStart === officialWeekStart
+        ? "Full week"
+        : reviewPlanningStart === REFERENCE_DATE_KEY
+          ? (
+              todayWeekIndex === 0
+                ? "Starting the week"
+                : "Starting from today"
+            )
+          : "Custom planning window";
 
   const nextMonthDate = new Date(dateFromKey(REFERENCE_DATE_KEY));
   nextMonthDate.setMonth(nextMonthDate.getMonth() + 1, 1);
@@ -14059,6 +14106,18 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
       id: `review_${Date.now()}`,
       cadence,
       periodLabel,
+      planningStart:
+        cadence === "weekly"
+          ? reviewPlanningStart
+          : null,
+      planningEnd:
+        cadence === "weekly"
+          ? reviewPlanningEnd
+          : null,
+      weekStart:
+        cadence === "weekly"
+          ? weekStart
+          : null,
       completedAt: new Date().toISOString(),
       notes: state.notes || {},
       focus: (state.focus || []).filter((x) => x?.trim()),
@@ -14099,7 +14158,171 @@ function ReviewTab({ tasks, goals, protectedBlocks, areas, onOpen, onOpenAdd, on
         <div className="card review-hero">
           <div className="review-kicker">{cadence === "weekly" ? "Weekly reset" : "Plan the month ahead"}</div>
           <div className="review-hero-title">{periodLabel}</div>
-          <div className="review-hero-copy">{cadence === "weekly" ? "Get clear, get current, get creative, and protect an unhurried pace before the week begins." : "Use last month only as information. Clear the system, survey the next 4–6 weeks, choose a few outcomes, create their next actions, and protect the rhythms and margin that make the month livable."}</div>
+          <div className="review-hero-copy">{cadence === "weekly" ? "Get clear, get current, and plan faithfully from where you are now. Review can happen early, on time, or late without losing the shape of your week." : "Use last month only as information. Clear the system, survey the next 4–6 weeks, choose a few outcomes, create their next actions, and protect the rhythms and margin that make the month livable."}</div>
+          {/* ABIDE REVIEW PLANNING WINDOW UI V2 */}
+          {cadence === "weekly" && (
+            <div
+              style={{
+                marginTop: 14,
+                marginBottom: 13,
+                padding: 12,
+                borderRadius: 12,
+                background: "var(--subtleBg)",
+                border: "1px solid var(--divider)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11.75,
+                      fontWeight: 750,
+                      color: "var(--text)",
+                    }}
+                  >
+                    Planning window
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10.25,
+                      color: "#8FA88A",
+                      marginTop: 2,
+                    }}
+                  >
+                    {reviewTimingLabel}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    color: "var(--text3)",
+                    textAlign: "right",
+                  }}
+                >
+                  {weekStart === "sunday"
+                    ? "Sunday → Saturday"
+                    : "Monday → Sunday"}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: 8,
+                  marginTop: 10,
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  type="date"
+                  className="input-line"
+                  style={{ margin: 0 }}
+                  value={reviewPlanningStart}
+                  onChange={(event) =>
+                    setReviewPlanStartOverride(
+                      event.target.value
+                    )
+                  }
+                  aria-label="Start planning from"
+                />
+
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    color: "var(--text3)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  through{" "}
+                  {formatDateLabel(
+                    reviewPlanningEnd
+                  )}
+                </div>
+              </div>
+
+              <div
+                className="filter-row"
+                style={{
+                  padding: "9px 0 0",
+                  overflowX: "visible",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div
+                  className={`filter-chip ${
+                    !reviewPlanStartOverride
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setReviewPlanStartOverride("")
+                  }
+                >
+                  Auto
+                </div>
+
+                <div
+                  className="filter-chip"
+                  onClick={() =>
+                    setReviewPlanStartOverride(
+                      officialWeekStart
+                    )
+                  }
+                >
+                  Full Week
+                </div>
+
+                <div
+                  className="filter-chip"
+                  onClick={() =>
+                    setReviewPlanStartOverride(
+                      REFERENCE_DATE_KEY
+                    )
+                  }
+                >
+                  Start Today
+                </div>
+
+                <div
+                  className="filter-chip"
+                  onClick={() =>
+                    setReviewPlanStartOverride(
+                      shiftDateKey(
+                        officialWeekStart,
+                        7
+                      )
+                    )
+                  }
+                >
+                  Next Week
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 10.25,
+                  lineHeight: 1.45,
+                  color: "var(--text3)",
+                  marginTop: 8,
+                }}
+              >
+                Your official week still follows Settings.
+                Review can begin early, on time, late,
+                or from a custom date.
+              </div>
+            </div>
+          )}
+
           <div className="review-progress"><div className="review-progress-fill" style={{ width: `${progress}%` }} /></div>
           <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{progress}% checked · step {stepIndex + 1} of {blueprint.length}</div>
         </div>
@@ -14658,21 +14881,87 @@ function InsightsTab({
 
 function getAbideWeekStart() {
   try {
-    const raw =
-      window.localStorage.getItem(
-        "abide-week-start"
-      );
+    const raw = window.localStorage.getItem("abide-week-start");
 
     if (!raw) return "sunday";
 
-    const value = JSON.parse(raw);
-
-    return value === "monday"
-      ? "monday"
-      : "sunday";
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed === "monday" ? "monday" : "sunday";
+    } catch {
+      return raw === "monday" ? "monday" : "sunday";
+    }
   } catch {
     return "sunday";
   }
+}
+
+
+/* ABIDE LIVE WEEK SYSTEM V3 */
+function setAbideWeekStart(nextWeekStart) {
+  const normalized =
+    nextWeekStart === "monday"
+      ? "monday"
+      : "sunday";
+
+  try {
+    window.localStorage.setItem(
+      "abide-week-start",
+      JSON.stringify(normalized)
+    );
+  } catch {}
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "abide:week-start-change",
+      {
+        detail: {
+          weekStart: normalized,
+        },
+      }
+    )
+  );
+}
+
+
+function useAbideWeekStart() {
+  const [weekStart, setWeekStartState] =
+    useState(() => getAbideWeekStart());
+
+  useEffect(() => {
+    const refresh = () => {
+      setWeekStartState(
+        getAbideWeekStart()
+      );
+    };
+
+    const handleCustom = (event) => {
+      const next =
+        event?.detail?.weekStart;
+
+      setWeekStartState(
+        next === "monday"
+          ? "monday"
+          : "sunday"
+      );
+    };
+
+    window.addEventListener("storage", refresh);
+    window.addEventListener(
+      "abide:week-start-change",
+      handleCustom
+    );
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener(
+        "abide:week-start-change",
+        handleCustom
+      );
+    };
+  }, []);
+
+  return weekStart;
 }
 
 
@@ -14698,26 +14987,19 @@ function buildPreferenceWeekKeys(
   anchorKey = REFERENCE_DATE_KEY
 ) {
   return buildWeekKeys(
-    anchorKey
+    anchorKey,
+    getAbideWeekStart()
   );
 }
 
 
 function WeekStartSetting() {
-  const [
-    weekStart,
-    setWeekStart,
-  ] = usePersistentState(
-    "abide-week-start",
-    "sunday"
-  );
+  const weekStart = useAbideWeekStart();
 
   return (
     <div
       className="card"
-      style={{
-        padding: 14,
-      }}
+      style={{ padding: 14 }}
     >
       <div
         style={{
@@ -14726,53 +15008,68 @@ function WeekStartSetting() {
           color: "var(--text)",
         }}
       >
-        Start of week
+        Start the week on
       </div>
 
       <div
         style={{
-          marginTop: 4,
-          fontSize: 11,
+          fontSize: 11.25,
           lineHeight: 1.45,
           color: "var(--text3)",
+          marginTop: 4,
         }}
       >
-        Choose when Abide considers a new week
-        to begin.
+        This changes Calendar, Weekly Review,
+        weekly summaries, and every “this week”
+        calculation.
       </div>
 
       <div
+        className="segmented"
         style={{
-          display: "flex",
-          gap: 8,
           marginTop: 12,
+          marginBottom: 0,
         }}
       >
         <div
-          className={`filter-chip ${
+          className={`seg-btn ${
             weekStart === "sunday"
               ? "active"
               : ""
           }`}
           onClick={() =>
-            setWeekStart("sunday")
+            setAbideWeekStart("sunday")
           }
         >
           Sunday
         </div>
 
         <div
-          className={`filter-chip ${
+          className={`seg-btn ${
             weekStart === "monday"
               ? "active"
               : ""
           }`}
           onClick={() =>
-            setWeekStart("monday")
+            setAbideWeekStart("monday")
           }
         >
           Monday
         </div>
+      </div>
+
+      <div
+        style={{
+          fontSize: 10.5,
+          color: "#8FA88A",
+          fontWeight: 650,
+          marginTop: 9,
+        }}
+      >
+        Active week:{" "}
+        {weekStart === "sunday"
+          ? "Sunday → Saturday"
+          : "Monday → Sunday"}
       </div>
     </div>
   );

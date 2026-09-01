@@ -980,7 +980,15 @@ const ONBOARDING_STEPS = [
   },
 ];
 
-const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS_OF_WEEK = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+];
 const WEEKDAY_OPTIONS = [
   { label: "Sunday", code: "SU" }, { label: "Monday", code: "MO" }, { label: "Tuesday", code: "TU" },
   { label: "Wednesday", code: "WE" }, { label: "Thursday", code: "TH" }, { label: "Friday", code: "FR" }, { label: "Saturday", code: "SA" },
@@ -1988,11 +1996,73 @@ function inferTaskTime(task) {
   return `${String(h).padStart(2, "0")}:${minute}`;
 }
 
-function buildWeekKeys(anchorKey = REFERENCE_DATE_KEY) {
-  const d = dateFromKey(anchorKey);
-  const mondayOffset = (d.getDay() + 6) % 7;
-  const monday = shiftDateKey(anchorKey, -mondayOffset);
-  return Array.from({ length: 7 }, (_, i) => shiftDateKey(monday, i));
+/* ABIDE GLOBAL WEEK START V2 */
+function getWeekStartPreference() {
+  try {
+    const saved =
+      localStorage.getItem(
+        "abide-week-start"
+      );
+
+    return saved === "monday"
+      ? "monday"
+      : "sunday";
+  } catch {
+    return "sunday";
+  }
+}
+
+function buildWeekKeys(
+  anchorKey = REFERENCE_DATE_KEY
+) {
+  const date =
+    dateFromKey(anchorKey);
+
+  const weekStart =
+    getWeekStartPreference();
+
+  const startOffset =
+    weekStart === "monday"
+      ? (date.getDay() + 6) % 7
+      : date.getDay();
+
+  const start =
+    shiftDateKey(
+      anchorKey,
+      -startOffset
+    );
+
+  return Array.from(
+    { length: 7 },
+    (_, index) =>
+      shiftDateKey(
+        start,
+        index
+      )
+  );
+}
+
+function weekDayLabels() {
+  return getWeekStartPreference() ===
+    "monday"
+    ? [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun",
+      ]
+    : [
+        "Sun",
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+      ];
 }
 
 function lastNDateKeys(count, anchorKey = REFERENCE_DATE_KEY) {
@@ -8529,7 +8599,15 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   );
 
   const firstOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+  /* ABIDE MONTH WEEK START V2 */
+  const leadingBlanks =
+    getWeekStartPreference() ===
+    "monday"
+      ? (
+          firstOfMonth.getDay() +
+          6
+        ) % 7
+      : firstOfMonth.getDay();
   const daysInMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
   const monthCells = [...Array(leadingBlanks).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
@@ -12850,7 +12928,7 @@ function ProtectedBlockComposer({ initial, onSave, onCancel }) {
   return (
     <div className="card composer-card">
       <div className="fb-label" style={{ marginTop: 0 }}>Day</div>
-      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{DAYS_OF_WEEK.map((d) => <div key={d} className={`filter-chip ${day === d ? "active" : ""}`} onClick={() => setDay(d)}>{d}</div>)}</div>
+      <div className="filter-row" style={{ padding: "0 0 2px 0" }}>{weekDayLabels().map((d) => <div key={d} className={`filter-chip ${day === d ? "active" : ""}`} onClick={() => setDay(d)}>{d}</div>)}</div>
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1 }}><div className="fb-label">Start</div><input className="input-line" style={{ marginTop: 0 }} value={start} onChange={(e) => setStart(e.target.value)} /></div>
         <div style={{ flex: 1 }}><div className="fb-label">End</div><input className="input-line" style={{ marginTop: 0 }} value={end} onChange={(e) => setEnd(e.target.value)} /></div>
@@ -14616,43 +14694,11 @@ function abideDateKey(date) {
 }
 
 
-function buildPreferenceWeekKeys(dateKey) {
-  const anchor =
-    dateFromKey(dateKey);
-
-  const startDay =
-    getAbideWeekStart() === "monday"
-      ? 1
-      : 0;
-
-  const offset =
-    (
-      anchor.getDay()
-      - startDay
-      + 7
-    ) % 7;
-
-  const start =
-    new Date(anchor);
-
-  start.setHours(12, 0, 0, 0);
-
-  start.setDate(
-    start.getDate() - offset
-  );
-
-  return Array.from(
-    { length: 7 },
-    (_, index) => {
-      const day =
-        new Date(start);
-
-      day.setDate(
-        start.getDate() + index
-      );
-
-      return abideDateKey(day);
-    }
+function buildPreferenceWeekKeys(
+  anchorKey = REFERENCE_DATE_KEY
+) {
+  return buildWeekKeys(
+    anchorKey
   );
 }
 

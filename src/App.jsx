@@ -6127,6 +6127,32 @@ function AddSheet({
   const [reminder, setReminder] = useState("None");
   const [reminderAt, setReminderAt] = useState("");
   const [activityDraft, setActivityDraft] = useState("");
+
+  /* ABIDE CALENDAR CREATE SUBTASKS V1 */
+  const [subtaskDraft, setSubtaskDraft] = useState("");
+  const [subtaskTitles, setSubtaskTitles] = useState([]);
+
+  const addSubtaskDraft = () => {
+    const value = subtaskDraft.trim();
+
+    if (!value) return;
+
+    setSubtaskTitles((current) => [
+      ...current,
+      value,
+    ]);
+
+    setSubtaskDraft("");
+  };
+
+  const removeSubtaskDraft = (index) => {
+    setSubtaskTitles((current) =>
+      current.filter((_, itemIndex) =>
+        itemIndex !== index
+      )
+    );
+  };
+
   const [bypass, setBypass] = useState(false);
   const [saving, setSaving] = useState(false);
   const [eventDestination, setEventDestination] = useState(() => {
@@ -6178,7 +6204,87 @@ function AddSheet({
     setSaving(true);
     try {
       if (kind === "task") {
-        onCreateTask({ title: title.trim(), dueDate: date, dueTime: time || null, due: time ? formatTimeLabel(time) : formatDateLabel(date), dueOffsetDays: offsetFromDateKey(date), targetDate: targetDate && targetDate <= date ? targetDate : null, priority, area: area || null, goal: goal || null, notes: "", activities: activityDraft.trim() ? [{ id: `act_${Date.now()}`, text: activityDraft.trim(), createdAt: new Date().toISOString() }] : [], repeat: recurrence ? recurrenceLabel(recurrence) : null, recurrence, reminder, reminderAt: reminder === "Custom" ? reminderAt || null : null, done: false, status: "next", bypassProtected: bypass });
+        const parentTaskId = onCreateTask({
+          title: title.trim(),
+          dueDate: date,
+          dueTime: time || null,
+          due: time
+            ? formatTimeLabel(time)
+            : formatDateLabel(date),
+          dueOffsetDays: offsetFromDateKey(date),
+          targetDate:
+            targetDate &&
+            targetDate <= date
+              ? targetDate
+              : null,
+          priority,
+          area: area || null,
+          goal: goal || null,
+          notes: "",
+          activities:
+            activityDraft.trim()
+              ? [{
+                  id: `act_${Date.now()}`,
+                  text: activityDraft.trim(),
+                  createdAt: new Date().toISOString(),
+                }]
+              : [],
+          repeat:
+            recurrence
+              ? recurrenceLabel(recurrence)
+              : null,
+          recurrence,
+          reminder,
+          reminderAt:
+            reminder === "Custom"
+              ? reminderAt || null
+              : null,
+          done: false,
+          status: "next",
+          bypassProtected: bypass,
+        });
+
+        if (
+          parentTaskId &&
+          subtaskTitles.length
+        ) {
+          subtaskTitles.forEach(
+            (subtaskTitle) => {
+              onCreateTask({
+                title: subtaskTitle,
+                parentTaskId,
+                kind: "task",
+
+                dueDate: date,
+                dueTime: null,
+                due: formatDateLabel(date),
+                dueOffsetDays:
+                  offsetFromDateKey(date),
+
+                targetDate: null,
+
+                priority,
+                area: area || null,
+                goal: goal || null,
+
+                notes: "",
+                activities: [],
+
+                repeat: null,
+                recurrence: null,
+
+                reminder: "None",
+                reminderAt: null,
+
+                done: false,
+                status: "next",
+                progress: "not_started",
+
+                bypassProtected: bypass,
+              });
+            }
+          );
+        }
       } else {
         await onCreateEvent({
           title: title.trim(),
@@ -6254,21 +6360,141 @@ function AddSheet({
   onChange={setReminder}
   reminderAt={reminderAt}
   onReminderAtChange={setReminderAt}
-/><div
+/>{/* ABIDE CALENDAR SUBTASK COMPOSER V1 */}
+<div className="fb-label">
+  Subtasks
+</div>
+
+{subtaskTitles.length > 0 && (
+  <div
+    className="card"
+    style={{
+      padding: "2px 11px",
+      marginBottom: 8,
+      background: "var(--subtleBg)",
+    }}
+  >
+    {subtaskTitles.map(
+      (subtaskTitle, index) => (
+        <div
+          key={`${subtaskTitle}-${index}`}
+          style={{
+            minHeight: 42,
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            padding: "7px 0",
+            borderBottom:
+              index ===
+              subtaskTitles.length - 1
+                ? "none"
+                : "1px solid var(--divider)",
+          }}
+        >
+          <Check
+            size={13}
+            color="var(--text3)"
+          />
+
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 12.25,
+              color: "var(--text)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {subtaskTitle}
+          </div>
+
+          <button
+            type="button"
+            aria-label="Remove subtask"
+            onClick={() =>
+              removeSubtaskDraft(index)
+            }
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--text3)",
+              cursor: "pointer",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )
+    )}
+  </div>
+)}
+
+<div
   style={{
-    marginTop: 10,
-    padding: "10px 11px",
-    borderRadius: 11,
-    background: "var(--subtleBg)",
-    border: "1px solid var(--divider)",
-    fontSize: 11.25,
-    lineHeight: 1.45,
-    color: "var(--text3)",
+    display: "flex",
+    gap: 8,
   }}
 >
-  Save this task first, then open it to add subtasks. Each subtask gets the
-  complete task editor — priority, Area, goal, reminder, repeat, activity,
-  comments, and more.
+  <input
+    className="input-line"
+    style={{
+      margin: 0,
+      flex: 1,
+      minWidth: 0,
+    }}
+    value={subtaskDraft}
+    onChange={(event) =>
+      setSubtaskDraft(
+        event.target.value
+      )
+    }
+    placeholder="Add a subtask"
+    onKeyDown={(event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addSubtaskDraft();
+      }
+    }}
+  />
+
+  <div
+    className={`filter-chip ${
+      subtaskDraft.trim()
+        ? "active"
+        : ""
+    }`}
+    onClick={addSubtaskDraft}
+    style={{
+      flexShrink: 0,
+      opacity:
+        subtaskDraft.trim()
+          ? 1
+          : .5,
+    }}
+  >
+    <Plus size={12} />
+    Add
+  </div>
+</div>
+
+<div
+  style={{
+    fontSize: 10.75,
+    lineHeight: 1.45,
+    color: "var(--text3)",
+    marginTop: 6,
+  }}
+>
+  These will be created underneath this task.
+  You can open any subtask afterward to give it
+  its own date, priority, Area, goal, reminder,
+  recurrence, and activity.
 </div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />
@@ -6307,7 +6533,13 @@ function AddSheet({
         </>
       )}
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving ? "Saving…" : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving
+  ? "Saving…"
+  : kind === "task" && subtaskTitles.length
+    ? `Save Task + ${subtaskTitles.length} Subtask${
+        subtaskTitles.length === 1 ? "" : "s"
+      }`
+    : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
     </div>
   );
 }

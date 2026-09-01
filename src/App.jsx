@@ -3185,14 +3185,20 @@ function TaskEditor({
 
 
   const addChildTask = () => {
-    const nextTitle = childTitleDraft.trim();
+    if (!onCreateChildTask) return;
 
-    if (!nextTitle || !onCreateChildTask) return;
+    const child =
+      onCreateChildTask(
+        task,
+        childTitleDraft.trim()
+      );
 
-    const child = onCreateChildTask(task, nextTitle);
     setChildTitleDraft("");
 
-    if (child && onOpenChildTask) {
+    if (
+      child &&
+      onOpenChildTask
+    ) {
       onOpenChildTask(child);
     }
   };
@@ -3395,7 +3401,7 @@ function TaskEditor({
                 onChange={(event) =>
                   setChildTitleDraft(event.target.value)
                 }
-                placeholder="New subtask"
+                placeholder="Optional: start with a title"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -3408,7 +3414,8 @@ function TaskEditor({
                 className="filter-chip active"
                 onClick={addChildTask}
               >
-                Add
+                <Plus size={12} />
+                Add Subtask
               </div>
             </div>
 
@@ -3420,8 +3427,9 @@ function TaskEditor({
                 marginTop: 6,
               }}
             >
-              Subtasks are full tasks. Add one to open its complete editor for
-              priority, Area, goal, reminder, recurrence, activity, and more.
+              Add Subtask opens the complete task editor before the subtask is saved.
+              Give it its own due date, time, Finish By, priority, progress,
+              Area, goal, reminder, repeat schedule, activity, and more.
             </div>
 
             <div className="fb-label">Notes</div>
@@ -4323,7 +4331,28 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     `${briefTodayLoad} today`,
   ].filter(Boolean);
 
-  const saveTask = (updated) => { onUpdateTask(updated); setEditingTask(null); };
+  const saveTask = (updated) => {
+    if (updated?._newChildDraft) {
+      const {
+        id,
+        _newChildDraft,
+        ...cleanChild
+      } = updated;
+
+      onCreateTask({
+        ...cleanChild,
+        parentTaskId:
+          updated.parentTaskId,
+        kind: "task",
+      });
+
+      setEditingTask(null);
+      return;
+    }
+
+    onUpdateTask(updated);
+    setEditingTask(null);
+  };
   const deleteTask = (id) => { onDeleteTask(id); if (editingTask?.id === id) setEditingTask(null); };
 
   const openEditor = (t) => {
@@ -4331,13 +4360,25 @@ function TodayTab({ tasks, expandedId, setExpandedId, toggleDone, goals, areas, 
     setEditingTask(t);
   };
 
+  /* ABIDE FULL SUBTASK DRAFT V1 */
   const createChildTaskFromEditor = (parent, title) => {
-    const draft = makeChildTaskDraft(parent, title);
-    const id = onCreateTask(draft);
-
     return {
-      id,
-      ...draft,
+      ...makeChildTaskDraft(
+        parent,
+        title || ""
+      ),
+
+      id:
+        `child_draft_${Date.now()}`,
+
+      _newChildDraft:
+        true,
+
+      parentTaskId:
+        parent.id,
+
+      title:
+        String(title || ""),
     };
   };
 
@@ -6128,29 +6169,185 @@ function AddSheet({
   const [reminderAt, setReminderAt] = useState("");
   const [activityDraft, setActivityDraft] = useState("");
 
-  /* ABIDE CALENDAR CREATE SUBTASKS V1 */
-  const [subtaskDraft, setSubtaskDraft] = useState("");
-  const [subtaskTitles, setSubtaskTitles] = useState([]);
+  /* ABIDE CALENDAR FULL SUBTASKS V2 */
+  const [
+    pendingSubtasks,
+    setPendingSubtasks,
+  ] = useState([]);
 
-  const addSubtaskDraft = () => {
-    const value = subtaskDraft.trim();
+  const [
+    editingPendingSubtask,
+    setEditingPendingSubtask,
+  ] = useState(null);
 
-    if (!value) return;
+  const openPendingSubtask = (
+    existing = null
+  ) => {
+    if (existing) {
+      setEditingPendingSubtask(
+        existing
+      );
+      return;
+    }
 
-    setSubtaskTitles((current) => [
-      ...current,
-      value,
-    ]);
+    const childDate =
+      date ||
+      REFERENCE_DATE_KEY;
 
-    setSubtaskDraft("");
+    setEditingPendingSubtask({
+      id:
+        `pending_child_${Date.now()}_${Math.random()
+          .toString(36)
+          .slice(2, 7)}`,
+
+      _pendingCalendarChild:
+        true,
+
+      parentTaskId:
+        "__pending_parent__",
+
+      kind:
+        "task",
+
+      title:
+        "",
+
+      dueDate:
+        childDate,
+
+      dueTime:
+        null,
+
+      due:
+        formatDateLabel(
+          childDate
+        ),
+
+      dueOffsetDays:
+        offsetFromDateKey(
+          childDate
+        ),
+
+      targetDate:
+        null,
+
+      priority,
+
+      progress:
+        "not_started",
+
+      area:
+        area || null,
+
+      goal:
+        goal || null,
+
+      notes:
+        "",
+
+      activities:
+        [],
+
+      recurrence:
+        null,
+
+      repeat:
+        null,
+
+      reminder:
+        "None",
+
+      reminderAt:
+        null,
+
+      status:
+        "next",
+
+      done:
+        false,
+
+      completedAt:
+        null,
+
+      bypassProtected:
+        bypass,
+
+      createdAt:
+        new Date()
+          .toISOString(),
+    });
   };
 
-  const removeSubtaskDraft = (index) => {
-    setSubtaskTitles((current) =>
-      current.filter((_, itemIndex) =>
-        itemIndex !== index
-      )
+  const savePendingSubtask = (
+    updated
+  ) => {
+    const pendingId =
+      editingPendingSubtask?.id ||
+      updated.id;
+
+    const next = {
+      ...updated,
+
+      id:
+        pendingId,
+
+      _pendingCalendarChild:
+        true,
+
+      parentTaskId:
+        "__pending_parent__",
+    };
+
+    setPendingSubtasks(
+      (current) => {
+        const exists =
+          current.some(
+            (item) =>
+              item.id ===
+              pendingId
+          );
+
+        if (exists) {
+          return current.map(
+            (item) =>
+              item.id ===
+              pendingId
+                ? next
+                : item
+          );
+        }
+
+        return [
+          ...current,
+          next,
+        ];
+      }
     );
+
+    setEditingPendingSubtask(
+      null
+    );
+  };
+
+  const removePendingSubtask = (
+    id
+  ) => {
+    setPendingSubtasks(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.id !== id
+        )
+    );
+
+    if (
+      editingPendingSubtask?.id ===
+      id
+    ) {
+      setEditingPendingSubtask(
+        null
+      );
+    }
   };
 
   const [bypass, setBypass] = useState(false);
@@ -6246,41 +6443,25 @@ function AddSheet({
 
         if (
           parentTaskId &&
-          subtaskTitles.length
+          pendingSubtasks.length
         ) {
-          subtaskTitles.forEach(
-            (subtaskTitle) => {
+          pendingSubtasks.forEach(
+            (pending) => {
+              const {
+                id,
+                _pendingCalendarChild,
+                parentTaskId:
+                  _temporaryParent,
+                ...child
+              } = pending;
+
               onCreateTask({
-                title: subtaskTitle,
+                ...child,
+
                 parentTaskId,
-                kind: "task",
 
-                dueDate: date,
-                dueTime: null,
-                due: formatDateLabel(date),
-                dueOffsetDays:
-                  offsetFromDateKey(date),
-
-                targetDate: null,
-
-                priority,
-                area: area || null,
-                goal: goal || null,
-
-                notes: "",
-                activities: [],
-
-                repeat: null,
-                recurrence: null,
-
-                reminder: "None",
-                reminderAt: null,
-
-                done: false,
-                status: "next",
-                progress: "not_started",
-
-                bypassProtected: bypass,
+                kind:
+                  "task",
               });
             }
           );
@@ -6360,33 +6541,48 @@ function AddSheet({
   onChange={setReminder}
   reminderAt={reminderAt}
   onReminderAtChange={setReminderAt}
-/>{/* ABIDE CALENDAR SUBTASK COMPOSER V1 */}
+/>{/* ABIDE CALENDAR FULL SUBTASK UI V2 */}
 <div className="fb-label">
   Subtasks
 </div>
 
-{subtaskTitles.length > 0 && (
+{pendingSubtasks.length > 0 && (
   <div
     className="card"
     style={{
-      padding: "2px 11px",
-      marginBottom: 8,
-      background: "var(--subtleBg)",
+      padding:
+        "2px 11px",
+      marginBottom:
+        8,
+      background:
+        "var(--subtleBg)",
     }}
   >
-    {subtaskTitles.map(
-      (subtaskTitle, index) => (
+    {pendingSubtasks.map(
+      (subtask, index) => (
         <div
-          key={`${subtaskTitle}-${index}`}
+          key={
+            subtask.id
+          }
           style={{
-            minHeight: 42,
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            padding: "7px 0",
+            minHeight:
+              52,
+
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
+            gap:
+              9,
+
+            padding:
+              "8px 0",
+
             borderBottom:
               index ===
-              subtaskTitles.length - 1
+              pendingSubtasks.length - 1
                 ? "none"
                 : "1px solid var(--divider)",
           }}
@@ -6397,38 +6593,121 @@ function AddSheet({
           />
 
           <div
+            onClick={() =>
+              openPendingSubtask(
+                subtask
+              )
+            }
             style={{
               flex: 1,
               minWidth: 0,
-              fontSize: 12.25,
-              color: "var(--text)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              cursor:
+                "pointer",
             }}
           >
-            {subtaskTitle}
+            <div
+              style={{
+                fontSize:
+                  12.5,
+
+                fontWeight:
+                  650,
+
+                color:
+                  "var(--text)",
+
+                overflow:
+                  "hidden",
+
+                textOverflow:
+                  "ellipsis",
+
+                whiteSpace:
+                  "nowrap",
+              }}
+            >
+              {subtask.title}
+            </div>
+
+            <div
+              style={{
+                marginTop:
+                  2,
+
+                fontSize:
+                  10.5,
+
+                color:
+                  "var(--text3)",
+              }}
+            >
+              {formatDateLabel(
+                taskDateKey(
+                  subtask
+                )
+              )}
+
+              {subtask.dueTime
+                ? ` · ${formatTimeLabel(
+                    subtask.dueTime
+                  )}`
+                : ""}
+
+              {` · ${
+                subtask.priority ===
+                "high"
+                  ? "High"
+                  : subtask.priority ===
+                    "low"
+                    ? "Low"
+                    : "Medium"
+              }`}
+            </div>
           </div>
 
-          <button
-            type="button"
-            aria-label="Remove subtask"
+          <div
             onClick={() =>
-              removeSubtaskDraft(index)
+              openPendingSubtask(
+                subtask
+              )
             }
             style={{
-              border: "none",
-              background: "transparent",
-              color: "var(--text3)",
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              padding:
+                4,
+
+              cursor:
+                "pointer",
+
+              color:
+                "var(--text3)",
             }}
           >
-            <X size={14} />
-          </button>
+            <Pencil
+              size={13}
+            />
+          </div>
+
+          <div
+            onClick={() =>
+              removePendingSubtask(
+                subtask.id
+              )
+            }
+            style={{
+              padding:
+                4,
+
+              cursor:
+                "pointer",
+
+              color:
+                "#E68080",
+            }}
+          >
+            <X
+              size={14}
+            />
+          </div>
         </div>
       )
     )}
@@ -6436,65 +6715,43 @@ function AddSheet({
 )}
 
 <div
+  className="filter-chip active"
+  onClick={() =>
+    openPendingSubtask()
+  }
   style={{
-    display: "flex",
-    gap: 8,
+    width:
+      "fit-content",
+
+    marginTop:
+      7,
   }}
 >
-  <input
-    className="input-line"
-    style={{
-      margin: 0,
-      flex: 1,
-      minWidth: 0,
-    }}
-    value={subtaskDraft}
-    onChange={(event) =>
-      setSubtaskDraft(
-        event.target.value
-      )
-    }
-    placeholder="Add a subtask"
-    onKeyDown={(event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        addSubtaskDraft();
-      }
-    }}
+  <Plus
+    size={12}
   />
 
-  <div
-    className={`filter-chip ${
-      subtaskDraft.trim()
-        ? "active"
-        : ""
-    }`}
-    onClick={addSubtaskDraft}
-    style={{
-      flexShrink: 0,
-      opacity:
-        subtaskDraft.trim()
-          ? 1
-          : .5,
-    }}
-  >
-    <Plus size={12} />
-    Add
-  </div>
+  Add Subtask
 </div>
 
 <div
   style={{
-    fontSize: 10.75,
-    lineHeight: 1.45,
-    color: "var(--text3)",
-    marginTop: 6,
+    marginTop:
+      7,
+
+    fontSize:
+      10.75,
+
+    lineHeight:
+      1.45,
+
+    color:
+      "var(--text3)",
   }}
 >
-  These will be created underneath this task.
-  You can open any subtask afterward to give it
-  its own date, priority, Area, goal, reminder,
-  recurrence, and activity.
+  Configure each subtask like a full task before saving it:
+  due date, time, Finish By, priority, progress, Area, goal,
+  repeat schedule, reminder, and activity.
 </div></>}
       <div className="fb-label">Repeat</div><RecurrenceEditor value={recurrence} onChange={setRecurrence} dateKey={date} />
       <div className="fb-label">First Activity (optional)</div><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e) => setActivityDraft(e.target.value)} placeholder={kind === "task" ? "Add the first task update…" : "Add the first event update…"} />
@@ -6535,11 +6792,58 @@ function AddSheet({
       <div className="settings-row" style={{ padding: "12px 0 2px 0", borderBottom: "none" }}><div className="settings-row-name"><ShieldCheck size={15} color="#8FA88A" />Bypass protected time blocks</div><Toggle on={bypass} onClick={() => setBypass(!bypass)} /></div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}><div className="filter-chip active" style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }} onClick={save}>{saving
   ? "Saving…"
-  : kind === "task" && subtaskTitles.length
-    ? `Save Task + ${subtaskTitles.length} Subtask${
-        subtaskTitles.length === 1 ? "" : "s"
+  : kind === "task" && pendingSubtasks.length
+    ? `Save Task + ${pendingSubtasks.length} Subtask${
+        pendingSubtasks.length === 1 ? "" : "s"
       }`
     : `Save ${kind === "task" ? "Task" : "Event"}`}</div><div className="filter-chip" style={{ flex: 1, justifyContent: "center" }} onClick={onClose}>Cancel</div></div>
+      {/* ABIDE CALENDAR PENDING SUBTASK EDITOR V2 */}
+      {editingPendingSubtask && (
+        <TaskEditor
+          key={
+            editingPendingSubtask.id
+          }
+
+          task={
+            editingPendingSubtask
+          }
+
+          goals={
+            goals
+          }
+
+          areas={
+            areas
+          }
+
+          onSave={
+            savePendingSubtask
+          }
+
+          onCancel={() =>
+            setEditingPendingSubtask(
+              null
+            )
+          }
+
+          onDelete={() => {
+            removePendingSubtask(
+              editingPendingSubtask.id
+            );
+
+            setEditingPendingSubtask(
+              null
+            );
+          }}
+
+          onCreateArea={
+            onCreateArea
+          }
+
+          childTasks={[]}
+        />
+      )}
+
     </div>
   );
 }

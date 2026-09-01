@@ -7293,6 +7293,82 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
   const googleConfigured = Boolean(googleClientId);
   const googleConnected = googleAccounts.some((a) => Boolean(a.token));
   const weekKeys = buildWeekKeys(selectedDateKey);
+
+  /* ABIDE CALENDAR WEEK NAVIGATION V1 */
+  const weekStartDate =
+    dateFromKey(weekKeys[0]);
+
+  const weekEndDate =
+    dateFromKey(
+      weekKeys[
+        weekKeys.length - 1
+      ]
+    );
+
+  const weekRangeLabel = (() => {
+    const sameYear =
+      weekStartDate.getFullYear() ===
+      weekEndDate.getFullYear();
+
+    const sameMonth =
+      sameYear &&
+      weekStartDate.getMonth() ===
+        weekEndDate.getMonth();
+
+    if (sameMonth) {
+      return `${weekStartDate.toLocaleDateString(
+        "en-US",
+        {
+          month: "short",
+        }
+      )} ${weekStartDate.getDate()}–${weekEndDate.getDate()}, ${weekEndDate.getFullYear()}`;
+    }
+
+    if (sameYear) {
+      return `${weekStartDate.toLocaleDateString(
+        "en-US",
+        {
+          month: "short",
+          day: "numeric",
+        }
+      )} – ${weekEndDate.toLocaleDateString(
+        "en-US",
+        {
+          month: "short",
+          day: "numeric",
+        }
+      )}, ${weekEndDate.getFullYear()}`;
+    }
+
+    return `${weekStartDate.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }
+    )} – ${weekEndDate.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }
+    )}`;
+  })();
+
+  const moveWeek = (direction) => {
+    setSelectedDateKey(
+      shiftDateKey(
+        selectedDateKey,
+        direction * 7
+      )
+    );
+
+    setOverridden(false);
+    setOverrideOpen(false);
+  };
+
   const selectedDate = dateFromKey(selectedDateKey);
   const selectedMonthKey = selectedDateKey.slice(0, 7);
   const monthLabel = selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -8673,6 +8749,124 @@ function CalendarTab({ tasks, goals, protectedBlocks, areas, toggleDone, onUpdat
 
         {mode === "week" ? (
           <>
+            {/* ABIDE CALENDAR WEEK NAVIGATION UI V1 */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "38px minmax(0, 1fr) 38px",
+                alignItems: "center",
+                gap: 8,
+                margin: "10px 0 8px",
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Previous week"
+                title="Previous week"
+                onClick={() =>
+                  moveWeek(-1)
+                }
+                style={{
+                  width: 38,
+                  height: 36,
+                  borderRadius: 11,
+                  border:
+                    "1px solid var(--pillBorder)",
+                  background:
+                    "var(--pillBg)",
+                  color:
+                    "var(--text2)",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
+                  cursor:
+                    "pointer",
+                  padding: 0,
+                }}
+              >
+                <ChevronLeft
+                  size={17}
+                />
+              </button>
+
+              <div
+                style={{
+                  minWidth: 0,
+                  textAlign:
+                    "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize:
+                      12.5,
+                    fontWeight:
+                      750,
+                    color:
+                      "var(--text)",
+                  }}
+                >
+                  {weekRangeLabel}
+                </div>
+
+                {weekKeys.includes(
+                  REFERENCE_DATE_KEY
+                ) && (
+                  <div
+                    style={{
+                      marginTop:
+                        2,
+                      fontSize:
+                        10,
+                      fontWeight:
+                        650,
+                      color:
+                        "#8FA88A",
+                    }}
+                  >
+                    This week
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                aria-label="Next week"
+                title="Next week"
+                onClick={() =>
+                  moveWeek(1)
+                }
+                style={{
+                  width: 38,
+                  height: 36,
+                  borderRadius: 11,
+                  border:
+                    "1px solid var(--pillBorder)",
+                  background:
+                    "var(--pillBg)",
+                  color:
+                    "var(--text2)",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
+                  cursor:
+                    "pointer",
+                  padding: 0,
+                }}
+              >
+                <ChevronRight
+                  size={17}
+                />
+              </button>
+            </div>
+
             <div className="weekstrip">{weekKeys.map((key) => { const d = dateFromKey(key); const hasItems = tasks.some((t) => taskDateKey(t) === key) || events.some((e) => e.date === key); return <div key={key} className={`daypill ${selectedDateKey === key ? "selected" : ""}`} onClick={() => { setSelectedDateKey(key); setOverridden(false); setOverrideOpen(false); }}><span className="dow">{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span><span className="num">{d.getDate()}</span>{hasItems && <span className="dot" />}</div>; })}</div>
             {renderAgenda()}
           </>

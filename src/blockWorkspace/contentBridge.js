@@ -5,6 +5,7 @@ import {
 
 import {
   autoLinkEscapedText,
+  autoLinkTextValue,
 } from "../AutoLink.jsx";
 
 
@@ -347,7 +348,9 @@ function blockToPlainText(
 ) {
   const text =
     String(
-      block.text || ""
+      autoLinkTextValue(
+        block.text
+      )
     );
 
   switch (

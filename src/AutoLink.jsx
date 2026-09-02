@@ -9,6 +9,111 @@ const URL_PATTERN =
   /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
 
 
+/* ABIDE AUTO LINK TEXT NORMALIZER V2 */
+export function autoLinkTextValue(
+  value
+) {
+  if (
+    value == null
+  ) {
+    return "";
+  }
+
+  if (
+    typeof value ===
+    "string"
+  ) {
+    return value;
+  }
+
+  if (
+    typeof value ===
+      "number" ||
+    typeof value ===
+      "boolean"
+  ) {
+    return String(value);
+  }
+
+  if (
+    Array.isArray(value)
+  ) {
+    return value
+      .map(
+        autoLinkTextValue
+      )
+      .filter(Boolean)
+      .join("");
+  }
+
+  if (
+    typeof value ===
+    "object"
+  ) {
+    /*
+     * Abide can pass structured text-like objects from
+     * editors, imported data, mentions, or legacy records.
+     *
+     * Prefer human-readable fields rather than allowing
+     * String(object) => "[object Object]".
+     */
+    const preferredKeys = [
+      "text",
+      "content",
+      "label",
+      "title",
+      "value",
+      "url",
+      "href",
+      "name",
+    ];
+
+    for (
+      const key of
+      preferredKeys
+    ) {
+      if (
+        value[key] != null
+      ) {
+        const extracted =
+          autoLinkTextValue(
+            value[key]
+          );
+
+        if (
+          extracted
+        ) {
+          return extracted;
+        }
+      }
+    }
+
+    /*
+     * Some rich-text formats use nested children.
+     */
+    if (
+      Array.isArray(
+        value.children
+      )
+    ) {
+      return value.children
+        .map(
+          autoLinkTextValue
+        )
+        .filter(Boolean)
+        .join("");
+    }
+
+    /*
+     * Never expose "[object Object]" to the UI.
+     */
+    return "";
+  }
+
+  return String(value);
+}
+
+
 function splitTrailingPunctuation(
   value
 ) {
@@ -124,8 +229,8 @@ export default function AutoLink({
   style,
 }) {
   const value =
-    String(
-      text ?? ""
+    autoLinkTextValue(
+      text
     );
 
   const pieces = [];
@@ -259,8 +364,8 @@ export function autoLinkEscapedText(
   escapedText
 ) {
   const value =
-    String(
-      escapedText || ""
+    autoLinkTextValue(
+      escapedText
     );
 
   return value.replace(
@@ -305,7 +410,9 @@ export function autoLinkExistingHtml(
   html
 ) {
   const source =
-    String(html || "");
+    autoLinkTextValue(
+      html
+    );
 
   if (
     typeof document ===

@@ -1740,59 +1740,49 @@ export default function WorkspaceEditor({
         mode === "url" ||
         mode === "link"
       ) {
-        /* ABIDE WORKSPACE URL LINK V1 */
+        /* ABIDE WORKSPACE SIMPLE LINK V2 */
 
         /*
-         * URL mode should remain a simple text block.
-         * Saving the actual URL as block.text allows
-         * contentBridge's global auto-linker to render
-         * it as an anchor everywhere Journal/Notes
-         * content is displayed.
+         * A TEXT block uses a textarea, and textarea
+         * contents cannot be clickable.
+         *
+         * Store URL mode as a lightweight BOOKMARK block
+         * with displayMode="link". ExtendedBlockRenderer
+         * will render it as a normal <a>, not a bookmark card.
          */
 
-        const before =
-          originalText.slice(
-            0,
-            start
-          );
+        const normalizedUrl =
+          /^https?:\/\//i.test(
+            url
+          )
+            ? url
+            : `https://${url}`;
 
-        const after =
-          originalText.slice(
-            end
-          );
-
-        const nextText =
-          `${before}${url}${after}`;
-
-        updateOne({
+        const simpleLinkBlock = {
           ...block,
 
           type:
-            BLOCK_TYPES.TEXT,
+            BLOCK_TYPES.BOOKMARK,
 
           text:
-            nextText,
+            url,
 
-          url: "",
+          url:
+            normalizedUrl,
+
+          displayMode:
+            "link",
 
           updatedAt:
             Date.now(),
-        });
+        };
+
+        updateOne(
+          simpleLinkBlock
+        );
 
         setPasteLinkMenu(
           null
-        );
-
-        requestAnimationFrame(
-          () => {
-            focusBlock(
-              block.id,
-              (
-                before +
-                url
-              ).length
-            );
-          }
         );
 
         return;

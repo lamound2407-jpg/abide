@@ -824,6 +824,61 @@ export default function ExtendedBlockRenderer({
 
 
     case BLOCK_TYPES.BOOKMARK:
+      
+      /* ABIDE SIMPLE LINK BLOCK V2 */
+      if (
+        block.displayMode ===
+        "link"
+      ) {
+        const href =
+          /^https?:\/\//i.test(
+            block.url || ""
+          )
+            ? block.url
+            : block.url
+              ? `https://${block.url}`
+              : "#";
+
+        return (
+          <div
+            className="abide-block abide-simple-link-block"
+            data-block-id={
+              block.id
+            }
+          >
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="abide-simple-workspace-link"
+              onClick={(
+                event
+              ) => {
+                event.stopPropagation();
+              }}
+            >
+              {block.text ||
+                block.url ||
+                "Open link"}
+            </a>
+
+            <button
+              type="button"
+              className="abide-simple-link-remove"
+              aria-label="Remove link"
+              title="Remove link"
+              onClick={() =>
+                onRemove?.(
+                  block.id
+                )
+              }
+            >
+              ×
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div
           className="abide-block abide-bookmark-block"

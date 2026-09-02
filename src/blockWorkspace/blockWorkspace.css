@@ -7354,3 +7354,46 @@ select {
   }
 }
 
+
+
+/* ABIDE SIMPLE WORKSPACE LINK V2 */
+
+.abide-simple-link-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 2px 0;
+}
+
+.abide-simple-workspace-link {
+  color: #7C93C9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  cursor: pointer;
+}
+
+.abide-simple-workspace-link:hover {
+  opacity: .86;
+}
+
+.abide-simple-link-remove {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 6px;
+  opacity: .55;
+}
+
+.abide-simple-link-remove:hover {
+  opacity: 1;
+  background: var(--pillBg);
+}

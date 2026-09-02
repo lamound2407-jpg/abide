@@ -3354,7 +3354,21 @@ export default function WorkspaceEditor({
               }
             />
 
-            <div className="abide-workspace-more-menu">
+            <div
+              className="abide-workspace-more-menu"
+              /* ABIDE WORKSPACE SETTINGS SCROLL V1 */
+              onWheel={(event) => {
+                /*
+                 * The menu may scroll normally, but its
+                 * wheel event must never reach Journal /
+                 * Notes underneath it.
+                 */
+                event.stopPropagation();
+              }}
+              onTouchMove={(event) => {
+                event.stopPropagation();
+              }}
+            >
               <div className="abide-workspace-more-search">
                 Workspace
               </div>

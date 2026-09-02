@@ -7531,3 +7531,116 @@ select {
   top: -9999px;
 }
 
+
+
+/* =========================================================
+   ABIDE WORKSPACE SETTINGS SCROLL CSS V1
+
+   Keep the three-dot Workspace panel independently
+   scrollable on laptops/iPad. Never scroll Journal/Notes
+   underneath the open menu.
+   ========================================================= */
+
+.abide-workspace-more-menu {
+  /*
+   * Do not allow the panel to extend beyond the viewport.
+   */
+  max-height:
+    min(
+      72dvh,
+      580px
+    ) !important;
+
+  overflow-y:
+    auto !important;
+
+  overflow-x:
+    hidden !important;
+
+  /*
+   * Stop wheel / trackpad momentum from chaining into
+   * the editor or page underneath.
+   */
+  overscroll-behavior:
+    contain !important;
+
+  -webkit-overflow-scrolling:
+    touch;
+
+  scrollbar-gutter:
+    stable;
+}
+
+
+/*
+ * Allow normal visible scrolling on laptop rather than
+ * hiding the scrollbar completely.
+ */
+.abide-workspace-more-menu::-webkit-scrollbar {
+  width:
+    6px;
+}
+
+.abide-workspace-more-menu::-webkit-scrollbar-track {
+  background:
+    transparent;
+}
+
+.abide-workspace-more-menu::-webkit-scrollbar-thumb {
+  background:
+    var(--pillBorder);
+
+  border-radius:
+    999px;
+}
+
+
+/*
+ * The backdrop itself must not become a scroll surface.
+ */
+.abide-workspace-more-backdrop {
+  overscroll-behavior:
+    none !important;
+
+  touch-action:
+    none;
+}
+
+
+/*
+ * Laptop / desktop:
+ * reserve enough room above and below the settings panel
+ * so every setting can be reached with the trackpad/mouse.
+ */
+@media (min-width: 700px) {
+  .abide-workspace-more-menu {
+    max-height:
+      min(
+        calc(100dvh - 120px),
+        620px
+      ) !important;
+  }
+}
+
+
+/*
+ * iPad:
+ * same isolated behavior, with a little more usable height.
+ */
+@media (
+  min-width: 700px
+) and (
+  max-width: 1100px
+) {
+  .abide-workspace-more-menu {
+    max-height:
+      min(
+        calc(100dvh - 90px),
+        680px
+      ) !important;
+
+    touch-action:
+      pan-y;
+  }
+}
+

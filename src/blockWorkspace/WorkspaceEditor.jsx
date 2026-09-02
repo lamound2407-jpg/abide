@@ -1736,34 +1736,63 @@ export default function WorkspaceEditor({
 
       /* URL */
 
-      if (mode === "url") {
+      if (
+        mode === "url" ||
+        mode === "link"
+      ) {
+        /* ABIDE WORKSPACE URL LINK V1 */
+
+        /*
+         * URL mode should remain a simple text block.
+         * Saving the actual URL as block.text allows
+         * contentBridge's global auto-linker to render
+         * it as an anchor everywhere Journal/Notes
+         * content is displayed.
+         */
+
+        const before =
+          originalText.slice(
+            0,
+            start
+          );
+
+        const after =
+          originalText.slice(
+            end
+          );
+
         const nextText =
-          before +
-          url +
-          after;
+          `${before}${url}${after}`;
 
         updateOne({
           ...block,
 
+          type:
+            BLOCK_TYPES.TEXT,
+
           text:
             nextText,
 
-          content:
-            nextText,
+          url: "",
 
           updatedAt:
             Date.now(),
         });
 
-        closePasteLinkMenu();
+        setPasteLinkMenu(
+          null
+        );
 
         requestAnimationFrame(
-          () =>
+          () => {
             focusBlock(
               block.id,
-              start +
-                url.length
-            )
+              (
+                before +
+                url
+              ).length
+            );
+          }
         );
 
         return;

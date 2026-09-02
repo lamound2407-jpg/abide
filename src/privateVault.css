@@ -1,0 +1,229 @@
+.vault-shell {
+  padding: 18px 16px 110px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.vault-header,
+.vault-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.vault-header h1 {
+  margin: 3px 0 0;
+  font-size: 26px;
+}
+
+.vault-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #7C93C9;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.vault-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.vault-tabs button,
+.vault-lock-button,
+.vault-new-button,
+.vault-icon-button,
+.vault-danger-button {
+  appearance: none;
+  border: 1px solid var(--pillBorder);
+  background: var(--pillBg);
+  color: var(--text2);
+  font: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.vault-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vault-tabs button.active {
+  background: var(--segActive);
+  color: var(--text);
+}
+
+.vault-lock-button,
+.vault-new-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vault-new-button {
+  margin-bottom: 14px;
+  color: #7C93C9;
+}
+
+.vault-card {
+  border: 1px solid var(--cardBorder);
+  background: var(--card);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.vault-card h2,
+.vault-card h3 {
+  margin-top: 0;
+}
+
+.vault-card p {
+  color: var(--text2);
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.vault-auth-card {
+  max-width: 460px;
+  margin: 50px auto 0;
+  text-align: center;
+}
+
+.vault-auth-card form,
+.vault-settings form {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.vault-auth-card small {
+  display: block;
+  color: var(--text3);
+  line-height: 1.45;
+}
+
+.vault-message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #E8B45C;
+}
+
+.vault-list {
+  display: grid;
+  gap: 8px;
+}
+
+.vault-entry-row {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--cardBorder);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 13px;
+  padding: 13px 14px;
+  cursor: pointer;
+}
+
+.vault-entry-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.vault-entry-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text3);
+  font-size: 10.5px;
+}
+
+.vault-empty {
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  text-align: center;
+  padding: 42px 16px;
+  color: var(--text3);
+}
+
+.vault-empty strong {
+  color: var(--text2);
+}
+
+.vault-empty span {
+  font-size: 12px;
+}
+
+.vault-title-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 750;
+  margin-bottom: 10px;
+  outline: 0;
+}
+
+.vault-topbar-copy {
+  flex: 1;
+}
+
+.vault-topbar-copy span,
+.vault-topbar-copy small {
+  display: block;
+}
+
+.vault-topbar-copy span {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.vault-topbar-copy small {
+  color: #7C93C9;
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.vault-icon-button,
+.vault-danger-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+}
+
+.vault-danger-button {
+  color: #D77979;
+}
+
+@media (min-width: 768px) {
+  .vault-shell {
+    padding-top: 24px;
+  }
+
+  .vault-settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+}

@@ -16,6 +16,15 @@ export default defineConfig({
       injectRegister: null,
       workbox: {
         importScripts: ["push-handler.js"],
+
+        /*
+         * Abide's main production bundle is now slightly
+         * larger than Workbox's default 2 MiB precache
+         * ceiling. Keep the installed PWA/offline shell
+         * working by allowing bundles up to 4 MiB.
+         */
+        maximumFileSizeToCacheInBytes:
+          4 * 1024 * 1024,
       },
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {

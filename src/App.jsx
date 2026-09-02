@@ -1,3 +1,5 @@
+import PrivateVault from "./PrivateVault.jsx";
+import "./privateVault.css";
 import ImportTasksPanel from "./ImportTasksPanel.jsx";
 import WorkspaceEditor from "./blockWorkspace/WorkspaceEditor.jsx";
 import {
@@ -43,7 +45,7 @@ import {
   Check, Clock, Pencil, Sparkles, Filter, PenTool, Type, Trash2,
   RefreshCw, ShieldCheck, Archive, Bell, SlidersHorizontal, Sun, Moon,
   Dumbbell, Salad, ExternalLink, Search, Settings as SettingsIcon,
-  Maximize2, Minimize2, Undo2, Redo2, LifeBuoy, Download
+  Maximize2, Minimize2, Undo2, Redo2, LifeBuoy, Download, LockKeyhole
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, PieChart, Pie, Cell, Tooltip
@@ -99,6 +101,7 @@ const PRIMARY_NAV_DESTINATIONS = [
   { id: "goals", label: "Goals", icon: Target },
   { id: "reminders", label: "Reminders", icon: Bell },
   { id: "insights", label: "Insights", icon: BarChart3 },
+  { id: "vault", label: "Private Vault", icon: LockKeyhole },
 ];
 
 const MAX_PRIMARY_NAV = 7;
@@ -17689,7 +17692,11 @@ export default function App({ accountSync }) {
           onCreateArea={createArea}
         />
       )}
-      {tab === "journal" && (
+      {tab === "vault" && (
+        <PrivateVault />
+      )}
+
+{tab === "journal" && (
         <>
           <JournalTab
             entries={journalEntries}

@@ -15041,6 +15041,7 @@ function MoreTab({
     { id: "scratch", label: "Notes", copy: "Thinking space that does not become a task list", icon: PenTool, tint: "#D98595" },
     { id: "reminders", label: "Reminders", copy: "Upcoming alerts and notification controls", icon: Bell, tint: "#E8B45C" },
     { id: "insights", label: "Insights", copy: "Patterns and history, not another scoreboard", icon: BarChart3, tint: "#8FA88A" },
+    { id: "vault", label: "Private Vault", copy: "Encrypted journal entries and notes", icon: LockKeyhole, tint: "#7C93C9" },
     { id: "export-center", label: "Export Center", copy: "Reports, exports, backups, and custom data views", icon: Download, tint: "#E8B45C" },
   ];
 

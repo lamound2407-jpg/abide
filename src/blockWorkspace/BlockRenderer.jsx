@@ -343,9 +343,11 @@ function TodoBlock({
   onChange,
   onOpenSlash,
   onOpenMention,
+  onPasteUrl,
   onEnter,
   onBackspaceStart,
 }) {
+  /* ABIDE TODO PASTE URL FIX V1 */
   const [
     linkedTask,
     setLinkedTask,

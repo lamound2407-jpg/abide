@@ -3848,7 +3848,7 @@ function TaskEditor({
             </div>
 
             <div className="fb-label">Activity</div>
-            <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text"><AutoLink text=<AutoLink text={a.text} /> /></div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
+            <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text"><AutoLink text={a.text} /></div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
             <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e)=>setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
             <div
               className="filter-chip editor-delete"
@@ -7382,7 +7382,7 @@ function EventEditor({ event, areas, onSave, onCancel }) {
               {activities.length ? activities.map((a) => (
                 <div className="activity-item" key={a.id}>
                   <div className="activity-time">{activityTimeLabel(a.createdAt)}</div>
-                  <div className="activity-text">{a.text}</div>
+                  <div className="activity-text"><AutoLink text={a.text} /></div>
                 </div>
               )) : <div style={{ fontSize: 12, color: "var(--text3)" }}>No activity yet.</div>}
             </div>

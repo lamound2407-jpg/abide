@@ -177,7 +177,7 @@ export default function WorkspaceEditor({
   onChange,
   className = "",
   placeholder =
-    "Type / for commands or @ to mention…",
+    "Start writing…",
 }) {
 
   const [
@@ -3575,6 +3575,217 @@ export default function WorkspaceEditor({
 
 
       </div>
+
+      {/* ABIDE DESKTOP EDITOR TOOLBAR V2 */}
+      <div
+        className="abide-desktop-doc-toolbar"
+      >
+        <div className="abide-doc-toolbar-section">
+          <button
+            type="button"
+            className="abide-doc-toolbar-button text-button"
+            title="Normal text"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.TEXT
+              );
+            }}
+          >
+            Text
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Heading 1"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.HEADING_1
+              );
+            }}
+          >
+            H1
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Heading 2"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.HEADING_2
+              );
+            }}
+          >
+            H2
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Heading 3"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.HEADING_3
+              );
+            }}
+          >
+            H3
+          </button>
+        </div>
+
+        <div className="abide-doc-toolbar-divider" />
+
+        <div className="abide-doc-toolbar-section">
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Bulleted list"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.BULLETED_LIST
+              );
+            }}
+          >
+            • List
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Numbered list"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.NUMBERED_LIST
+              );
+            }}
+          >
+            1. List
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Checkbox"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.TODO
+              );
+            }}
+          >
+            ☑
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Quote"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.QUOTE
+              );
+            }}
+          >
+            Quote
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Callout"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setMobileBlockType(
+                BLOCK_TYPES.CALLOUT
+              );
+            }}
+          >
+            Callout
+          </button>
+        </div>
+
+        <div className="abide-doc-toolbar-divider" />
+
+        <div className="abide-doc-toolbar-section">
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Create task"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              openMobileTask();
+            }}
+          >
+            <ListTodo size={15} />
+            Task
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Mention"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              openMobileMention();
+            }}
+          >
+            <AtSign size={15} />
+            Mention
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Reminder"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              openMobileReminder();
+            }}
+          >
+            <Bell size={15} />
+            Reminder
+          </button>
+        </div>
+
+        <div className="abide-doc-toolbar-divider" />
+
+        <div className="abide-doc-toolbar-section">
+          <button
+            type="button"
+            className="abide-doc-toolbar-button"
+            title="Insert image"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              openMobileImagePicker();
+            }}
+          >
+            <ImageIcon size={15} />
+            Image
+          </button>
+
+          <button
+            type="button"
+            className="abide-doc-toolbar-button primary"
+            title="More insert options"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              openMobileCommands();
+            }}
+          >
+            <Plus size={15} />
+            Insert
+          </button>
+        </div>
+      </div>
+
 
       <div
         className="abide-mobile-editor-toolbar-wrap"

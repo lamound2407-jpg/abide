@@ -3576,6 +3576,21 @@ export default function WorkspaceEditor({
 
       </div>
 
+      {/* ABIDE SHARED IMAGE PICKER V1 */}
+      <input
+        ref={mobileImageInputRef}
+        type="file"
+        accept="image/*"
+        capture={undefined}
+        onChange={
+          handleMobileImagePicked
+        }
+        className="abide-shared-image-picker"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+
+
       {/* ABIDE DESKTOP EDITOR TOOLBAR V2 */}
       <div
         className="abide-desktop-doc-toolbar"

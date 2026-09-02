@@ -6882,7 +6882,102 @@ function AddSheet({
         <div className={`seg-btn ${kind === "import" ? "active" : ""}`} onClick={() => setKind("import")}>Import</div>
       </div>
       <input className="input-line" placeholder={kind === "task" ? "Task title" : "Event title"} value={title} onChange={(e) => setTitle(e.target.value)} />
-      <div style={{ display: "flex", gap: 8 }}><input type="date" className="input-line" style={{ flex: 1 }} value={date} onChange={(e) => { const next=e.target.value; setDate(next); if (targetDate && targetDate > next) setTargetDate(""); }} /><input type="time" className="input-line" style={{ flex: 1 }} value={time} onChange={(e) => setTime(e.target.value)} /></div>
+      {/* ABIDE TASK DATE TIME CLEAR V1 */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+        }}
+      >
+        <div>
+          <input
+            type="date"
+            className="input-line"
+            style={{
+              width: "100%",
+              marginBottom: 0,
+            }}
+            value={date}
+            onChange={(e) => {
+              const next =
+                e.target.value;
+
+              setDate(next);
+
+              if (
+                targetDate &&
+                (!next ||
+                  targetDate > next)
+              ) {
+                setTargetDate("");
+              }
+            }}
+          />
+
+          {date && (
+            <button
+              type="button"
+              onClick={() => {
+                setDate("");
+                setTargetDate("");
+              }}
+              style={{
+                appearance: "none",
+                border: 0,
+                background: "transparent",
+                color: "var(--text3)",
+                font: "inherit",
+                fontSize: 11,
+                fontWeight: 650,
+                padding: "6px 2px 0",
+                cursor: "pointer",
+              }}
+            >
+              No date
+            </button>
+          )}
+        </div>
+
+        <div>
+          <input
+            type="time"
+            className="input-line"
+            style={{
+              width: "100%",
+              marginBottom: 0,
+            }}
+            value={time}
+            onChange={(e) =>
+              setTime(
+                e.target.value
+              )
+            }
+          />
+
+          {time && (
+            <button
+              type="button"
+              onClick={() =>
+                setTime("")
+              }
+              style={{
+                appearance: "none",
+                border: 0,
+                background: "transparent",
+                color: "var(--text3)",
+                font: "inherit",
+                fontSize: 11,
+                fontWeight: 650,
+                padding: "6px 2px 0",
+                cursor: "pointer",
+              }}
+            >
+              No time
+            </button>
+          )}
+        </div>
+      </div>
 
       {kind === "task" && (
         <>

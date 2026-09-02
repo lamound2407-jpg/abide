@@ -102,6 +102,12 @@ export default function PrivateVault() {
   const [selectedId, setSelectedId] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [setupConfirm, setSetupConfirm] = useState("");
+
+  /* ABIDE VAULT HINT V1 */
+  const [passphraseHint, setPassphraseHint] = useState("");
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [settingsHint, setSettingsHint] = useState("");
+
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -161,6 +167,7 @@ export default function PrivateVault() {
       const data = snap.data();
       setMeta(data);
       setAutoLockMinutes(Number(data.autoLockMinutes || 15));
+      setSettingsHint(data.passphraseHint || "");
     }
     setMetaLoaded(true);
   }
@@ -208,6 +215,16 @@ export default function PrivateVault() {
         version: 1,
         salt,
         verifier,
+
+        /*
+         * The hint intentionally remains outside the
+         * encrypted payload so Abide can display it while
+         * the Vault is locked. Never put the actual
+         * passphrase in this field.
+         */
+        passphraseHint:
+          passphraseHint.trim(),
+
         autoLockMinutes: 15,
         updatedAt: Date.now(),
       };
@@ -219,6 +236,9 @@ export default function PrivateVault() {
       setLocked(false);
       setPassphrase("");
       setSetupConfirm("");
+      setPassphraseHint("");
+      setFailedAttempts(0);
+      setSettingsHint(nextMeta.passphraseHint || "");
       await loadEntries(nextKey);
     } catch (error) {
       console.error(error);
@@ -238,15 +258,18 @@ export default function PrivateVault() {
       const valid = await verifyVaultKey(nextKey, meta.verifier);
 
       if (!valid) {
+        setFailedAttempts((current) => current + 1);
         setMessage("Incorrect Vault passphrase.");
         return;
       }
 
+      setFailedAttempts(0);
       setVaultKey(nextKey);
       setLocked(false);
       setPassphrase("");
       await loadEntries(nextKey);
     } catch {
+      setFailedAttempts((current) => current + 1);
       setMessage("Incorrect Vault passphrase.");
     } finally {
       setBusy(false);
@@ -389,6 +412,39 @@ export default function PrivateVault() {
     }
   }
 
+  async function saveVaultHint(event) {
+    event.preventDefault();
+    setMessage("");
+
+    const nextMeta = {
+      ...meta,
+      passphraseHint:
+        settingsHint.trim(),
+      updatedAt:
+        Date.now(),
+    };
+
+    try {
+      setMeta(nextMeta);
+      await setDoc(
+        metaRef(),
+        nextMeta
+      );
+
+      setMessage(
+        settingsHint.trim()
+          ? "Vault hint updated."
+          : "Vault hint removed."
+      );
+    } catch (error) {
+      console.error(error);
+      setMessage(
+        "The Vault hint could not be updated."
+      );
+    }
+  }
+
+
   async function saveAutoLock(value) {
     const minutes = Number(value);
     setAutoLockMinutes(minutes);
@@ -437,6 +493,29 @@ export default function PrivateVault() {
               onChange={(e) => setSetupConfirm(e.target.value)}
             />
 
+            <input
+              className="input-line"
+              type="text"
+              autoComplete="off"
+              placeholder="Passphrase hint (recommended)"
+              value={passphraseHint}
+              onChange={(e) =>
+                setPassphraseHint(
+                  e.target.value
+                )
+              }
+            />
+
+            <small
+              style={{
+                textAlign: "left",
+                marginTop: -3,
+              }}
+            >
+              Choose something that will remind you of the
+              passphrase without revealing it.
+            </small>
+
             {message && <div className="vault-message">{message}</div>}
 
             <button className="btn-primary" type="submit" disabled={busy}>
@@ -445,7 +524,9 @@ export default function PrivateVault() {
           </form>
 
           <small>
-            Important: Abide cannot recover a lost Vault passphrase.
+            If you forget your passphrase, Abide will show
+            your hint after several unsuccessful attempts.
+            Choose a hint that only makes sense to you.
           </small>
         </div>
       </section>
@@ -475,6 +556,42 @@ export default function PrivateVault() {
             />
 
             {message && <div className="vault-message">{message}</div>}
+
+            {failedAttempts >= 3 && (
+              <div
+                className="vault-card"
+                style={{
+                  marginTop: 10,
+                  marginBottom: 2,
+                  padding: 13,
+                  textAlign: "left",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: ".08em",
+                    color: "#7C93C9",
+                    marginBottom: 5,
+                  }}
+                >
+                  PASSPHRASE HINT
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "var(--text)",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {meta.passphraseHint?.trim()
+                    ? meta.passphraseHint
+                    : "You haven't added a Vault hint yet."}
+                </div>
+              </div>
+            )}
 
             <button className="btn-primary" type="submit" disabled={busy}>
               Unlock Vault
@@ -654,6 +771,39 @@ export default function PrivateVault() {
 
             {message && <div className="vault-message">{message}</div>}
           </div>
+
+          <div className="vault-card">
+            <h3>Passphrase Hint</h3>
+
+            <p>
+              This appears after three unsuccessful unlock
+              attempts. Use something meaningful to you
+              without writing the passphrase itself.
+            </p>
+
+            <form onSubmit={saveVaultHint}>
+              <input
+                className="input-line"
+                type="text"
+                autoComplete="off"
+                placeholder="Your Vault hint"
+                value={settingsHint}
+                onChange={(e) =>
+                  setSettingsHint(
+                    e.target.value
+                  )
+                }
+              />
+
+              <button
+                className="btn-primary"
+                type="submit"
+              >
+                Save Hint
+              </button>
+            </form>
+          </div>
+
 
           <div className="vault-card">
             <h3>Auto-lock</h3>

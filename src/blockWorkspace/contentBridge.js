@@ -3,6 +3,10 @@ import {
   createBlock,
 } from "./workspaceCore.js";
 
+import {
+  autoLinkEscapedText,
+} from "../AutoLink.jsx";
+
 
 function escapeHtml(
   value
@@ -132,8 +136,10 @@ function blockTextHtml(
   block
 ) {
   const text =
-    escapeHtml(
-      block.text || ""
+    autoLinkEscapedText(
+      escapeHtml(
+        block.text || ""
+      )
     )
       .replace(
         /\n/g,

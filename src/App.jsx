@@ -19,6 +19,9 @@ import {
 import { registerSW } from "virtual:pwa-register";
 import packageInfo from "../package.json";
 import ReportBuilder, { JournalFavoriteDock } from "./ReportBuilder.jsx";
+import AutoLink, {
+  autoLinkExistingHtml,
+} from "./AutoLink.jsx";
 import { auth, db } from "./firebase.js";
 import {
   collection,
@@ -404,6 +407,20 @@ function PwaUpdateBanner() {
 }
 
 const styles = `
+
+  /* ABIDE AUTO LINK V1 */
+  .abide-auto-link {
+    color: #7C93C9;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+
+  .abide-auto-link:hover {
+    opacity: .86;
+  }
+
   /* ABIDE NOTION DEPTH */
 
   .abide-command-overlay {
@@ -3831,7 +3848,7 @@ function TaskEditor({
             </div>
 
             <div className="fb-label">Activity</div>
-            <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text">{a.text}</div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
+            <div className="activity-list">{activities.length?activities.map((a)=><div className="activity-item" key={a.id}><div className="activity-time">{activityTimeLabel(a.createdAt)}</div><div className="activity-text"><AutoLink text=<AutoLink text={a.text} /> /></div></div>):<div style={{ fontSize:12, color:"var(--text3)" }}>No activity yet.</div>}</div>
             <div className="activity-compose"><textarea className="notes-box" rows={2} value={activityDraft} onChange={(e)=>setActivityDraft(e.target.value)} placeholder="Add an update or comment…" /><div className="filter-chip active" onClick={addActivity}>Add</div></div>
             <div
               className="filter-chip editor-delete"
@@ -9501,7 +9518,7 @@ function GoalsTab({
                   </div>
                 </div>
 
-                {g.notes && <div className="insight-line" style={{ padding: "10px 0 0 0" }}>{g.notes}</div>}
+                {g.notes && <div className="insight-line" style={{ padding: "10px 0 0 0" }}><AutoLink text={g.notes} /></div>}
               </div>
             );
           })}
@@ -10574,7 +10591,7 @@ function JournalTab({
                 }}
                 placeholder="Journal note · Type / for blocks or @ to mention."
               />
-            </div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: entry.richTextHtml }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}<SavedTimestampLine item={entry} /></>}
+            </div><div className="tag-row">{Object.entries(TAGS).map(([k, v]) => <div key={k} className={`tag-swatch ${editTag === k ? "selected" : ""}`} style={{ background: v.hex }} onClick={() => setEditTag(k)} />)}</div><div style={{ display: "flex", gap: 8, marginTop: 10 }}><div className="filter-chip active" onClick={() => saveEdit(entry.id)}>Save</div><div className="filter-chip" onClick={clearJournalEditDraft}>Cancel</div></div></> : <><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="verse-badge" style={{ background: TAGS[entry.tag]?.hex || TAGS.yellow.hex }}>{entry.ref || "Check-in"}</span><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{entry.date || formatDateLabel(entry.dateKey || REFERENCE_DATE_KEY)}</span><div className="entry-actions"><Pencil size={13} color="var(--text3)" onClick={() => startEdit(entry)} /><Trash2 size={13} color="var(--text3)" onClick={() => remove(entry.id)} /></div></div></div>{entry.richTextHtml ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: autoLinkExistingHtml(entry.richTextHtml) }} /> : <div className="rich-output">{entry.note || "Time with the Lord check-in"}</div>}<SavedTimestampLine item={entry} /></>}
           </div>) : <div className="insight-line">
             {journalSearch
               ? "No journal entries match your search."

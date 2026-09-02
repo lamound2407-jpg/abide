@@ -6537,7 +6537,7 @@ function AddSheet({
   const [date, setDate] = useState(initialDate || REFERENCE_DATE_KEY);
   const [time, setTime] = useState("");
   const [targetDate, setTargetDate] = useState("");
-  const [area, setArea] = useState(Object.keys(areas)[0] || "");
+  const [area, setArea] = useState("");
   const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState("med");
   const [recurrence, setRecurrence] = useState(null);

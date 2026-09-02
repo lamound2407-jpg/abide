@@ -3174,6 +3174,303 @@ function AreaDetailView({
 }
 
 
+
+/* =========================================================
+   ABIDE MERGE TASKS V1
+   ========================================================= */
+
+function mergeTaskActivities(a = [], b = [], titles = []) {
+  const seen = new Set();
+  const rows = [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])]
+    .filter(Boolean)
+    .filter((item) => {
+      const key = String(item?.id || `${item?.createdAt || ''}|${item?.text || ''}`);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((x, y) => String(x?.createdAt || '').localeCompare(String(y?.createdAt || '')));
+
+  rows.push({
+    id: `merge_${Date.now()}`,
+    text: `Merged tasks${titles.filter(Boolean).length ? `: ${titles.filter(Boolean).join(' + ')}` : ''}`,
+    createdAt: new Date().toISOString(),
+    system: true,
+  });
+
+  return rows;
+}
+
+function applyTaskMerge(currentTasks, plan) {
+  const source = currentTasks.find((x) => String(x.id) === String(plan?.sourceId));
+  const target = currentTasks.find((x) => String(x.id) === String(plan?.targetId));
+  if (!source || !target) return currentTasks;
+
+  const survivor = String(source.id) === String(plan?.survivorId) ? source : target;
+  const removed = String(survivor.id) === String(source.id) ? target : source;
+
+  const merged = {
+    ...survivor,
+    ...(plan?.mergedTask || {}),
+    id: survivor.id,
+    activities: mergeTaskActivities(source.activities, target.activities, [source.title, target.title]),
+    updatedAt: Date.now(),
+  };
+
+  return currentTasks
+    .filter((x) => String(x.id) !== String(removed.id))
+    .map((x) => {
+      if (String(x.id) === String(survivor.id)) return merged;
+      if (String(x.parentTaskId || '') === String(removed.id)) {
+        return { ...x, parentTaskId: survivor.id, updatedAt: Date.now() };
+      }
+      return x;
+    });
+}
+
+function TaskMergeModal({ task, onClose, onMerged }) {
+  const [allTasks, setAllTasks] = useState([]);
+  const [query, setQuery] = useState('');
+  const [otherId, setOtherId] = useState('');
+  const [survivor, setSurvivor] = useState('a');
+  const [notesMode, setNotesMode] = useState('combine');
+
+  const other = allTasks.find((x) => String(x.id) === String(otherId)) || null;
+
+  const [title, setTitle] = useState(task.title || '');
+  const [dueDate, setDueDate] = useState(task.dueDate || '');
+  const [dueTime, setDueTime] = useState(task.dueTime || '');
+  const [targetDate, setTargetDate] = useState(task.targetDate || '');
+  const [priority, setPriority] = useState(task.priority || 'med');
+  const [area, setArea] = useState(task.area || null);
+  const [goal, setGoal] = useState(task.goal || null);
+  const [progress, setProgress] = useState(task.progress || 'not_started');
+  const [parentTaskId, setParentTaskId] = useState(task.parentTaskId || null);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('abide:request-task-list', {
+      detail: { respond: (rows) => setAllTasks(Array.isArray(rows) ? rows : []) },
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!other) return;
+    const preferred = survivor === 'a' ? task : other;
+    setTitle(preferred.title || '');
+    setDueDate(preferred.dueDate || '');
+    setDueTime(preferred.dueTime || '');
+    setTargetDate(preferred.targetDate || '');
+    setPriority(preferred.priority || 'med');
+    setArea(preferred.area || null);
+    setGoal(preferred.goal || null);
+    setProgress(preferred.progress || 'not_started');
+    setParentTaskId(preferred.parentTaskId || null);
+  }, [otherId, survivor]);
+
+  const descendants = useMemo(() => {
+    const ids = new Set();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      allTasks.forEach((x) => {
+        const parent = String(x.parentTaskId || '');
+        if (parent === String(task.id) || ids.has(parent)) {
+          const id = String(x.id);
+          if (!ids.has(id)) { ids.add(id); changed = true; }
+        }
+      });
+    }
+    return ids;
+  }, [allTasks, task.id]);
+
+  const candidates = allTasks
+    .filter((x) => String(x.id) !== String(task.id) && !descendants.has(String(x.id)))
+    .filter((x) => !query.trim() || String(x.title || '').toLowerCase().includes(query.trim().toLowerCase()))
+    .slice(0, 30);
+
+  const childrenA = allTasks.filter((x) => String(x.parentTaskId || '') === String(task.id));
+  const childrenB = other ? allTasks.filter((x) => String(x.parentTaskId || '') === String(other.id)) : [];
+  const bTitles = new Set(childrenB.map((x) => String(x.title || '').trim().toLowerCase()));
+  const possibleDuplicateChildren = childrenA.filter((x) => bTitles.has(String(x.title || '').trim().toLowerCase()));
+
+  const pick = (label, a, b, value, setValue, formatter = (v) => String(v || 'None')) => (
+    <div style={{ marginTop: 10 }}>
+      <div className="fb-label">{label}{JSON.stringify(a ?? null) !== JSON.stringify(b ?? null) ? ' · conflict' : ''}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+        {[[a, 'Task A'], [b, 'Task B']].map(([next, name]) => (
+          <div
+            key={name}
+            className={`filter-chip ${JSON.stringify(value ?? null) === JSON.stringify(next ?? null) ? 'active' : ''}`}
+            style={{ justifyContent: 'flex-start', minWidth: 0 }}
+            onClick={() => setValue(next ?? null)}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {name}: {formatter(next)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const notes = () => {
+    if (!other) return task.notes || '';
+    if (notesMode === 'a') return task.notes || '';
+    if (notesMode === 'b') return other.notes || '';
+    return [
+      task.notes ? `${task.title || 'Task A'}\n${task.notes}` : '',
+      other.notes ? `${other.title || 'Task B'}\n${other.notes}` : '',
+    ].filter(Boolean).join('\n\n');
+  };
+
+  const doMerge = () => {
+    if (!other || !title.trim()) return;
+    const survivorTask = survivor === 'a' ? task : other;
+
+    window.dispatchEvent(new CustomEvent('abide:merge-tasks', {
+      detail: {
+        sourceId: task.id,
+        targetId: other.id,
+        survivorId: survivorTask.id,
+        mergedTask: {
+          ...survivorTask,
+          title: title.trim(),
+          dueDate: dueDate || null,
+          dueTime: dueTime || null,
+          due: dueTime ? formatTimeLabel(dueTime) : (dueDate ? formatDateLabel(dueDate) : ''),
+          dueOffsetDays: dueDate ? offsetFromDateKey(dueDate) : null,
+          targetDate: targetDate || null,
+          priority,
+          area: area || null,
+          goal: goal || null,
+          progress,
+          done: progress === 'completed' ? true : Boolean(task.done && other.done),
+          completedAt: progress === 'completed'
+            ? (survivorTask.completedAt || task.completedAt || other.completedAt || new Date().toISOString())
+            : null,
+          parentTaskId: parentTaskId || null,
+          notes: notes(),
+        },
+      },
+    }));
+
+    onMerged?.();
+    onClose();
+  };
+
+  return createPortal(
+    <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="card composer-card task-editor-modal" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="editor-shell">
+          <div className="editor-header">
+            <div>
+              <div className="editor-title">Merge Tasks</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3 }}>
+                Keep one task, reconcile conflicts, preserve history and subtasks.
+              </div>
+            </div>
+            <div className="editor-close" onClick={onClose}><X size={17} /></div>
+          </div>
+
+          <div className="editor-scroll">
+            <div className="fb-label" style={{ marginTop: 0 }}>Task A</div>
+            <div className="card" style={{ padding: 11, background: 'var(--subtleBg)' }}>
+              <strong>{task.title}</strong>
+              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginTop: 3 }}>
+                {formatDateLabel(taskDateKey(task))}{task.dueTime ? ` · ${formatTimeLabel(task.dueTime)}` : ''}
+              </div>
+            </div>
+
+            <div className="fb-label">Find duplicate</div>
+            <input className="input-line" style={{ marginTop: 0 }} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search tasks…" />
+
+            <div style={{ maxHeight: 180, overflowY: 'auto', marginTop: 7 }}>
+              {candidates.map((x) => (
+                <div
+                  key={x.id}
+                  onClick={() => setOtherId(x.id)}
+                  style={{
+                    padding: '9px 10px', marginBottom: 5, borderRadius: 10, cursor: 'pointer',
+                    border: String(otherId) === String(x.id) ? '1px solid #E8B45C' : '1px solid var(--divider)',
+                    background: String(otherId) === String(x.id) ? 'rgba(232,180,92,.08)' : 'var(--subtleBg)',
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 650 }}>{x.title}</div>
+                  <div style={{ fontSize: 10.25, color: 'var(--text3)', marginTop: 2 }}>{formatDateLabel(taskDateKey(x))}</div>
+                </div>
+              ))}
+            </div>
+
+            {other && <>
+              <div className="fb-label">Which task record should survive?</div>
+              <div className="segmented" style={{ marginBottom: 0 }}>
+                <div className={`seg-btn ${survivor === 'a' ? 'active' : ''}`} onClick={() => setSurvivor('a')}>Keep Task A</div>
+                <div className={`seg-btn ${survivor === 'b' ? 'active' : ''}`} onClick={() => setSurvivor('b')}>Keep Task B</div>
+              </div>
+
+              <div className="fb-label">Final title</div>
+              <input className="input-line" style={{ marginTop: 0 }} value={title} onChange={(e) => setTitle(e.target.value)} />
+              {pick('Title choice', task.title, other.title, title, (v) => setTitle(v || ''))}
+
+              <div className="fb-label">Due date</div>
+              <input type="date" className="input-line" style={{ marginTop: 0 }} value={dueDate || ''} onChange={(e) => setDueDate(e.target.value)} />
+              {pick('Due date choice', task.dueDate, other.dueDate, dueDate, (v) => setDueDate(v || ''), (v) => v ? formatDateLabel(v) : 'No date')}
+
+              <div className="fb-label">Due time</div>
+              <input type="time" className="input-line" style={{ marginTop: 0 }} value={dueTime || ''} onChange={(e) => setDueTime(e.target.value)} />
+              {pick('Due time choice', task.dueTime, other.dueTime, dueTime, (v) => setDueTime(v || ''), (v) => v ? formatTimeLabel(v) : 'No time')}
+
+              <div className="fb-label">Finish By</div>
+              <input type="date" className="input-line" style={{ marginTop: 0 }} value={targetDate || ''} max={dueDate || undefined} onChange={(e) => setTargetDate(e.target.value)} />
+              {pick('Finish By choice', task.targetDate, other.targetDate, targetDate, (v) => setTargetDate(v || ''), (v) => v ? formatDateLabel(v) : 'None')}
+
+              <div className="fb-label">Priority</div>
+              <select className="input-line" style={{ marginTop: 0 }} value={priority} onChange={(e) => setPriority(e.target.value)}>
+                <option value="high">High</option><option value="med">Medium</option><option value="low">Low</option>
+              </select>
+
+              {JSON.stringify(task.area ?? null) !== JSON.stringify(other.area ?? null) && pick('Area', task.area, other.area, area, setArea, (v) => v || 'No Area')}
+              {JSON.stringify(task.goal ?? null) !== JSON.stringify(other.goal ?? null) && pick('Goal', task.goal, other.goal, goal, setGoal, (v) => v || 'No Goal')}
+              {JSON.stringify(task.progress ?? null) !== JSON.stringify(other.progress ?? null) && pick('Progress', task.progress || 'not_started', other.progress || 'not_started', progress, (v) => setProgress(v || 'not_started'))}
+              {JSON.stringify(task.parentTaskId ?? null) !== JSON.stringify(other.parentTaskId ?? null) && pick('Parent', task.parentTaskId, other.parentTaskId, parentTaskId, setParentTaskId, (v) => !v ? 'Top-level' : (allTasks.find((x) => String(x.id) === String(v))?.title || 'Existing parent'))}
+
+              <div className="fb-label">Notes</div>
+              <div className="segmented" style={{ marginBottom: 0 }}>
+                {[["combine", "Combine"], ["a", "Task A"], ["b", "Task B"]].map(([k, label]) => (
+                  <div key={k} className={`seg-btn ${notesMode === k ? 'active' : ''}`} onClick={() => setNotesMode(k)}>{label}</div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12, padding: 11, borderRadius: 11, background: 'var(--subtleBg)', border: '1px solid var(--divider)', fontSize: 11, lineHeight: 1.5, color: 'var(--text3)' }}>
+                <strong style={{ color: 'var(--text2)' }}>Activity/comments:</strong>{' '}
+                {(task.activities?.length || 0) + (other.activities?.length || 0)} entries will be combined chronologically.
+              </div>
+
+              <div style={{ marginTop: 8, padding: 11, borderRadius: 11, background: 'var(--subtleBg)', border: '1px solid var(--divider)', fontSize: 11, lineHeight: 1.5, color: 'var(--text3)' }}>
+                <strong style={{ color: 'var(--text2)' }}>Subtasks:</strong>{' '}
+                {childrenA.length + childrenB.length} will be preserved and moved under the surviving task.
+                {possibleDuplicateChildren.length > 0 && (
+                  <div style={{ marginTop: 6, color: '#E8B45C' }}>
+                    Possible duplicate subtasks will be kept for review: {possibleDuplicateChildren.map((x) => x.title).join(', ')}.
+                  </div>
+                )}
+              </div>
+
+              <div style={{ height: 18 }} />
+            </>}
+          </div>
+
+          <div className="editor-footer">
+            <div className="filter-chip" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancel</div>
+            <div className="filter-chip active" style={{ flex: 1.5, justifyContent: 'center', opacity: other && title.trim() ? 1 : .45 }} onClick={doMerge}>Merge Tasks</div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function TaskEditor({
   task,
   goals,
@@ -3203,6 +3500,9 @@ function TaskEditor({
   const [activities, setActivities] = useState(() => normalizeActivity(task));
   const [activityDraft, setActivityDraft] = useState("");
   const [childTitleDraft, setChildTitleDraft] = useState("");
+
+  /* ABIDE TASK EDITOR MERGE ACTION V1 */
+  const [mergeOpen, setMergeOpen] = useState(false);
   useEffect(() => {
     const bodyOverflow = document.body.style.overflow;
     const htmlOverflow = document.documentElement.style.overflow;
@@ -3545,9 +3845,27 @@ function TaskEditor({
               {task.parentTaskId ? "Delete Subtask" : "Delete Task"}
             </div>
           </div>
+          <div
+            className="filter-chip"
+            style={{ marginTop: 8, justifyContent: "center" }}
+            onClick={() => setMergeOpen(true)}
+          >
+            Merge with another task…
+          </div>
+
           <div className="editor-footer"><div className="filter-chip active" style={{ flex:1, justifyContent:"center" }} onClick={save}>Save Changes</div><div className="filter-chip" style={{ flex:1, justifyContent:"center" }} onClick={onCancel}>Cancel</div></div>
         </div>
       </div>
+      {mergeOpen && (
+        <TaskMergeModal
+          task={task}
+          onClose={() => setMergeOpen(false)}
+          onMerged={() => {
+            setMergeOpen(false);
+            onCancel?.();
+          }}
+        />
+      )}
     </div>,
     document.body
   );
@@ -16695,6 +17013,27 @@ export default function App({ accountSync }) {
     return "today";
   });
   const [tasks, setTasks] = usePersistentState("abide-tasks", seedTasks);
+
+  /* ABIDE TASK MERGE BRIDGE V1 */
+  useEffect(() => {
+    const provideTasks = (event) => {
+      event?.detail?.respond?.(tasks);
+    };
+
+    const mergeTasks = (event) => {
+      if (!event?.detail) return;
+      setTasks((current) => applyTaskMerge(current, event.detail));
+    };
+
+    window.addEventListener('abide:request-task-list', provideTasks);
+    window.addEventListener('abide:merge-tasks', mergeTasks);
+
+    return () => {
+      window.removeEventListener('abide:request-task-list', provideTasks);
+      window.removeEventListener('abide:merge-tasks', mergeTasks);
+    };
+  }, [tasks, setTasks]);
+
   const [goals, setGoals] = usePersistentState("abide-goals", seedGoals);
   const [areas, setAreas] = usePersistentState("abide-areas", AREAS);
   const [journalEntries, setJournalEntries] = usePersistentState("abide-journal", seedJournal);

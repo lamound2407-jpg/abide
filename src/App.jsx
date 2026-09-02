@@ -31,7 +31,7 @@ import {
 import {
   onAuthStateChanged,
 } from "firebase/auth";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
 import {

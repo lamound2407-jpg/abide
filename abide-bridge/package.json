@@ -1,0 +1,22 @@
+{
+  "name": "abide-message-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "simulate": "node src/simulate.js",
+    "check": "node --check src/interpreter.js && node --check src/firebaseAdmin.js && node --check src/actionRouter.js && node --check src/whatsapp.js && node --check src/server.js && node --check src/simulate.js && node --check src/configureFirebase.js && node --check src/checkFirebase.js",
+    "configure:firebase": "node src/configureFirebase.js",
+    "firebase:check": "node src/checkFirebase.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "firebase-admin": "^14.3.0",
+    "openai": "^5.20.1"
+  }
+}

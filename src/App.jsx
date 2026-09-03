@@ -31,6 +31,8 @@ import {
   doc,
   getDocs,
   onSnapshot,
+  runTransaction,
+  serverTimestamp,
   setDoc,
 } from "firebase/firestore";
 import {
@@ -17307,13 +17309,22 @@ export default function App({ accountSync }) {
   const updateTask = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
   const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
   const createTask = (task) => {
-    const dueDate = task.dueDate || REFERENCE_DATE_KEY;
+    // An explicitly supplied blank dueDate means "No date".
+    // Existing callers that omit dueDate still keep Abide's historical default.
+    const hasExplicitDueDate = Object.prototype.hasOwnProperty.call(task || {}, "dueDate");
+    const dueDate = hasExplicitDueDate ? String(task.dueDate || "") : REFERENCE_DATE_KEY;
     const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const normalized = {
       ...task,
       dueDate,
-      dueOffsetDays: Number.isFinite(task.dueOffsetDays) ? task.dueOffsetDays : offsetFromDateKey(dueDate),
-      due: task.due || (task.dueTime ? formatTimeLabel(task.dueTime) : formatDateLabel(dueDate)),
+      dueOffsetDays: Number.isFinite(task.dueOffsetDays)
+        ? task.dueOffsetDays
+        : (dueDate ? offsetFromDateKey(dueDate) : null),
+      due: task.due || (
+        task.dueTime
+          ? formatTimeLabel(task.dueTime)
+          : (dueDate ? formatDateLabel(dueDate) : "")
+      ),
       notes: task.notes || "",
       activities: Array.isArray(task.activities) ? task.activities : [],
       reminder: task.reminder || "None",
@@ -17325,6 +17336,248 @@ export default function App({ accountSync }) {
     setTasks((prev) => [{ id, ...normalized }, ...prev]);
     return id;
   };
+
+  /* ABIDE MESSAGE BRIDGE INBOX CONSUMER V1
+     The remote bridge writes small pending actions to:
+       users/{uid}/bridgeInbox/{actionId}
+
+     Abide itself atomically claims each task action, runs it through
+     the normal createTask() path, then marks the inbox action processed.
+     This avoids a server directly rewriting the entire abide-tasks array.
+  */
+  useEffect(() => {
+    let cancelled = false;
+    let stopInbox = () => {};
+
+    const deviceId =
+      localStorage.getItem("abide-sync-device-id") ||
+      `bridge_consumer_${Math.random().toString(36).slice(2, 10)}`;
+
+    const consumeTaskAction = async (actionRef) => {
+      let claimed = null;
+
+      try {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(actionRef);
+          if (!snap.exists()) return;
+
+          const latest = snap.data() || {};
+          if (latest.status !== "pending") return;
+          if (latest.intent !== "create_task") return;
+
+          claimed = latest;
+
+          tx.set(
+            actionRef,
+            {
+              status: "processing",
+              claimedByDevice: deviceId,
+              claimedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        });
+
+        if (!claimed || cancelled) return;
+
+        const action =
+          claimed.action && typeof claimed.action === "object"
+            ? claimed.action
+            : claimed;
+
+        const title = String(action.title || "").trim();
+        if (!title) {
+          throw new Error("Bridge task is missing a title.");
+        }
+
+        const rawDate = String(
+          action.due_date ?? action.dueDate ?? ""
+        ).trim();
+        const dueDate =
+          /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+            ? rawDate
+            : "";
+
+        const rawTime = String(
+          action.due_time ?? action.dueTime ?? ""
+        ).trim();
+        const dueTime =
+          /^([01]\d|2[0-3]):[0-5]\d$/.test(rawTime)
+            ? rawTime
+            : "";
+
+        const actor = String(
+          claimed.actor || claimed.sender || "unknown"
+        ).trim().toLowerCase();
+
+        const rawTarget = String(
+          action.target_person ??
+          action.targetPerson ??
+          "shared"
+        ).trim().toLowerCase();
+
+        const targetPerson =
+          rawTarget === "sender"
+            ? actor
+            : rawTarget;
+
+        const originalMessage = String(
+          claimed.originalMessage ??
+          claimed.original_message ??
+          ""
+        ).trim();
+
+        const body = String(action.body || "").trim();
+
+        const taskId = createTask({
+          title,
+          dueDate,
+          dueTime,
+          area: null,
+          notes: body,
+          reminder: "None",
+          status: "next",
+          kind: "task",
+          done: false,
+          progress: "not_started",
+          createdAt: new Date().toISOString(),
+          bridgeMeta: {
+            source: String(claimed.source || "message_bridge"),
+            actor,
+            targetPerson,
+            originalMessage,
+            actionId: actionRef.id,
+          },
+        });
+
+        await setDoc(
+          actionRef,
+          {
+            status: "processed",
+            processedAt: serverTimestamp(),
+            resultType: "task",
+            resultId: taskId,
+          },
+          { merge: true }
+        );
+
+        console.info(
+          `[Abide Bridge] Created task "${title}" from ${actor || "bridge"}.`
+        );
+      } catch (error) {
+        console.warn("[Abide Bridge] Task action failed:", error);
+
+        await setDoc(
+          actionRef,
+          {
+            status: "failed",
+            failedAt: serverTimestamp(),
+            error: String(error?.message || error || "Unknown bridge error"),
+          },
+          { merge: true }
+        ).catch(() => {});
+      }
+    };
+
+    const stopAuth = onAuthStateChanged(auth, (user) => {
+      stopInbox();
+      stopInbox = () => {};
+
+      if (!user || cancelled) return;
+
+      const inboxRef = collection(
+        db,
+        "users",
+        user.uid,
+        "bridgeInbox"
+      );
+
+      stopInbox = onSnapshot(
+        inboxRef,
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "removed") return;
+
+            const data = change.doc.data() || {};
+            if (
+              data.status === "pending" &&
+              data.intent === "create_task"
+            ) {
+              consumeTaskAction(change.doc.ref);
+            }
+          });
+        },
+        (error) => {
+          console.warn(
+            "[Abide Bridge] Inbox subscription failed:",
+            error
+          );
+        }
+      );
+
+      // Development-only Phase 2A helper.
+      // It queues an authenticated test action into this user's inbox.
+      // It does NOT bypass Firestore rules.
+      window.abideBridgeQueueTestTask = async ({
+        title = "Email the photographer",
+        dueDate = "",
+        dueTime = "",
+        actor = "elizabeth",
+        targetPerson = "tyler",
+        body = "",
+      } = {}) => {
+        const activeUser = auth.currentUser;
+        if (!activeUser) {
+          throw new Error("Sign in to Abide first.");
+        }
+
+        const id =
+          `bridge_test_${Date.now()}_${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+
+        await setDoc(
+          doc(
+            db,
+            "users",
+            activeUser.uid,
+            "bridgeInbox",
+            id
+          ),
+          {
+            status: "pending",
+            intent: "create_task",
+            actor,
+            source: "browser_test",
+            originalMessage:
+              `${actor} test: add "${title}" for ${targetPerson}.`,
+            action: {
+              intent: "create_task",
+              status: "ready",
+              target_person: targetPerson,
+              title,
+              body,
+              due_date: dueDate,
+              due_time: dueTime,
+              area: "",
+            },
+            createdAt: serverTimestamp(),
+          }
+        );
+
+        return id;
+      };
+    });
+
+    return () => {
+      cancelled = true;
+      stopInbox();
+      stopAuth();
+      try {
+        delete window.abideBridgeQueueTestTask;
+      } catch {}
+    };
+  }, []);
   const createArea = ({ name, color = "#8FA88A" }) => {
     const id = `area_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     setAreas((prev) => ({ ...prev, [id]: { name: String(name || "").trim(), color } }));
